@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount } from 'wagmi';
-import useTronWallet from './hooks/useTronWallet';
+import { useTronWallet } from './hooks/useTronWallet';
 
 export default function Home() {
   const { isConnected: evmConnected, address: evmAddress } = useAccount();

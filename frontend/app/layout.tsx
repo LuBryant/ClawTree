@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import WagmiProvider from './components/WagmiProvider';
+import { TronWalletProvider } from './hooks/useTronWallet';
 import ConnectWallet from './components/ConnectWallet';
 
 const geistSans = Geist({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">
+        <TronWalletProvider>
         <WagmiProvider>
           {/* Top navbar */}
           <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
@@ -66,6 +68,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {/* Page content */}
           {children}
         </WagmiProvider>
+        </TronWalletProvider>
       </body>
     </html>
   );

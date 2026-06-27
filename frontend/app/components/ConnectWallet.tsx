@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
-import useTronWallet from '../hooks/useTronWallet';
+import { useTronWallet } from '../hooks/useTronWallet';
 import { FAUCET_URL } from '../config/tron';
 
 export default function ConnectWallet() {
