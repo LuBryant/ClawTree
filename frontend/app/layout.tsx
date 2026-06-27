@@ -4,6 +4,7 @@ import './globals.css';
 import WagmiProvider from './components/WagmiProvider';
 import { TronWalletProvider } from './hooks/useTronWallet';
 import ConnectWallet from './components/ConnectWallet';
+import AiAssistant from './components/AiAssistant';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
         </WagmiProvider>
         </TronWalletProvider>
+        <AiAssistant />
       </body>
     </html>
   );
