@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { registerOpenChat } from '../lib/chat-store';
 import FloatingBall from './FloatingBall';
 import ChatDialog from './ChatDialog';
 
 export default function AiAssistant() {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    registerOpenChat(() => setOpen(true));
+  }, []);
 
   return (
     <>

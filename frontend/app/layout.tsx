@@ -4,6 +4,7 @@ import './globals.css';
 import WagmiProvider from './components/WagmiProvider';
 import { TronWalletProvider } from './hooks/useTronWallet';
 import ConnectWallet from './components/ConnectWallet';
+import NavLinks from './components/NavLinks';
 import AiAssistant from './components/AiAssistant';
 
 const geistSans = Geist({
@@ -46,20 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </div>
 
               {/* Nav links */}
-              <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
-                <a href="/" className="text-zinc-100 transition hover:text-emerald-400">
-                  Dashboard
-                </a>
-                <a href="#" className="transition hover:text-zinc-200">
-                  活动发现
-                </a>
-                <a href="#" className="transition hover:text-zinc-200">
-                  外联管道
-                </a>
-                <a href="#" className="transition hover:text-zinc-200">
-                  趋势
-                </a>
-              </nav>
+              <NavLinks />
 
               {/* Wallet */}
               <ConnectWallet />
