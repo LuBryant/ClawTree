@@ -1,0 +1,18 @@
+{
+  "name": "clawtree-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ClawTree smart contracts — Hardhat + Solidity, deployed on Injective Testnet",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:injective": "hardhat run scripts/deploy.js --network injective_testnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "chai": "^4.5.0",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.4",
+    "hardhat": "^2.22.17"
+  }
+}
