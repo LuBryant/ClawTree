@@ -2,10 +2,11 @@
   "name": "clawtree-contracts",
   "version": "0.1.0",
   "private": true,
-  "description": "ClawTree smart contracts — Hardhat + Solidity, deployed on Injective Testnet",
+  "description": "ClawTree smart contracts — Hardhat + Solidity, deployed on TRON Nile Testnet (HTX Genesis Hackathon)",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "deploy:nile": "hardhat run scripts/deploy.js --network tron_nile",
     "deploy:injective": "hardhat run scripts/deploy.js --network injective_testnet"
   },
   "devDependencies": {

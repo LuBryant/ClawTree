@@ -20,7 +20,13 @@ module.exports = {
     artifacts: './artifacts'
   },
   networks: {
-    // Injective Testnet (inEVM) — 主部署目标
+    // TRON Nile Testnet (EVM-compatible) — 主部署目标（HTX Genesis 黑客松）
+    tron_nile: {
+      url: process.env.TRON_NILE_RPC_URL || 'https://nile.trongrid.io',
+      chainId: 3448148188,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY.trim()] : []
+    },
+    // Injective Testnet — 备用
     injective_testnet: {
       url: process.env.INJECTIVE_RPC_URL || 'https://k8s.testnet.json-rpc.injective.network',
       chainId: 1439,

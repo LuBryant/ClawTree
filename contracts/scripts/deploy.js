@@ -1,5 +1,5 @@
 /**
- * Deploy ClawTree contracts to Injective Testnet (inEVM).
+ * Deploy ClawTree contracts to TRON Nile Testnet (EVM-Compatible).
  *
  * Contracts:
  *   EventRegistry   — 高校活动上链注册
@@ -8,9 +8,11 @@
  *
  * Required in project-root .env:
  *   DEPLOYER_PRIVATE_KEY=0x...
- *   INJECTIVE_RPC_URL=https://k8s.testnet.json-rpc.injective.network
+ *   TRON_NILE_RPC_URL=https://nile.trongrid.io
  *
- * Run: npm run deploy:injective
+ * Run:
+ *   npm run deploy:nile        (TRON Nile)
+ *   npm run deploy:injective   (Injective 备用)
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -18,24 +20,47 @@ const hre = require('hardhat');
 
 const { ethers, network, artifacts } = hre;
 
-const EXPLORER_BASE = 'https://testnet.explorer.injective.network';
+const NETWORK_META = {
+  tron_nile: {
+    name: 'TRON Nile Testnet (EVM)',
+    explorerBase: 'https://nile.tronscan.org',
+    explorerTxPath: '/tx',
+    explorerAddressPath: '/address',
+    gasToken: 'TRX',
+    faucetUrl: 'https://nileex.io/join/getJoinPage'
+  },
+  injective_testnet: {
+    name: 'Injective Testnet (inEVM)',
+    explorerBase: 'https://testnet.explorer.injective.network',
+    explorerTxPath: '/tx',
+    explorerAddressPath: '/address',
+    gasToken: 'INJ',
+    faucetUrl: 'https://testnet.faucet.injective.network/'
+  }
+};
+
 const CONTRACT_NAMES = ['EventRegistry', 'OutreachRecord', 'TrendOracle'];
 
 async function main() {
-  if (network.name !== 'injective_testnet') {
-    throw new Error(`部署网络应为 injective_testnet，当前: ${network.name}`);
+  const meta = NETWORK_META[network.name];
+  if (!meta) {
+    throw new Error(
+      `不支持的网络: ${network.name}\n` +
+      `  请使用: npm run deploy:nile        (TRON Nile)\n` +
+      `           npm run deploy:injective   (Injective 备用)`
+    );
   }
 
   const [deployer] = await ethers.getSigners();
   const balance = await ethers.provider.getBalance(deployer.address);
 
-  console.log('\n🌐 网络: Injective Testnet (inEVM)');
+  console.log(`\n🌐 网络: ${meta.name}`);
   console.log(`👤 部署者: ${deployer.address}`);
-  console.log(`💰 余额:   ${ethers.formatEther(balance)} INJ\n`);
+  console.log(`💰 余额:   ${ethers.formatEther(balance)} ${meta.gasToken}\n`);
 
   if (balance === 0n) {
-    console.log('💧 请先从水龙头获取测试 INJ: https://testnet.faucet.injective.network/');
-    throw new Error('部署者余额为 0');
+    console.log(`💧 请先获取测试 ${meta.gasToken}: ${meta.faucetUrl}`);
+    throw new Error(`部署者余额为 0 ${meta.gasToken}`);
   }
 
   const chainId = (await ethers.provider.getNetwork()).chainId;
@@ -52,25 +77,26 @@ async function main() {
   }
 
   // 写入部署记录
-  const deployTx = null; // 多合约部署，不记录单个 tx
   const record = {
-    network: 'injective_testnet',
+    network: network.name,
+    networkName: meta.name,
     chainId: Number(chainId),
     deployer: deployer.address,
     contracts: deployed,
-    explorerBase: EXPLORER_BASE,
+    explorerBase: meta.explorerBase,
+    gasToken: meta.gasToken,
     deployedAt: new Date().toISOString()
   };
 
   const outDir = path.join(__dirname, '..', 'deployments');
   fs.mkdirSync(outDir, { recursive: true });
-  const recordPath = path.join(outDir, 'injective_testnet.json');
+  const recordPath = path.join(outDir, `${network.name}.json`);
   fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
 
   console.log('\n📄 部署记录 →', recordPath);
-  console.log('\n✅ ClawTree 三合约部署完成\n');
+  console.log(`\n✅ ClawTree 三合约部署完成 (${meta.name})\n`);
   for (const [name, addr] of Object.entries(deployed)) {
-    console.log(`   ${name}: ${EXPLORER_BASE}/address/${addr}`);
+    console.log(`   ${name}: ${meta.explorerBase}${meta.explorerAddressPath}/${addr}`);
   }
 }
 
