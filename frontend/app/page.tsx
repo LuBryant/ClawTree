@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         <h1 className="max-w-2xl font-normal leading-none tracking-tight"
           style={{ fontSize: 'clamp(2rem, 5vw, 3.8rem)' }}>
-          大树财经 · 高校 AI/Web3 活动平台
+          树爪智动 · 高校 AI/Web3 活动平台
         </h1>
         <p className="max-w-xl text-base leading-relaxed" style={{ color: 'var(--text-dim)' }}>
           由 ClawTree AI Agent 驱动，发现前沿高校 AI/Web3 活动，
