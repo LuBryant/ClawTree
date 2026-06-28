@@ -477,36 +477,36 @@ function EventCard({
       )}
 
       {/* 底部操作 */}
-      <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3">
-        <div className="flex flex-col gap-0.5 text-xs">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-800 pt-3">
+        <div className="flex flex-col gap-0.5 text-xs min-w-0">
           {event.contact_email ? (
-            <span className="text-emerald-500 truncate max-w-[200px]">
+            <span className="text-emerald-500 truncate">
               ✉️ {event.contact_email}
             </span>
           ) : (
-            <span className="text-zinc-600">✉️ 无联系方式</span>
+            <span className="text-zinc-600 whitespace-nowrap">✉️ 无联系方式</span>
           )}
           {event.contact_phone && (
-            <span className="text-zinc-500">📞 {event.contact_phone}</span>
+            <span className="text-zinc-500 truncate">📞 {event.contact_phone}</span>
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {event.contact_email ? (
             <button
               onClick={onSendMail}
-              className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 transition"
+              className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 transition whitespace-nowrap"
             >
               📧 发送邮件
             </button>
           ) : (
-            <span className="text-xs text-zinc-600">暂无邮箱</span>
+            <span className="text-xs text-zinc-600 whitespace-nowrap">暂无邮箱</span>
           )}
           <a
             href={event.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition"
+            className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition whitespace-nowrap"
           >
             来源
           </a>
