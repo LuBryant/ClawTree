@@ -144,9 +144,16 @@ export default function AdminEventsPage() {
       return;
     }
     const emails = eventsWithEmail.map((e) => e.contact_email).join(',');
-    const firstEvent = eventsWithEmail[0];
-    const body = `以下高校活动，大树财经期待合作：\n\n${eventsWithEmail.map((e) => `· ${e.university} — ${e.title}\n  邮箱: ${e.contact_email}\n  日期: ${e.event_date || '待定'}\n`).join('\n')}`;
-    const subject = `大树财经 · 高校合作邀请（批量）`;
+    // 每封邮件使用模板生成、分隔线隔开
+    const body = eventsWithEmail
+      .map((e, i) => {
+        const content = buildMail(e);
+        return eventsWithEmail.length > 1
+          ? `--- 第 ${i + 1} 封：${e.university} — ${e.title} ---\n${content}`
+          : content;
+      })
+      .join('\n\n');
+    const subject = `大树财经 · 高校合作邀请 — ${eventsWithEmail[0].title}${eventsWithEmail.length > 1 ? ` 等 ${eventsWithEmail.length} 项` : ''}`;
     window.open(
       `https://mail.google.com/mail/?view=cm&fs=1&bcc=${emails}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
       '_blank'
