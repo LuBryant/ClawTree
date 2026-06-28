@@ -2,31 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  fetchEvents,
-  fetchEventStats,
-  type UniversityEvent,
-  type EventStats,
-  type EventsFilter,
+  fetchEvents, fetchEventStats,
+  type UniversityEvent, type EventStats, type EventsFilter,
 } from '../../lib/api-client';
-
-// ---------------------------------------------------------------------------
-// 筛选选项
-// ---------------------------------------------------------------------------
 
 const CATEGORIES = ['', 'AI', 'Web3', 'AI+Web3'] as const;
 const EVENT_TYPES = ['', '讲座', '黑客松', '论坛', '工作坊', '其他'] as const;
-const CATEGORY_LABELS: Record<string, string> = {
-  '': '全部分类', AI: '🤖 AI', Web3: '⛓️ Web3', 'AI+Web3': '⚡ AI+Web3',
-};
-const TYPE_LABELS: Record<string, string> = {
-  '': '全部类型', '讲座': '🎙️ 讲座', '黑客松': '💻 黑客松', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '其他': '📌 其他',
-};
+const CAT_LABEL: Record<string, string> = { '': '全部分类', AI: '🤖 AI', Web3: '⛓️ Web3', 'AI+Web3': '⚡ AI+Web3' };
+const TYPE_LABEL: Record<string, string> = { '': '全部类型', '讲座': '🎙️ 讲座', '黑客松': '💻 黑客松', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '其他': '📌 其他' };
 
-// ---------------------------------------------------------------------------
-// 默认邮件模板
-// ---------------------------------------------------------------------------
-
-const DEFAULT_MAIL_TEMPLATE = `尊敬的 {高校名称} 老师：
+const DEFAULT_TEMPLATE = `尊敬的 {高校名称} 老师：
 
 您好！我是大树财经的 {你的名字}。
 
@@ -46,10 +31,6 @@ const DEFAULT_MAIL_TEMPLATE = `尊敬的 {高校名称} 老师：
 大树财经团队
 联系方式：{你的邮箱}`;
 
-// ---------------------------------------------------------------------------
-// 页面
-// ---------------------------------------------------------------------------
-
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<UniversityEvent[]>([]);
   const [stats, setStats] = useState<EventStats | null>(null);
@@ -57,173 +38,81 @@ export default function AdminEventsPage() {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const pageSize = 12;
+  const PS = 12;
 
   const [filter, setFilter] = useState<EventsFilter>({ category: '', event_type: '', ordering: '-created_at' });
-  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [showModal, setShowModal] = useState(false);
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
+  const [senderName, setSenderName] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
 
-  // 批量选择
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  // 邮件模板
-  const [showMailModal, setShowMailModal] = useState(false);
-  const [mailTemplate, setMailTemplate] = useState(DEFAULT_MAIL_TEMPLATE);
-  const [mailSenderName, setMailSenderName] = useState('');
-  const [mailSenderEmail, setMailSenderEmail] = useState('');
-
-  const loadEvents = useCallback(async (f: EventsFilter, p: number) => {
-    setLoading(true);
-    setError('');
-    try {
-      const [data, statsData] = await Promise.all([
-        fetchEvents({ ...f, page: p }),
-        fetchEventStats(),
-      ]);
-      setEvents(data.results);
-      setTotal(data.count);
-      setStats(statsData);
-    } catch {
-      setError('无法连接后端 API，请确保 python manage.py runserver 正在运行');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async (f: EventsFilter, p: number) => {
+    setLoading(true); setError('');
+    try { const [d, s] = await Promise.all([fetchEvents({ ...f, page: p }), fetchEventStats()]); setEvents(d.results); setTotal(d.count); setStats(s); }
+    catch { setError('无法连接后端 API，请确保 python manage.py runserver 正在运行'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    loadEvents(filter, page);
-  }, [filter, page, loadEvents]);
+  useEffect(() => { load(filter, page); }, [filter, page, load]);
+  useEffect(() => { setSelected(new Set()); }, [page, filter]);
 
-  useEffect(() => { setSelectedIds(new Set()); }, [page, filter]);
+  const doSearch = () => { setFilter((f) => ({ ...f, search })); setPage(1); };
+  const toggle = (id: number) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll = () => setSelected(selected.size === events.length ? new Set() : new Set(events.map((e) => e.id)));
+  const selEvents = events.filter((e) => selected.has(e.id));
 
-  const handleSearch = () => {
-    setFilter((f) => ({ ...f, search: searchInput }));
-    setPage(1);
+  const buildMail = (e: UniversityEvent) => template
+    .replace(/\{高校名称\}/g, e.university || '贵校')
+    .replace(/\{活动标题\}/g, e.title)
+    .replace(/\{你的名字\}/g, senderName || '[你的名字]')
+    .replace(/\{你的邮箱\}/g, senderEmail || '[你的邮箱]');
+
+  const sendOne = (e: UniversityEvent) => {
+    const body = buildMail(e);
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${e.contact_email}&su=${encodeURIComponent(`大树财经 · 高校合作邀请 — ${e.title}`)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
-  // 选择逻辑
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const sendBatch = () => {
+    const list = selEvents.filter((e) => e.contact_email);
+    if (!list.length) { alert('所选活动中没有可用的联系邮箱'); return; }
+    const emails = list.map((e) => e.contact_email).join(',');
+    const body = list.map((e, i) => {
+      const c = buildMail(e);
+      return list.length > 1 ? `--- 第 ${i + 1} 封：${e.university} — ${e.title} ---\n${c}` : c;
+    }).join('\n\n');
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${emails}&su=${encodeURIComponent(`大树财经 · 高校合作邀请 — ${list[0].title}${list.length > 1 ? ` 等 ${list.length} 项` : ''}`)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
-  const selectAll = () => {
-    if (selectedIds.size === events.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(events.map((e) => e.id)));
-    }
-  };
-
-  const selectedEvents = events.filter((e) => selectedIds.has(e.id));
-
-  // 构建邮件
-  const buildMail = (event: UniversityEvent) => {
-    return mailTemplate
-      .replace(/\{高校名称\}/g, event.university || '贵校')
-      .replace(/\{活动标题\}/g, event.title)
-      .replace(/\{你的名字\}/g, mailSenderName || '[你的名字]')
-      .replace(/\{你的邮箱\}/g, mailSenderEmail || '[你的邮箱]');
-  };
-
-  const handleSendMail = (event: UniversityEvent) => {
-    const body = buildMail(event);
-    const subject = `大树财经 · 高校合作邀请 — ${event.title}`;
-    window.open(
-      `https://mail.google.com/mail/?view=cm&fs=1&to=${event.contact_email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      '_blank'
-    );
-  };
-
-  const handleBatchSend = () => {
-    const eventsWithEmail = selectedEvents.filter((e) => e.contact_email);
-    if (eventsWithEmail.length === 0) {
-      alert('所选活动中没有可用的联系邮箱');
-      return;
-    }
-    const emails = eventsWithEmail.map((e) => e.contact_email).join(',');
-    // 每封邮件使用模板生成、分隔线隔开
-    const body = eventsWithEmail
-      .map((e, i) => {
-        const content = buildMail(e);
-        return eventsWithEmail.length > 1
-          ? `--- 第 ${i + 1} 封：${e.university} — ${e.title} ---\n${content}`
-          : content;
-      })
-      .join('\n\n');
-    const subject = `大树财经 · 高校合作邀请 — ${eventsWithEmail[0].title}${eventsWithEmail.length > 1 ? ` 等 ${eventsWithEmail.length} 项` : ''}`;
-    window.open(
-      `https://mail.google.com/mail/?view=cm&fs=1&bcc=${emails}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      '_blank'
-    );
-  };
-
-  const totalPages = Math.ceil(total / pageSize);
+  const pages = Math.ceil(total / PS);
 
   return (
     <div className="flex flex-col gap-6">
       {/* 页头 */}
       <section className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">活动浏览器</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>活动浏览器</h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
             AI Agent 自动采集的高校 AI/Web3 活动
-            {stats ? (
-              <span>
-                {' '}— 共 <span className="text-emerald-400 font-semibold">{stats.total}</span> 条，
-                已联系 <span className="text-emerald-400 font-semibold">{stats.contacted}</span> 条
-              </span>
-            ) : null}
+            {stats && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.total}</span> 条，已联系 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.contacted}</span> 条</span>}
           </p>
         </div>
-        <button
-          onClick={() => setShowMailModal(true)}
-          className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-300 hover:border-amber-600 hover:text-amber-400 transition"
-        >
-          📧 邮件模板
-        </button>
+        <button className="btn-outline" onClick={() => setShowModal(true)}>📧 邮件模板</button>
       </section>
 
       {/* 筛选栏 */}
       <section className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="搜索标题、高校…"
-          className="w-full sm:w-64 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-emerald-500 transition"
-        />
-        <button
-          onClick={handleSearch}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition"
-        >
-          搜索
-        </button>
-
-        <select
-          value={filter.category || ''}
-          onChange={(e) => { setFilter((f) => ({ ...f, category: e.target.value })); setPage(1); }}
-          className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition"
-        >
-          {CATEGORIES.map((c) => (<option key={c} value={c}>{CATEGORY_LABELS[c]}</option>))}
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doSearch()}
+          placeholder="搜索标题、高校…" className="input-field w-full sm:w-64" />
+        <button className="btn btn-success btn-sm" onClick={doSearch}>搜索</button>
+        <select value={filter.category || ''} onChange={(e) => { setFilter((f) => ({ ...f, category: e.target.value })); setPage(1); }} className="select-field">
+          {CATEGORIES.map((c) => (<option key={c} value={c}>{CAT_LABEL[c]}</option>))}
         </select>
-
-        <select
-          value={filter.event_type || ''}
-          onChange={(e) => { setFilter((f) => ({ ...f, event_type: e.target.value })); setPage(1); }}
-          className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition"
-        >
-          {EVENT_TYPES.map((t) => (<option key={t} value={t}>{TYPE_LABELS[t]}</option>))}
+        <select value={filter.event_type || ''} onChange={(e) => { setFilter((f) => ({ ...f, event_type: e.target.value })); setPage(1); }} className="select-field">
+          {EVENT_TYPES.map((t) => (<option key={t} value={t}>{TYPE_LABEL[t]}</option>))}
         </select>
-
-        <select
-          value={filter.ordering || '-created_at'}
-          onChange={(e) => { setFilter((f) => ({ ...f, ordering: e.target.value })); setPage(1); }}
-          className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 outline-none focus:border-emerald-500 transition"
-        >
+        <select value={filter.ordering || '-created_at'} onChange={(e) => { setFilter((f) => ({ ...f, ordering: e.target.value })); setPage(1); }} className="select-field">
           <option value="-created_at">最新收录</option>
           <option value="-score">评分最高</option>
           <option value="event_date">活动日期 ↑</option>
@@ -232,169 +121,78 @@ export default function AdminEventsPage() {
       </section>
 
       {/* 批量操作栏 */}
-      {selectedIds.size > 0 && (
-        <section className="flex items-center gap-4 rounded-2xl border border-amber-800 bg-amber-950/30 px-5 py-3">
-          <span className="text-sm text-amber-400 font-medium">
-            已选 {selectedIds.size} 项
-          </span>
-          <button
-            onClick={handleBatchSend}
-            className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 transition"
-          >
-            📧 批量发送邮件
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="rounded-xl border border-zinc-600 px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition"
-          >
-            取消选择
-          </button>
+      {selected.size > 0 && (
+        <section style={{ border: '1px solid rgba(248,214,109,0.42)', background: 'rgba(248,214,109,0.06)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span className="text-sm font-black" style={{ color: 'var(--warning)' }}>已选 {selected.size} 项</span>
+          <button className="btn btn-warning btn-sm" onClick={sendBatch}>📧 批量发送邮件</button>
+          <button className="btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消选择</button>
         </section>
       )}
 
-      {/* 全选栏 */}
+      {/* 全选 */}
       {!loading && !error && events.length > 0 && (
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-500 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={selectedIds.size === events.length && events.length > 0}
-              onChange={selectAll}
-              className="rounded border-zinc-600 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
-            />
-            全选本页
-          </label>
-        </div>
+        <label className="flex items-center gap-2 text-sm font-black uppercase tracking-wider cursor-pointer select-none" style={{ color: 'var(--muted)' }}>
+          <input type="checkbox" checked={selected.size === events.length && events.length > 0} onChange={selectAll} /> 全选本页
+        </label>
       )}
 
-      {/* 错误提示 */}
+      {/* 错误 */}
       {error && (
-        <div className="rounded-2xl border border-red-800 bg-red-950/40 p-6 text-center">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="text-center py-8" style={{ border: '1px solid rgba(255,61,87,0.42)', background: 'rgba(255,61,87,0.08)', color: 'var(--danger)' }}>
+          <p className="text-sm font-bold">{error}</p>
         </div>
       )}
 
-      {/* 加载中 */}
-      {loading && (
-        <div className="flex justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-emerald-400" />
-        </div>
-      )}
+      {/* 加载 */}
+      {loading && <div className="flex justify-center py-20"><div className="spinner" /></div>}
 
-      {/* 活动列表 */}
+      {/* 列表 */}
       {!loading && !error && (
         <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {events.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                selected={selectedIds.has(event.id)}
-                onToggle={() => toggleSelect(event.id)}
-                onSendMail={() => handleSendMail(event)}
-              />
+            {events.map((e) => (
+              <EventCard key={e.id} event={e} sel={selected.has(e.id)} onToggle={() => toggle(e.id)} onSend={() => sendOne(e)} />
             ))}
-            {events.length === 0 && (
-              <div className="col-span-full py-16 text-center text-zinc-500">
-                暂无匹配的活动数据
-              </div>
-            )}
+            {events.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>暂无匹配数据</div>}
           </section>
-
-          {totalPages > 1 && (
+          {pages > 1 && (
             <section className="flex items-center justify-center gap-2 py-4">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="rounded-xl border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:border-zinc-500 disabled:opacity-30 transition"
-              >
-                ← 上一页
-              </button>
-              <span className="text-sm text-zinc-500">{page} / {totalPages}</span>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-xl border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:border-zinc-500 disabled:opacity-30 transition"
-              >
-                下一页 →
-              </button>
+              <button className="btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ opacity: page <= 1 ? 0.3 : 1 }}>← 上一页</button>
+              <span className="text-sm font-black" style={{ color: 'var(--muted)' }}>{page} / {pages}</span>
+              <button className="btn-outline btn-sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} style={{ opacity: page >= pages ? 0.3 : 1 }}>下一页 →</button>
             </section>
           )}
         </>
       )}
 
       {/* 邮件模板弹窗 */}
-      {showMailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+          <div className="mx-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            style={{ border: '1px solid rgba(22,242,179,0.2)', background: 'linear-gradient(135deg, rgba(22,242,179,0.06), rgba(120,166,255,0.04) 50%, rgba(248,214,109,0.06)), #081118', boxShadow: '0 24px 80px rgba(0,0,0,0.55)', padding: '24px' }}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">📧 邮件模板配置</h2>
-              <button
-                onClick={() => setShowMailModal(false)}
-                className="text-zinc-500 hover:text-zinc-200 text-xl leading-none transition"
-              >
-                ✕
-              </button>
+              <h2 className="text-xl font-black uppercase tracking-wider">📧 邮件模板配置</h2>
+              <button onClick={() => setShowModal(false)} className="text-xl leading-none" style={{ color: 'var(--muted)' }}>✕</button>
             </div>
-
-            <p className="text-xs text-zinc-500 mb-4">
-              使用 <code className="text-amber-400">{'{高校名称}'}</code>{' '}
-              <code className="text-amber-400">{'{活动标题}'}</code>{' '}
-              <code className="text-amber-400">{'{你的名字}'}</code>{' '}
-              <code className="text-amber-400">{'{你的邮箱}'}</code>{' '}
-              作为占位变量，发送时自动替换。
+            <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+              变量：<code style={{ color: 'var(--warning)' }}>{'{高校名称}'}</code> <code style={{ color: 'var(--warning)' }}>{'{活动标题}'}</code> <code style={{ color: 'var(--warning)' }}>{'{你的名字}'}</code> <code style={{ color: 'var(--warning)' }}>{'{你的邮箱}'}</code>
             </p>
-
-            {/* 发件人信息 */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">你的名字</label>
-                <input
-                  type="text"
-                  value={mailSenderName}
-                  onChange={(e) => setMailSenderName(e.target.value)}
-                  placeholder="张三"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-amber-500 transition"
-                />
+                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>你的名字</label>
+                <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="张三" className="input-field w-full" />
               </div>
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">你的邮箱</label>
-                <input
-                  type="email"
-                  value={mailSenderEmail}
-                  onChange={(e) => setMailSenderEmail(e.target.value)}
-                  placeholder="zhangsan@treefinance.com"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-amber-500 transition"
-                />
+                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>你的邮箱</label>
+                <input type="email" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="zhangsan@treefinance.com" className="input-field w-full" />
               </div>
             </div>
-
-            {/* 模板内容 */}
-            <label className="block text-xs text-zinc-500 mb-1">邮件正文</label>
-            <textarea
-              value={mailTemplate}
-              onChange={(e) => setMailTemplate(e.target.value)}
-              rows={14}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-zinc-200 outline-none focus:border-amber-500 transition font-mono resize-y"
-            />
-
+            <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>邮件正文</label>
+            <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={14}
+              className="input-field w-full resize-y mono text-xs leading-relaxed" />
             <div className="flex gap-3 mt-4 justify-end">
-              <button
-                onClick={() => {
-                  setMailTemplate(DEFAULT_MAIL_TEMPLATE);
-                  setMailSenderName('');
-                  setMailSenderEmail('');
-                }}
-                className="rounded-xl border border-zinc-600 px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 transition"
-              >
-                恢复默认
-              </button>
-              <button
-                onClick={() => setShowMailModal(false)}
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition"
-              >
-                保存模板
-              </button>
+              <button className="btn-outline btn-sm" onClick={() => { setTemplate(DEFAULT_TEMPLATE); setSenderName(''); setSenderEmail(''); }}>恢复默认</button>
+              <button className="btn btn-success btn-sm" onClick={() => setShowModal(false)}>保存模板</button>
             </div>
           </div>
         </div>
@@ -403,120 +201,43 @@ export default function AdminEventsPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// 卡片子组件
-// ---------------------------------------------------------------------------
+/* ------------------------------------------------------------------ */
 
-function EventCard({
-  event,
-  selected,
-  onToggle,
-  onSendMail,
-}: {
-  event: UniversityEvent;
-  selected: boolean;
-  onToggle: () => void;
-  onSendMail: () => void;
-}) {
-  const dateStr = event.event_date || '日期待定';
-  const endStr = event.event_end_date ? ` → ${event.event_end_date}` : '';
+function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent; sel: boolean; onToggle: () => void; onSend: () => void }) {
+  const dateStr = e.event_date || '日期待定';
+  const endStr = e.event_end_date ? ` → ${e.event_end_date}` : '';
+  const catColors: Record<string, string> = { AI: 'var(--info)', Web3: 'var(--warning)', 'AI+Web3': 'var(--danger)' };
+  const catBgs: Record<string, string> = { AI: 'rgba(120,166,255,0.12)', Web3: 'rgba(248,214,109,0.1)', 'AI+Web3': 'rgba(255,61,87,0.1)' };
+  const cc = catColors[e.category] || 'var(--info)';
+  const cb = catBgs[e.category] || 'rgba(120,166,255,0.12)';
 
   return (
-    <div
-      className={`group rounded-2xl border p-5 transition ${
-        selected
-          ? 'border-amber-700 bg-amber-950/20'
-          : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 hover:bg-zinc-900'
-      }`}
-    >
-      {/* 选择框 + 分类 + 评分 */}
-      <div className="flex items-center justify-between mb-2">
+    <div className="event-card"
+      style={{ border: `1px solid ${sel ? 'rgba(248,214,109,0.5)' : 'var(--line)'}`, background: sel ? 'rgba(248,214,109,0.06)' : 'var(--panel)', boxShadow: '0 18px 60px rgba(0,0,0,0.22)', padding: '18px' }}>
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            className="rounded border-zinc-600 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
-          />
-          <span
-            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              event.category === 'AI'
-                ? 'bg-blue-950 text-blue-400'
-                : event.category === 'Web3'
-                  ? 'bg-orange-950 text-orange-400'
-                  : 'bg-purple-950 text-purple-400'
-            }`}
-          >
-            {event.category}
-          </span>
+          <input type="checkbox" checked={sel} onChange={onToggle} />
+          <span className="badge" style={{ borderColor: cc, background: cb, color: cc }}>{e.category}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-600">{event.event_type}</span>
-          {event.score > 0 && (
-            <span className="rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-semibold text-emerald-400">
-              {event.score}分
-            </span>
-          )}
+          <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{e.event_type}</span>
+          {e.score > 0 && <span className="badge badge-success" style={{ fontSize: '0.68rem' }}>{e.score}P</span>}
         </div>
       </div>
-
-      {/* 标题 */}
-      <h3 className="text-base font-semibold leading-snug group-hover:text-emerald-400 transition">
-        <a href={event.source_url} target="_blank" rel="noopener noreferrer">
-          {event.title}
-        </a>
+      <h3 className="text-base font-bold leading-snug mb-1.5">
+        <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{e.title}</a>
       </h3>
-
-      {/* 高校 + 日期 */}
-      <p className="mt-1.5 text-sm text-zinc-400">
-        🏫 {event.university || '未知高校'}
-      </p>
-      <p className="text-xs text-zinc-500">
-        📅 {dateStr}{endStr}
-        {event.location ? ` · 📍 ${event.location}` : ''}
-      </p>
-
-      {/* 描述 */}
-      {event.description && (
-        <p className="mt-2 text-xs leading-relaxed text-zinc-600 line-clamp-2">
-          {event.description}
-        </p>
-      )}
-
-      {/* 底部操作 */}
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-800 pt-3">
+      <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>🏫 {e.university || '未知高校'}</p>
+      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>📅 {dateStr}{endStr}{e.location ? ` · 📍 ${e.location}` : ''}</p>
+      {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
+      <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs min-w-0">
-          {event.contact_email ? (
-            <span className="text-emerald-500 truncate">
-              ✉️ {event.contact_email}
-            </span>
-          ) : (
-            <span className="text-zinc-600 whitespace-nowrap">✉️ 无联系方式</span>
-          )}
-          {event.contact_phone && (
-            <span className="text-zinc-500 truncate">📞 {event.contact_phone}</span>
-          )}
+          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ {e.contact_email}</span> : <span className="whitespace-nowrap" style={{ color: 'var(--muted)' }}>✉️ 无联系方式</span>}
+          {e.contact_phone && <span className="truncate" style={{ color: 'var(--muted)' }}>📞 {e.contact_phone}</span>}
         </div>
-
         <div className="flex gap-2 shrink-0">
-          {event.contact_email ? (
-            <button
-              onClick={onSendMail}
-              className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 transition whitespace-nowrap"
-            >
-              📧 发送邮件
-            </button>
-          ) : (
-            <span className="text-xs text-zinc-600 whitespace-nowrap">暂无邮箱</span>
-          )}
-          <a
-            href={event.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition whitespace-nowrap"
-          >
-            来源
-          </a>
+          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📧 发送邮件</button> : <span className="text-xs whitespace-nowrap font-bold" style={{ color: 'var(--muted)' }}>暂无邮箱</span>}
+          <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>
     </div>

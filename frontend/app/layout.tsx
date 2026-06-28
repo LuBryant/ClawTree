@@ -7,15 +7,8 @@ import ConnectWallet from './components/ConnectWallet';
 import NavLinks from './components/NavLinks';
 import AiAssistant from './components/AiAssistant';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
+const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'ClawTree · AI-driven University Event OS',
@@ -25,36 +18,31 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="zh-CN" suppressHydrationWarning
+    <html lang="zh-CN" suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">
+      <body className="min-h-full flex flex-col" style={{ color: 'var(--text)' }}>
         <TronWalletProvider>
         <WagmiProvider>
-          {/* Top navbar */}
-          <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
+          <header style={{
+            borderBottom: '1px solid rgba(255,255,255,0.13)',
+            background: 'rgba(7,9,14,0.82)',
+            backdropFilter: 'blur(12px)',
+          }}>
             <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-              {/* Brand */}
               <div className="flex items-center gap-3">
                 <span className="text-xl">🌳</span>
                 <span className="text-lg font-bold tracking-tight">
-                  Claw<span className="text-emerald-400">Tree</span>
+                  Claw<span style={{ color: 'var(--success)' }}>Tree</span>
                 </span>
-                <span className="hidden sm:inline text-xs text-zinc-500 font-medium">
+                <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
                   树爪智动
                 </span>
               </div>
-
-              {/* Nav links */}
               <NavLinks />
-
-              {/* Wallet */}
               <ConnectWallet />
             </div>
           </header>
-
-          {/* Page content */}
           {children}
         </WagmiProvider>
         </TronWalletProvider>

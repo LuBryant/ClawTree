@@ -9,120 +9,77 @@ export default function AdminDashboard() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetchEventStats()
-      .then(setStats)
-      .catch(() => setError(true));
+    fetchEventStats().then(setStats).catch(() => setError(true));
   }, []);
 
   return (
     <div className="flex flex-col gap-8">
-      {/* 页头 */}
       <section>
-        <h1 className="text-3xl font-bold tracking-tight">管理端 Dashboard</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="font-normal leading-none tracking-tight"
+          style={{ fontSize: 'clamp(1.8rem, 4vw, 3rem)' }}>
+          Dashboard
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
           大树财经团队 · 高校 AI/Web3 活动运营控制台
         </p>
       </section>
 
-      {/* 统计卡片 */}
+      {/* 指标 */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          {
-            label: '活动总量',
-            value: stats ? String(stats.total) : '—',
-            sub: '已采集入库',
-            color: 'text-emerald-400',
-          },
-          {
-            label: 'AI 活动',
-            value: stats ? String(stats.by_category?.AI ?? 0) : '—',
-            sub: '人工智能相关',
-            color: 'text-blue-400',
-          },
-          {
-            label: 'Web3 活动',
-            value: stats ? String(stats.by_category?.Web3 ?? 0) : '—',
-            sub: '区块链相关',
-            color: 'text-orange-400',
-          },
-          {
-            label: '待外联',
-            value: stats ? String(stats.uncontacted) : '—',
-            sub: stats ? `${stats.contacted} 已联系` : '',
-            color: 'text-amber-400',
-          },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5"
-          >
-            <p className="text-xs text-zinc-500">{card.label}</p>
-            <p className={`mt-2 text-3xl font-bold ${card.color}`}>{card.value}</p>
-            <p className="mt-1 text-xs text-zinc-600">{card.sub}</p>
+          { label: '活动总量', v: stats?.total, sub: '已采集入库', c: 'var(--success)' },
+          { label: 'AI 活动', v: stats?.by_category?.AI, sub: '人工智能相关', c: 'var(--info)' },
+          { label: 'Web3 活动', v: stats?.by_category?.Web3, sub: '区块链相关', c: 'var(--warning)' },
+          { label: '待外联', v: stats?.uncontacted, sub: `${stats?.contacted ?? 0} 已联系`, c: 'var(--danger)' },
+        ].map((c) => (
+          <div key={c.label} className="panel" style={{ padding: '18px' }}>
+            <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{c.label}</p>
+            <p className="mt-2" style={{ fontSize: '2rem', fontWeight: 950, lineHeight: 1, color: c.c }}>
+              {stats ? c.v : '—'}
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{c.sub}</p>
           </div>
         ))}
       </section>
 
-      {/* 快捷入口 */}
+      {/* 快捷操作 */}
       <section>
-        <h2 className="text-lg font-semibold mb-4">⚡ 快捷操作</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Link
-            href="/admin/events"
-            className="group rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 transition hover:border-emerald-700 hover:bg-zinc-900"
-          >
-            <p className="text-2xl">📅</p>
-            <h3 className="mt-2 text-base font-semibold group-hover:text-emerald-400 transition">
-              活动浏览器
-            </h3>
-            <p className="mt-1 text-xs text-zinc-500">
-              浏览、筛选、查看所有已采集的高校 AI/Web3 活动及联系方式
-            </p>
+        <h2 className="text-sm font-black uppercase tracking-widest mb-4">⚡ 快捷操作</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Link href="/admin/events" className="panel event-card" style={{ padding: '20px' }}>
+            <p className="text-2xl mb-3">📅</p>
+            <h3 className="text-base font-black uppercase tracking-wider">活动浏览器</h3>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>浏览、筛选所有已采集活动及联系方式</p>
           </Link>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 opacity-60">
-            <p className="text-2xl">📨</p>
-            <h3 className="mt-2 text-base font-semibold text-zinc-500">
-              外联管道
-            </h3>
-            <p className="mt-1 text-xs text-zinc-600">
-              即将上线 — 智能邮件生成 + 批量发送
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 opacity-60">
-            <p className="text-2xl">📈</p>
-            <h3 className="mt-2 text-base font-semibold text-zinc-500">
-              趋势洞察
-            </h3>
-            <p className="mt-1 text-xs text-zinc-600">
-              即将上线 — 活动趋势分析 + 报告生成
-            </p>
-          </div>
+          {[
+            { icon: '📨', title: '外联管道', desc: '即将上线 — 智能邮件 + 批量发送' },
+            { icon: '📈', title: '趋势洞察', desc: '即将上线 — 趋势分析 + 报告' },
+          ].map((x) => (
+            <div key={x.title} className="panel event-card" style={{ padding: '20px', opacity: 0.45 }}>
+              <p className="text-2xl mb-3">{x.icon}</p>
+              <h3 className="text-base font-black uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>{x.title}</h3>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{x.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* 后端状态 */}
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-        <h3 className="text-sm font-semibold text-zinc-400">🔧 系统状态</h3>
-        <div className="mt-3 flex items-center gap-4 text-sm">
-          <span className={`h-2 w-2 rounded-full ${error ? 'bg-red-500' : 'bg-emerald-500'}`} />
-          <span className="text-zinc-400">
-            {error ? '后端未连接 — 运行 python manage.py runserver' : '后端 API 正常'}
-          </span>
-        </div>
-        <div className="mt-2 flex items-center gap-4 text-sm">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-zinc-400">事件采集 — python manage.py fetch_events</span>
-        </div>
-        <div className="mt-2 flex items-center gap-4 text-sm">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <a
-            href="http://127.0.0.1:8000/admin/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-zinc-400 hover:text-emerald-400 transition"
-          >
+      {/* 系统状态 */}
+      <section className="panel" style={{ padding: '20px' }}>
+        <h3 className="text-sm font-black uppercase tracking-wider mb-3" style={{ color: 'var(--text-dim)' }}>🔧 系统状态</h3>
+        {[
+          { ok: !error, text: error ? '后端未连接 — 运行 python manage.py runserver' : '后端 API 正常' },
+          { ok: true, text: '事件采集 — python manage.py fetch_events' },
+        ].map((x, i) => (
+          <div key={i} className="flex items-center gap-3 mt-2 text-sm" style={{ color: 'var(--text-dim)' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: x.ok ? 'var(--success)' : 'var(--danger)', display: 'inline-block' }} />
+            {x.text}
+          </div>
+        ))}
+        <div className="flex items-center gap-3 mt-2 text-sm">
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+          <a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--text-dim)' }} className="hover:underline">
             Django Admin → 直接管理数据库
           </a>
         </div>

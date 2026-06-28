@@ -1,26 +1,142 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* ===========================================================================
+   ClawTree — RugRumble 赛博安全风格
+   暗黑模式 · 网格背景 · 对角光晕 · 锐角硬核
+   =========================================================================== */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --danger:  #ff3d57;
+  --success: #16f2b3;
+  --warning: #f8d66d;
+  --info:    #78a6ff;
+  --ink:     #07090e;
+  --panel:   rgba(15, 20, 31, 0.92);
+  --panel-2: rgba(10, 14, 23, 0.82);
+  --muted:   #9ca9bd;
+  --line:    rgba(255, 255, 255, 0.13);
+  --text:    #f5f8ff;
+  --text-dim:#d7dfeb;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--ink);
+  --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ---------------------------------------------------------------------------
+   全局
+   --------------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+html { color-scheme: dark; height: 100%; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background-color: var(--ink);
+  /* 四层叠加: 水平网格 + 垂直网格 + 红色对角光晕 + 绿色对角光晕 */
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(115deg, rgba(255,61,87,0.12), transparent 36%),
+    linear-gradient(245deg, rgba(22,242,179,0.08), transparent 34%);
+  background-size: 36px 36px, 36px 36px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
 }
+
+code, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+
+/* ---------------------------------------------------------------------------
+   面板 / 按钮 / 输入框
+   --------------------------------------------------------------------------- */
+.panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.22);
+}
+.panel-deep {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 0 20px;
+  font-size: 0.86rem; font-weight: 950; letter-spacing: 0.02em;
+  border: 0; cursor: pointer; user-select: none;
+}
+.btn:active { opacity: 0.85; }
+.btn-success { background: var(--success); color: #08100f; }
+.btn-warning { background: var(--warning); color: #08100f; }
+.btn-danger  { background: var(--danger);  color: #fff; }
+.btn-sm { min-height: 36px; padding: 0 14px; font-size: 0.78rem; }
+
+.btn-outline {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 40px; padding: 0 16px;
+  font-size: 0.82rem; font-weight: 900;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.055);
+  color: var(--text-dim); cursor: pointer; user-select: none;
+}
+.btn-outline:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+
+.input-field {
+  border: 1px solid var(--line); background: rgba(255,255,255,0.055);
+  color: var(--text); font-size: 0.86rem; padding: 10px 14px; outline: none;
+}
+.input-field::placeholder { color: rgba(255,255,255,0.3); }
+.input-field:focus { border-color: rgba(22,242,179,0.55); }
+
+.select-field {
+  border: 1px solid var(--line); background: rgba(255,255,255,0.055);
+  color: var(--text-dim); font-size: 0.82rem; padding: 9px 12px;
+  outline: none; cursor: pointer;
+}
+.select-field:focus { border-color: rgba(22,242,179,0.55); }
+.select-field option { background: #0f141f; color: var(--text); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; font-size: 0.72rem; font-weight: 950;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.055); color: var(--text-dim);
+}
+.badge-danger  { border-color: rgba(255,61,87,0.42);   background: rgba(255,61,87,0.12);   color: var(--danger);  }
+.badge-success { border-color: rgba(22,242,179,0.42); background: rgba(22,242,179,0.1);  color: var(--success); }
+.badge-warning { border-color: rgba(248,214,109,0.42); background: rgba(248,214,109,0.1);  color: var(--warning); }
+.badge-info    { border-color: rgba(120,166,255,0.42); background: rgba(120,166,255,0.1);  color: var(--info);    }
+
+input[type="checkbox"] { accent-color: var(--success); }
+
+/* ---------------------------------------------------------------------------
+   动画 / 滚动条 / 卡片
+   --------------------------------------------------------------------------- */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--line); border-top-color: var(--success);
+  border-radius: 50%; animation: spin 0.9s linear infinite;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+
+.event-card { transition: border-color 0.2s, background 0.2s; }
+.event-card:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.03); }
+.event-card.selected { border-color: rgba(248,214,109,0.5); background: rgba(248,214,109,0.06); }
+
+.admin-link {
+  display: block; padding: 10px 14px;
+  font-size: 0.86rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em;
+  border: 1px solid transparent; color: var(--text-dim);
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.admin-link:hover { border-color: var(--line); color: var(--text); }
+.admin-link.active { border-color: rgba(22,242,179,0.42); background: rgba(22,242,179,0.08); color: var(--success); }
+
+.modal-backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); }
