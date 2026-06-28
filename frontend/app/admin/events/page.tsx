@@ -7,10 +7,10 @@ import {
   type UniversityEvent,
   type EventStats,
   type EventsFilter,
-} from '../lib/api-client';
+} from '../../lib/api-client';
 
 // ---------------------------------------------------------------------------
-// 分类 / 类型 选项
+// 筛选选项
 // ---------------------------------------------------------------------------
 
 const CATEGORIES = ['', 'AI', 'Web3', 'AI+Web3'] as const;
@@ -31,10 +31,10 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// 页面组件
+// 页面
 // ---------------------------------------------------------------------------
 
-export default function EventsPage() {
+export default function AdminEventsPage() {
   const [events, setEvents] = useState<UniversityEvent[]>([]);
   const [stats, setStats] = useState<EventStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,6 @@ export default function EventsPage() {
   const [total, setTotal] = useState(0);
   const pageSize = 12;
 
-  // 筛选状态
   const [filter, setFilter] = useState<EventsFilter>({
     category: '',
     event_type: '',
@@ -51,7 +50,6 @@ export default function EventsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
 
-  // 加载数据
   const loadEvents = useCallback(async (f: EventsFilter, p: number) => {
     setLoading(true);
     setError('');
@@ -63,7 +61,7 @@ export default function EventsPage() {
       setEvents(data.results);
       setTotal(data.count);
       setStats(statsData);
-    } catch (e) {
+    } catch {
       setError('无法连接后端 API，请确保 python manage.py runserver 正在运行');
     } finally {
       setLoading(false);
@@ -74,7 +72,6 @@ export default function EventsPage() {
     loadEvents(filter, page);
   }, [filter, page, loadEvents]);
 
-  // 搜索
   const handleSearch = () => {
     setFilter((f) => ({ ...f, search: searchInput }));
     setPage(1);
@@ -83,11 +80,11 @@ export default function EventsPage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-6 py-10">
-      {/* 页头 + 统计 */}
-      <section className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">📅 活动浏览器</h1>
-        <p className="text-sm text-zinc-500">
+    <div className="flex flex-col gap-6">
+      {/* 页头 */}
+      <section>
+        <h1 className="text-3xl font-bold tracking-tight">活动浏览器</h1>
+        <p className="mt-1 text-sm text-zinc-500">
           AI Agent 自动采集的高校 AI/Web3 活动
           {stats ? (
             <span>
@@ -100,13 +97,12 @@ export default function EventsPage() {
 
       {/* 筛选栏 */}
       <section className="flex flex-wrap items-center gap-3">
-        {/* 搜索框 */}
         <input
           type="text"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="搜索活动标题、高校…"
+          placeholder="搜索标题、高校…"
           className="w-full sm:w-64 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 placeholder-zinc-500 outline-none focus:border-emerald-500 transition"
         />
         <button
@@ -116,7 +112,6 @@ export default function EventsPage() {
           搜索
         </button>
 
-        {/* 分类筛选 */}
         <select
           value={filter.category || ''}
           onChange={(e) => { setFilter((f) => ({ ...f, category: e.target.value })); setPage(1); }}
@@ -127,7 +122,6 @@ export default function EventsPage() {
           ))}
         </select>
 
-        {/* 类型筛选 */}
         <select
           value={filter.event_type || ''}
           onChange={(e) => { setFilter((f) => ({ ...f, event_type: e.target.value })); setPage(1); }}
@@ -138,7 +132,6 @@ export default function EventsPage() {
           ))}
         </select>
 
-        {/* 排序 */}
         <select
           value={filter.ordering || '-created_at'}
           onChange={(e) => { setFilter((f) => ({ ...f, ordering: e.target.value })); setPage(1); }}
@@ -165,7 +158,7 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* 活动卡片列表 */}
+      {/* 活动列表 */}
       {!loading && !error && (
         <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -179,7 +172,6 @@ export default function EventsPage() {
             )}
           </section>
 
-          {/* 分页 */}
           {totalPages > 1 && (
             <section className="flex items-center justify-center gap-2 py-4">
               <button
@@ -189,9 +181,7 @@ export default function EventsPage() {
               >
                 ← 上一页
               </button>
-              <span className="text-sm text-zinc-500">
-                {page} / {totalPages}
-              </span>
+              <span className="text-sm text-zinc-500">{page} / {totalPages}</span>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
@@ -203,12 +193,12 @@ export default function EventsPage() {
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// 活动卡片子组件
+// 卡片子组件
 // ---------------------------------------------------------------------------
 
 function EventCard({ event }: { event: UniversityEvent }) {
@@ -236,14 +226,12 @@ function EventCard({ event }: { event: UniversityEvent }) {
         </div>
       </div>
 
-      {/* 标题 */}
       <h3 className="text-base font-semibold leading-snug group-hover:text-emerald-400 transition">
         <a href={event.source_url} target="_blank" rel="noopener noreferrer">
           {event.title}
         </a>
       </h3>
 
-      {/* 高校 + 日期 */}
       <p className="mt-1.5 text-sm text-zinc-400">
         🏫 {event.university || '未知高校'}
       </p>
@@ -252,14 +240,12 @@ function EventCard({ event }: { event: UniversityEvent }) {
         {event.location ? ` · 📍 ${event.location}` : ''}
       </p>
 
-      {/* 描述 */}
       {event.description && (
         <p className="mt-2 text-xs leading-relaxed text-zinc-600 line-clamp-2">
           {event.description}
         </p>
       )}
 
-      {/* 底部：联系方式 + 操作 */}
       <div className="mt-3 flex items-center justify-between border-t border-zinc-800 pt-3">
         <div className="flex flex-col gap-0.5 text-xs">
           {event.contact_email ? (
