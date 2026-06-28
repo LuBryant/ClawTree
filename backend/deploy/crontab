@@ -1,0 +1,13 @@
+# ClawTree — crontab 定时任务示例
+#
+# 部署方式:
+#   1. 复制到服务器: cp deploy/crontab /etc/cron.d/clawtree
+#   2. 或手动添加:  crontab -e 粘贴以下内容
+#
+# 日志目录需提前创建: mkdir -p /var/log/clawtree
+
+# 每天 8:00 和 18:00 采集高校 AI/Web3 活动
+0 8,18 * * * cd /opt/clawtree/backend && export $(cat ../.env | grep -v '^#' | xargs) && /opt/clawtree/backend/venv/bin/python manage.py fetch_events >> /var/log/clawtree/cron_events.log 2>&1
+
+# 每周六凌晨 3:00 全量搜索（更多关键词、更多结果）
+0 3 * * 6 cd /opt/clawtree/backend && export $(cat ../.env | grep -v '^#' | xargs) && /opt/clawtree/backend/venv/bin/python manage.py fetch_events --max-results 30 >> /var/log/clawtree/cron_events_full.log 2>&1
