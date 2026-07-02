@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const links = [
   { href: '/admin', label: '📊 Dashboard', exact: true },
   { href: '/admin/events', label: '📅 活动浏览器', exact: false },
+  { href: '/admin/reviews', label: '📸 活动回顾', exact: false },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

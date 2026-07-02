@@ -58,6 +58,42 @@ export interface EventsFilter {
   ordering?: string;
 }
 
+// --- 活动回顾 ---
+
+export interface EventReview {
+  id: number;
+  title: string;
+  content: string;
+  summary: string;
+  source_type: 'manual' | 'twitter';
+  source_url: string;
+  tweet_id: string | null;
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface ReviewsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: EventReview[];
+}
+
+export interface ReviewCreatePayload {
+  title: string;
+  content: string;
+  source_type: 'manual';
+  source_url?: string;
+  published_at?: string;
+}
+
+export interface ReviewsFilter {
+  source_type?: string;
+  search?: string;
+  page?: number;
+  ordering?: string;
+}
+
 // ---------------------------------------------------------------------------
 // 请求工具
 // ---------------------------------------------------------------------------
@@ -76,6 +112,26 @@ async function request<T>(path: string, params?: Record<string, string | number 
   const res = await fetch(url.toString(), {
     headers: { 'Content-Type': 'application/json' },
     next: { revalidate: 60 }, // ISR: 60 秒后重新验证
+  });
+
+  if (!res.ok) {
+    throw new Error(`API 请求失败: ${res.status} ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+async function requestWithBody<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: unknown,
+): Promise<T> {
+  const url = new URL(`${API_BASE}${path}`);
+
+  const res = await fetch(url.toString(), {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
@@ -113,4 +169,70 @@ export function fetchEventStats(): Promise<EventStats> {
 /** 获取单个活动详情 */
 export function fetchEventDetail(id: number): Promise<UniversityEvent> {
   return request<UniversityEvent>(`/events/${id}/`);
+}
+
+// ---------------------------------------------------------------------------
+// 活动回顾 API
+// ---------------------------------------------------------------------------
+
+/** 获取回顾文章列表（分页 + 筛选） */
+export function fetchReviews(filter?: ReviewsFilter): Promise<ReviewsResponse> {
+  return request<ReviewsResponse>('/reviews/', {
+    source_type: filter?.source_type,
+    search: filter?.search,
+    page: filter?.page,
+    ordering: filter?.ordering || '-created_at',
+  });
+}
+
+/** 手动提交回顾文章 */
+export function createReview(data: ReviewCreatePayload): Promise<EventReview> {
+  return requestWithBody<EventReview>('/reviews/', 'POST', data);
+}
+
+/** 删除回顾文章 */
+export function deleteReview(id: number): Promise<void> {
+  return requestWithBody<void>(`/reviews/${id}/`, 'DELETE');
+}
+
+// ---------------------------------------------------------------------------
+// 推文回顾 API
+// ---------------------------------------------------------------------------
+
+export interface TweetReview {
+  id: number;
+  tweet_id: string;
+  text: string;
+  text_processed: string;
+  media_urls: string;       // JSON 字符串数组，如 '["url1","url2"]'
+  twitter_url: string;
+  summary: string;
+  is_review_worthy: boolean;
+  is_sensitive: boolean;
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface TweetReviewsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: TweetReview[];
+}
+
+export interface TweetReviewsFilter {
+  is_review_worthy?: boolean;
+  search?: string;
+  page?: number;
+  ordering?: string;
+}
+
+/** 获取推文回顾列表（分页 + 筛选） */
+export function fetchTweetReviews(filter?: TweetReviewsFilter): Promise<TweetReviewsResponse> {
+  return request<TweetReviewsResponse>('/tweet-reviews/', {
+    is_review_worthy: filter?.is_review_worthy,
+    search: filter?.search,
+    page: filter?.page,
+    ordering: filter?.ordering || '-published_at',
+  });
 }

@@ -1,5 +1,6 @@
 import django_filters
-from .models import UniversityEvent
+from django.db import models
+from .models import UniversityEvent, EventReview, TweetReview
 
 
 class UniversityEventFilter(django_filters.FilterSet):
@@ -18,3 +19,31 @@ class UniversityEventFilter(django_filters.FilterSet):
             'is_contacted', 'score_min',
             'event_date_from', 'event_date_to',
         ]
+
+
+class EventReviewFilter(django_filters.FilterSet):
+    source_type = django_filters.CharFilter(lookup_expr='exact')
+    search = django_filters.CharFilter(method='filter_search')
+
+    class Meta:
+        model = EventReview
+        fields = ['source_type']
+
+    def filter_search(self, queryset, name, value):
+        return queryset.filter(
+            models.Q(title__icontains=value) | models.Q(content__icontains=value)
+        )
+
+
+class TweetReviewFilter(django_filters.FilterSet):
+    is_review_worthy = django_filters.BooleanFilter()
+    search = django_filters.CharFilter(method='filter_search')
+
+    class Meta:
+        model = TweetReview
+        fields = ['is_review_worthy']
+
+    def filter_search(self, queryset, name, value):
+        return queryset.filter(
+            models.Q(text__icontains=value) | models.Q(summary__icontains=value)
+        )
