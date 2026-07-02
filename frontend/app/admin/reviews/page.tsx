@@ -28,7 +28,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 export default function AdminReviewsPage() {
   // 模式切换
-  const [mode, setMode] = useState<'manual' | 'tweets'>('manual');
+  const [mode, setMode] = useState<'manual' | 'tweets'>('tweets');
 
   // 手动回顾数据
   const [reviews, setReviews] = useState<EventReview[]>([]);

@@ -191,11 +191,16 @@ class Command(BaseCommand):
             '--api-key', type=str,
             help='Twitter API Key（也可通过 TWITTER_API_KEY 环境变量设置）',
         )
+        parser.add_argument(
+            '--dedup', action='store_true',
+            help='对已有数据进行 AI 去重（内容相似度 > 80% 视为重复）',
+        )
 
     def handle(self, *args, **options):
         pages = options['pages']
         dry_run = options['dry_run']
         import_file = options['import_only']
+        do_dedup = options['dedup']
         twitter_api_key = options.get('api_key') or os.environ.get('TWITTER_API_KEY', '')
 
         # -------------------------------------------------------------------
@@ -203,6 +208,13 @@ class Command(BaseCommand):
         # -------------------------------------------------------------------
         self.llm_client, self.llm_model = self._init_llm()
         if not self.llm_client:
+            return
+
+        # -------------------------------------------------------------------
+        # 去重模式
+        # -------------------------------------------------------------------
+        if do_dedup:
+            self._dedup_existing()
             return
 
         # -------------------------------------------------------------------
@@ -284,6 +296,13 @@ class Command(BaseCommand):
                     )
                     saved += 1
                 else:
+                    # 内容去重检查
+                    dup = self._check_content_duplicate(text, tweet_id)
+                    if dup:
+                        self.stdout.write(f'    ⚠️ 内容重复 → 跳过 (已有 tweet_id={dup})')
+                        skipped += 1
+                        continue
+
                     _, created = TweetReview.objects.update_or_create(
                         tweet_id=tweet_id,
                         defaults={
@@ -456,6 +475,153 @@ class Command(BaseCommand):
             return ''
 
     # =======================================================================
+    # 内容去重
+    # =======================================================================
+
+    DEDUP_PROMPT_TEMPLATE = """请比较以下两段推文内容的相似度。
+
+推文 A:
+{a_text}
+
+推文 B:
+{b_text}
+
+请判断两段推文的核心信息（主题、事件、关键信息）是否高度重合。只返回一个 JSON：
+{{"similarity": 数字（0-100）, "is_duplicate": true/false}}
+
+注意：
+- 如果是同一活动/事件的推文，只是 @的人或合作社区不同 → 视为重复
+- 如果核心主题不同 → 不重复
+- 80 分及以上视为重复"""
+
+    def _check_content_duplicate(self, text, exclude_tweet_id):
+        """检查新推文是否与已有数据内容重复（相似度 > 80%）"""
+        if not text:
+            return None
+
+        # 取最近 50 条作为对比池（避免比对太多）
+        recent = TweetReview.objects.exclude(
+            tweet_id=exclude_tweet_id
+        ).order_by('-created_at')[:50]
+
+        for existing in recent:
+            # 先用简单规则过滤：少于 30 个共同字符的不太可能重复
+            common = set(text) & set(existing.text)
+            if len(common) < 30:
+                continue
+
+            # DeepSeek 精确判断
+            try:
+                prompt = self.DEDUP_PROMPT_TEMPLATE.format(
+                    a_text=text[:1000], b_text=existing.text[:1000],
+                )
+                message = self.llm_client.chat.completions.create(
+                    model=self.llm_model,
+                    max_tokens=100,
+                    temperature=0.1,
+                    messages=[
+                        {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                )
+                content = message.choices[0].message.content.strip()
+                if '```' in content:
+                    content = content.split('```')[1]
+                    if content.startswith('json'):
+                        content = content[4:]
+                    content = content.strip()
+
+                result = json.loads(content)
+                if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
+                    return existing.tweet_id
+
+            except Exception:
+                continue
+
+            # 频率控制（避免 DeepSeek 限流）
+            time.sleep(0.3)
+
+        return None
+
+    def _dedup_existing(self):
+        """对数据库已有数据进行去重"""
+        all_tweets = list(TweetReview.objects.all().order_by('created_at'))
+        total = len(all_tweets)
+        if total < 2:
+            self.stdout.write(f'数据量不足（{total} 条），无需去重')
+            return
+
+        self.stdout.write(f'🔍 开始去重 — 共 {total} 条数据...')
+
+        # 用 DeepSeek 批量比较：分批处理
+        to_delete = set()
+        compared = 0
+
+        for i in range(total):
+            if all_tweets[i].id in to_delete:
+                continue
+            for j in range(i + 1, total):
+                if all_tweets[j].id in to_delete:
+                    continue
+
+                a = all_tweets[i]
+                b = all_tweets[j]
+
+                # 简单过滤
+                common = set(a.text) & set(b.text)
+                if len(common) < 30:
+                    continue
+
+                compared += 1
+                try:
+                    prompt = self.DEDUP_PROMPT_TEMPLATE.format(
+                        a_text=a.text[:1000], b_text=b.text[:1000],
+                    )
+                    message = self.llm_client.chat.completions.create(
+                        model=self.llm_model,
+                        max_tokens=100,
+                        temperature=0.1,
+                        messages=[
+                            {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
+                            {'role': 'user', 'content': prompt},
+                        ],
+                    )
+                    content = message.choices[0].message.content.strip()
+                    if '```' in content:
+                        content = content.split('```')[1]
+                        if content.startswith('json'):
+                            content = content[4:]
+                        content = content.strip()
+
+                    result = json.loads(content)
+                    if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
+                        to_delete.add(b.id)
+                        self.stdout.write(
+                            f'  🗑️ [{a.tweet_id[:12]}...] ≈ [{b.tweet_id[:12]}...] '
+                            f'(相似度 {result.get("similarity", "?")}%) → 删除后者'
+                        )
+
+                except Exception as e:
+                    self.stderr.write(f'  比较失败: {e}')
+                    continue
+
+                time.sleep(0.3)
+
+        # 执行删除
+        if to_delete:
+            deleted = TweetReview.objects.filter(id__in=to_delete).delete()
+            self.stdout.write('')
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'✅ 去重完成 — 删除 {deleted[0]} 条重复数据'
+                    f'（共比较 {compared} 次，剩余 {total - deleted[0]} 条）'
+                )
+            )
+        else:
+            self.stdout.write('')
+            self.stdout.write(self.style.SUCCESS('✅ 未发现重复内容'))
+
+    # =======================================================================
     # 导入 JSON 文件
     # =======================================================================
 
@@ -513,6 +679,13 @@ class Command(BaseCommand):
                     )
                     saved += 1
                 else:
+                    # 内容去重检查
+                    dup = self._check_content_duplicate(text, tweet_id)
+                    if dup:
+                        self.stdout.write(f'    ⚠️ 内容重复 → 跳过 (已有 tweet_id={dup})')
+                        skipped += 1
+                        continue
+
                     _, created = TweetReview.objects.update_or_create(
                         tweet_id=tweet_id,
                         defaults={
