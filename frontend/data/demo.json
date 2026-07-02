@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "version": "2026-07-03.v1",
+    "mode": "mock",
+    "notice": "公开来源仅用于演示产品工作流；高校联系人和执行结果均为 MOCK。"
+  },
+  "signals": [
+    {
+      "id": "sig-guangzhou-campus",
+      "kind": "campus",
+      "title": "大树财经 × ATM 中国高校行第五站落地广州",
+      "summary": "公开动态宣布 7 月 18 日广州站，主题聚焦 AI 智能生态与数字技术、实体经济融合。",
+      "publisher": "大树财经｜TreeFinance",
+      "platform": "x",
+      "url": "https://x.com/TreefinanceCN/status/2071559653612552638",
+      "publishedAt": "2026-06-29T11:41:23Z",
+      "fetchedAt": "2026-07-03T00:00:00Z",
+      "verification": "verified",
+      "confidence": 0.99,
+      "tags": ["广州", "高校行", "AI", "Web3"]
+    },
+    {
+      "id": "sig-ai-data-ama",
+      "kind": "topic",
+      "title": "全球高校行 AMA 聚焦 AI 数据资产与确权",
+      "summary": "金色财经联合大树财经等伙伴，以 X Space 讨论 AI 时代的数据资产、定价权与确权。",
+      "publisher": "JinSe Finance",
+      "platform": "x",
+      "url": "https://x.com/JinseFinance/status/2069618254973370698",
+      "publishedAt": "2026-06-24T03:06:58Z",
+      "fetchedAt": "2026-07-03T00:00:00Z",
+      "verification": "verified",
+      "confidence": 0.99,
+      "tags": ["AI 数据", "数据确权", "X Space", "高校行"]
+    },
+    {
+      "id": "sig-htx-waic",
+      "kind": "hackathon",
+      "title": "大树财经支持 HTX Genesis Hackathon 与 WAIC 总决赛",
+      "summary": "公开动态表示大树财经提供媒体与生态支持，寻找 Web3+AI 创新项目。",
+      "publisher": "大树财经｜TreeFinance",
+      "platform": "x",
+      "url": "https://x.com/TreefinanceCN/status/2069611885700489685",
+      "publishedAt": "2026-06-24T02:41:39Z",
+      "fetchedAt": "2026-07-03T00:00:00Z",
+      "verification": "verified",
+      "confidence": 0.99,
+      "tags": ["HTX Genesis", "WAIC", "黑客松", "AI×Web3"]
+    },
+    {
+      "id": "sig-worldcup-market",
+      "kind": "sports",
+      "title": "世界杯热度被用于讨论事件驱动的全球资产观察",
+      "summary": "大树财经参与相关 X Space，讨论重大事件与市场信息解读；该信号适合转化为财经素养内容，不用于投资建议。",
+      "publisher": "大树财经｜TreeFinance / Websea",
+      "platform": "x",
+      "url": "https://x.com/TreefinanceCN/status/2069216265152188895",
+      "publishedAt": "2026-06-23T00:29:36Z",
+      "fetchedAt": "2026-07-03T00:00:00Z",
+      "verification": "verified",
+      "confidence": 0.98,
+      "tags": ["世界杯", "财经素养", "事件驱动", "热点"]
+    }
+  ],
+  "campaign": {
+    "id": "cmp-worldcup-guangzhou-2026",
+    "name": "世界杯 × AI：广州高校事件驱动财经素养计划",
+    "objective": "为广州高校行增加一个可传播的热点内容单元，并在 7 天内获得至少 3 个合格高校合作回复。",
+    "audience": ["广州高校学生", "AI/Web3 社团", "财经与传播专业师生", "生态赞助伙伴"],
+    "angle": "从世界杯公共事件出发，讲解 AI 如何辅助信息验证、数据权益与预测市场研究；只做教育和活动策划，不构成投资建议。",
+    "formats": ["校园圆桌", "X Space", "AI 数据工作坊", "赛后趋势短报告"],
+    "signalIds": ["sig-guangzhou-campus", "sig-ai-data-ama", "sig-htx-waic", "sig-worldcup-market"],
+    "status": "draft"
+  },
+  "targets": [
+    {
+      "id": "target-gdufe",
+      "organization": "广东财经大学数智学院（演示目标）",
+      "city": "广州",
+      "score": 94,
+      "reasons": ["财经与数智主题高度匹配", "位于广州，适合作为高校行联动节点", "公开动态已有相关校友嘉宾线索"],
+      "contact": { "email": "demo-gdufe@example.invalid", "isMock": true },
+      "status": "shortlisted"
+    },
+    {
+      "id": "target-sysu",
+      "organization": "中山大学 AI 学生社团（演示目标）",
+      "city": "广州",
+      "score": 88,
+      "reasons": ["AI 学生受众与工作坊形式匹配", "具备跨学科传播潜力", "与广州站时间和地域一致"],
+      "contact": { "email": "demo-sysu@example.invalid", "isMock": true },
+      "status": "suggested"
+    },
+    {
+      "id": "target-scut",
+      "organization": "华南理工大学区块链协会（演示目标）",
+      "city": "广州",
+      "score": 86,
+      "reasons": ["Web3 与 AI×Web3 赛道匹配", "技术社群适合承接实操内容", "可连接 HTX Genesis 项目招募"],
+      "contact": { "email": "demo-scut@example.invalid", "isMock": true },
+      "status": "suggested"
+    }
+  ],
+  "reply": {
+    "id": "reply-demo-positive",
+    "intent": "positive",
+    "confidence": 0.96,
+    "summary": "对联合圆桌有兴趣，希望补充嘉宾名单、场地要求和可选日期。",
+    "nextAction": "24 小时内发送一页活动 brief，并提供 2 个 30 分钟对齐时段。",
+    "isMock": true
+  },
+  "funnel": {
+    "signalsVerified": 4,
+    "opportunities": 1,
+    "targetsShortlisted": 3,
+    "drafts": 1,
+    "positiveReplies": 1
+  }
+}

@@ -4,7 +4,7 @@
  * 所有数据请求的统一入口，支持服务端和客户端调用。
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 // ---------------------------------------------------------------------------
 // 类型定义
@@ -63,7 +63,10 @@ export interface EventsFilter {
 // ---------------------------------------------------------------------------
 
 async function request<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
-  const url = new URL(`${API_BASE}${path}`);
+  const base = API_BASE.startsWith('http')
+    ? API_BASE
+    : `${typeof window === 'undefined' ? 'http://127.0.0.1:3000' : window.location.origin}${API_BASE}`;
+  const url = new URL(`${base}${path.replace(/\/$/, '')}`);
 
   if (params) {
     for (const [key, value] of Object.entries(params)) {

@@ -1,52 +1,31 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import Link from 'next/link';
 import './globals.css';
-import WagmiProvider from './components/WagmiProvider';
-import { TronWalletProvider } from './hooks/useTronWallet';
-import ConnectWallet from './components/ConnectWallet';
-import NavLinks from './components/NavLinks';
-import AiAssistant from './components/AiAssistant';
-
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ClawTree · AI-driven University Event OS',
+  title: 'ClawTree · AI 媒体活动增长操作系统',
   description:
-    'ClawTree — OpenClaw AI Agent powered cross-platform engine for Web3+AI university event discovery, intelligent outreach & trend formation.',
+    '把高校与热点信号转成可审核的选题、合作名单、个性化外联和可验证执行凭证。',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col" style={{ color: 'var(--text)' }}>
-        <TronWalletProvider>
-        <WagmiProvider>
-          <header style={{
-            borderBottom: '1px solid rgba(255,255,255,0.13)',
-            background: 'rgba(7,9,14,0.82)',
-            backdropFilter: 'blur(12px)',
-          }}>
-            <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-xl">🌳</span>
-                <span className="text-lg font-bold tracking-tight">
-                  Claw<span style={{ color: 'var(--success)' }}>Tree</span>
-                </span>
-                <span className="hidden sm:inline text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
-                  树爪智动
-                </span>
-              </div>
-              <NavLinks />
-              <ConnectWallet />
-            </div>
-          </header>
-          {children}
-        </WagmiProvider>
-        </TronWalletProvider>
-        <AiAssistant />
+    <html lang="zh-CN">
+      <body>
+        <header className="site-header">
+          <div className="nav-wrap">
+            <Link href="/" className="brand" aria-label="ClawTree 首页">
+              <span className="brand-mark">CT</span>
+              <span>ClawTree <small>树爪智动</small></span>
+            </Link>
+            <nav className="top-nav" aria-label="主导航">
+              <Link href="/demo">现场 Demo</Link>
+              <Link href="/admin">运营台</Link>
+              <a href="https://treefinance.co" target="_blank" rel="noreferrer">大树财经</a>
+            </nav>
+          </div>
+        </header>
+        {children}
       </body>
     </html>
   );

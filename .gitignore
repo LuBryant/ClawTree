@@ -9,6 +9,14 @@ __pycache__/
 dist/
 *.egg
 
+# Node / Next / local package cache
+node_modules/
+.next/
+.npm-cache/
+coverage/
+contracts/artifacts/
+contracts/cache/
+
 # Django
 backend/staticfiles/
 *.log

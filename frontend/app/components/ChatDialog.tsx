@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getDeepSeekClient, type ToolDef } from '../lib/llm-client';
+import { getDeepSeekClient } from '../lib/llm-client';
 import { SYSTEM_PROMPT, QUICK_ACTIONS } from '../lib/assistant-config';
 
 interface Message {

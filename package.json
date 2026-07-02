@@ -1,0 +1,19 @@
+{
+  "name": "clawtree",
+  "version": "0.2.0",
+  "private": true,
+  "description": "ClawTree — AI-driven media and campus campaign growth OS",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "install": "npm --prefix frontend ci --cache .npm-cache",
+    "dev": "npm --prefix frontend run dev",
+    "test": "node --test tests/demo.test.mjs",
+    "check": "npm run test && npm --prefix frontend run check",
+    "demo": "npm --prefix frontend run dev -- --hostname 127.0.0.1",
+    "smoke": "node scripts/smoke.mjs",
+    "test:contracts": "npm --prefix contracts test",
+    "install:contracts": "npm --prefix contracts ci --cache .npm-cache"
+  }
+}

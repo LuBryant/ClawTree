@@ -1,6 +1,7 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
+import { formatUnits } from 'viem';
 import { useTronWallet } from '../hooks/useTronWallet';
 import { FAUCET_URL } from '../config/tron';
 
@@ -28,7 +29,7 @@ export default function ConnectWallet() {
         <span className="text-sm font-mono text-emerald-400">
           {tron.balance ||
             (evmBalance
-              ? `${Number(evmBalance.formatted).toFixed(2)} ${evmBalance.symbol}`
+              ? `${Number(formatUnits(evmBalance.value, evmBalance.decimals)).toFixed(2)} ${evmBalance.symbol}`
               : '—')}
         </span>
 
