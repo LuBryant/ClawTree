@@ -51,6 +51,11 @@ export default function AdminDashboard() {
             <h3 className="text-base font-black uppercase tracking-wider">活动浏览器</h3>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>浏览、筛选所有已采集活动及联系方式</p>
           </Link>
+          <Link href="/admin/reviews" className="panel event-card" style={{ padding: '20px' }}>
+            <p className="text-2xl mb-3">📸</p>
+            <h3 className="text-base font-black uppercase tracking-wider">活动回顾</h3>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>AI 整理的往期活动回顾与精彩瞬间</p>
+          </Link>
           {[
             { icon: '📨', title: '外联管道', desc: '即将上线 — 智能邮件 + 批量发送' },
             { icon: '📈', title: '趋势洞察', desc: '即将上线 — 趋势分析 + 报告' },

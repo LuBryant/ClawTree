@@ -1,9 +1,9 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import UniversityEvent
-from .serializers import UniversityEventSerializer
-from .filters import UniversityEventFilter
+from .models import UniversityEvent, EventReview, TweetReview
+from .serializers import UniversityEventSerializer, EventReviewSerializer, TweetReviewSerializer
+from .filters import UniversityEventFilter, EventReviewFilter, TweetReviewFilter
 
 
 class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
@@ -33,3 +33,17 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
             'contacted': qs.filter(is_contacted=True).count(),
             'uncontacted': qs.filter(is_contacted=False).count(),
         })
+
+
+class EventReviewViewSet(viewsets.ModelViewSet):
+    """活动回顾 API — 支持 CRUD"""
+    queryset = EventReview.objects.all()
+    serializer_class = EventReviewSerializer
+    filterset_class = EventReviewFilter
+
+
+class TweetReviewViewSet(viewsets.ReadOnlyModelViewSet):
+    """推文回顾 API（只读）"""
+    queryset = TweetReview.objects.filter(is_review_worthy=True)
+    serializer_class = TweetReviewSerializer
+    filterset_class = TweetReviewFilter

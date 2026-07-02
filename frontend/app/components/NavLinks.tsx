@@ -21,6 +21,11 @@ export default function NavLinks() {
             className="transition hover:brightness-125">
             活动浏览器
           </Link>
+          <Link href="/admin/reviews"
+            style={{ color: pathname.startsWith('/admin/reviews') ? 'var(--success)' : undefined }}
+            className="transition hover:brightness-125">
+            活动回顾
+          </Link>
           <span style={{ color: 'rgba(255,255,255,0.2)' }}>外联管道</span>
           <span style={{ color: 'rgba(255,255,255,0.2)' }}>趋势洞察</span>
           <span className="ml-4 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--warning)' }}>管理端</span>
@@ -32,7 +37,7 @@ export default function NavLinks() {
         <>
           <Link href="/" style={{ color: pathname === '/' ? 'var(--success)' : undefined }}
             className="transition hover:brightness-125">首页</Link>
-          <span className="cursor-pointer transition hover:brightness-125">活动回顾</span>
+          <Link href="/admin/reviews" className="transition hover:brightness-125">活动回顾</Link>
           <a href="#" onClick={openChat} className="transition" style={{ color: 'var(--success)' }}>AI客服</a>
           <Link href="/admin" className="ml-4 text-xs font-black uppercase tracking-wider"
             style={{ border: '1px solid rgba(248,214,109,0.42)', background: 'rgba(248,214,109,0.1)', color: 'var(--warning)', padding: '5px 12px' }}>

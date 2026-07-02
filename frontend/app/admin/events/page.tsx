@@ -45,8 +45,18 @@ export default function AdminEventsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
-  const [senderName, setSenderName] = useState('');
-  const [senderEmail, setSenderEmail] = useState('');
+  const [senderName, setSenderName] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('clawtree_sender_name') || 'leaf';
+    return 'leaf';
+  });
+  const [senderEmail, setSenderEmail] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('clawtree_sender_email') || 'a894074295@gmail.com';
+    return 'a894074295@gmail.com';
+  });
+
+  // 持久化到 localStorage
+  useEffect(() => { localStorage.setItem('clawtree_sender_name', senderName); }, [senderName]);
+  useEffect(() => { localStorage.setItem('clawtree_sender_email', senderEmail); }, [senderEmail]);
 
   const load = useCallback(async (f: EventsFilter, p: number) => {
     setLoading(true); setError('');
@@ -195,7 +205,7 @@ export default function AdminEventsPage() {
             <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={14}
               className="input-field w-full resize-y mono text-xs leading-relaxed" />
             <div className="flex gap-3 mt-4 justify-end">
-              <button className="btn-outline btn-sm" onClick={() => { setTemplate(DEFAULT_TEMPLATE); setSenderName(''); setSenderEmail(''); }}>恢复默认</button>
+              <button className="btn-outline btn-sm" onClick={() => { setTemplate(DEFAULT_TEMPLATE); setSenderName('leaf'); setSenderEmail('a894074295@gmail.com'); }}>恢复默认</button>
               <button className="btn btn-success btn-sm" onClick={() => setShowModal(false)}>保存模板</button>
             </div>
           </div>
