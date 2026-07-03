@@ -225,9 +225,9 @@ function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent
       {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs min-w-0">
-          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ 公开联系证据已记录（默认遮罩）</span> : <span className="whitespace-nowrap" style={{ color: 'var(--muted)' }}>✉️ 无公开联系证据</span>}
-          {e.contact_wechat && <span className="truncate" style={{ color: 'var(--muted)' }}>💬 微信已收录，需授权视图查看</span>}
-          {e.contact_phone && <span className="truncate" style={{ color: 'var(--muted)' }}>📞 电话已隐藏，需授权视图查看</span>}
+          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ {e.contact_email}</span> : <span className="text-xs" style={{ color: 'var(--muted)' }}>✉️ 无邮箱</span>}
+          {e.contact_wechat && <span className="truncate" style={{ color: 'var(--success)' }}>💬 {e.contact_wechat}</span>}
+          {e.contact_phone && <span className="truncate" style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
         </div>
         <div className="flex gap-2 shrink-0">
           {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📝 生成草稿</button> : <span className="text-xs whitespace-nowrap font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
