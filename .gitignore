@@ -38,3 +38,7 @@ Thumbs.db
 .env.*
 !.env.example
 !**/.env.example
+
+db.sqlite3
+db.sqlite3/
+/db.sqlite3
