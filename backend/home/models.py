@@ -6,7 +6,8 @@ class UniversityEvent(models.Model):
     """
     高校 AI/Web3 活动
 
-    通过 fetch_events 管理命令自动采集，source_url 作为去重键。
+    通过 OpenClaw University-Event-Collector 自动采集，source_url 作为去重键。
+    数据格式对齐 openclaw skills 输出的 JSON 结构。
     """
     title = models.CharField(max_length=500, verbose_name='活动标题')
     university = models.CharField(max_length=200, verbose_name='高校名称')
@@ -16,8 +17,13 @@ class UniversityEvent(models.Model):
     description = models.TextField(blank=True, default='', verbose_name='活动描述')
     source_url = models.URLField(max_length=500, unique=True, verbose_name='来源链接')
     source_name = models.CharField(max_length=100, blank=True, default='', verbose_name='来源平台')
-    contact_email = models.CharField(max_length=200, blank=True, default='', verbose_name='联系人邮箱')
-    contact_phone = models.CharField(max_length=50, blank=True, default='', verbose_name='联系人电话')
+
+    # 联系方式（对齐 OpenClaw contact 结构）
+    contact_email = models.CharField(max_length=200, blank=True, default='', verbose_name='官方邮箱')
+    contact_ai_email = models.CharField(max_length=200, blank=True, default='', verbose_name='AI部门邮箱')
+    contact_phone = models.CharField(max_length=50, blank=True, default='', verbose_name='联系电话')
+    contact_wechat = models.CharField(max_length=100, blank=True, default='', verbose_name='微信')
+    contact_qq = models.CharField(max_length=50, blank=True, default='', verbose_name='QQ')
 
     CATEGORY_CHOICES = [
         ('AI', 'AI'),
@@ -30,8 +36,11 @@ class UniversityEvent(models.Model):
     )
 
     EVENT_TYPE_CHOICES = [
-        ('讲座', '讲座'),
         ('黑客松', '黑客松'),
+        ('分享会', '分享会'),
+        ('讲座', '讲座'),
+        ('竞赛', '竞赛'),
+        ('研讨会', '研讨会'),
         ('论坛', '论坛'),
         ('工作坊', '工作坊'),
         ('其他', '其他'),
@@ -43,7 +52,7 @@ class UniversityEvent(models.Model):
 
     registration_url = models.URLField(max_length=500, blank=True, default='', verbose_name='报名链接')
     is_contacted = models.BooleanField(default=False, verbose_name='是否已联系')
-    score = models.PositiveSmallIntegerField(default=0, verbose_name='匹配度评分')
+    score = models.PositiveSmallIntegerField(default=0, verbose_name='置信度 (0-100)')
     raw_data = models.TextField(blank=True, default='', verbose_name='原始数据 JSON')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='收录时间')
 

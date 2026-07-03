@@ -42,3 +42,7 @@ Thumbs.db
 db.sqlite3
 db.sqlite3/
 /db.sqlite3
+
+migrations/
+migrations
+/migrations

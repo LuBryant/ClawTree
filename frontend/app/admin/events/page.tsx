@@ -7,9 +7,9 @@ import {
 } from '../../lib/api-client';
 
 const CATEGORIES = ['', 'AI', 'Web3', 'AI+Web3'] as const;
-const EVENT_TYPES = ['', '讲座', '黑客松', '论坛', '工作坊', '其他'] as const;
+const EVENT_TYPES = ['', '黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '其他'] as const;
 const CAT_LABEL: Record<string, string> = { '': '全部分类', AI: '🤖 AI', Web3: '⛓️ Web3', 'AI+Web3': '⚡ AI+Web3' };
-const TYPE_LABEL: Record<string, string> = { '': '全部类型', '讲座': '🎙️ 讲座', '黑客松': '💻 黑客松', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '其他': '📌 其他' };
+const TYPE_LABEL: Record<string, string> = { '': '全部类型', '黑客松': '💻 黑客松', '分享会': '🎯 分享会', '讲座': '🎙️ 讲座', '竞赛': '🏆 竞赛', '研讨会': '🎓 研讨会', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '其他': '📌 其他' };
 
 const DEFAULT_TEMPLATE = `尊敬的 {高校名称} 老师：
 
@@ -226,6 +226,7 @@ function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs min-w-0">
           {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ 公开联系证据已记录（默认遮罩）</span> : <span className="whitespace-nowrap" style={{ color: 'var(--muted)' }}>✉️ 无公开联系证据</span>}
+          {e.contact_wechat && <span className="truncate" style={{ color: 'var(--muted)' }}>💬 微信已收录，需授权视图查看</span>}
           {e.contact_phone && <span className="truncate" style={{ color: 'var(--muted)' }}>📞 电话已隐藏，需授权视图查看</span>}
         </div>
         <div className="flex gap-2 shrink-0">

@@ -1,0 +1,128 @@
+{
+  "events": [
+    {
+      "school": "AdventureX（多校联合）",
+      "activity_name": "AdventureX 2026 中国最大黑客松",
+      "date": "2026-07-22",
+      "type": "黑客松",
+      "description": "面向26岁以下或在读学生的72小时主题创作黑客松，强调技术向善与产品落地。免费报名，提供优质场地、工具、食宿及旅费补助。",
+      "source_url": "https://adventure-x.org/",
+      "contact": {
+        "official_email": "support@adventure-x.org",
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.92
+    },
+    {
+      "school": "杭州电子科技大学",
+      "activity_name": "2026国际区块链和Web3.0技术创新与应用交流大会暨学术年会",
+      "date": "2026-11-06",
+      "type": "研讨会",
+      "description": "AI赋能区块链与Web3.0主题大会，包括AI用于区块链安全、智能合约优化、Web3治理等。论文投稿截止7月31日，Springer出版EI检索。",
+      "source_url": "https://www.cie.org.cn/list_43/15865.html",
+      "contact": {
+        "official_email": "caosheng@uestc.edu.cn",
+        "ai_dept_email": "chengguanjie@zju.edu.cn",
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.88
+    },
+    {
+      "school": "中国科学院大学",
+      "activity_name": "人工智能学院系列科学前沿讲座",
+      "date": "2026-07",
+      "type": "讲座",
+      "description": "持续举办的AI前沿讲座，涵盖触觉增强多模态大模型、AI4Science、医疗机器人等主题，面向全校师生。",
+      "source_url": "https://ai.ucas.ac.cn/",
+      "contact": {
+        "official_email": "ai_public@ucas.ac.cn",
+        "ai_dept_email": "aiyzb@ucas.ac.cn",
+        "phone": "010-88256568",
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.90
+    },
+    {
+      "school": "清华大学",
+      "activity_name": "人工智能学院学术交流活动",
+      "date": "2026-07",
+      "type": "分享会",
+      "description": "由图灵奖得主姚期智院士领导的人工智能学院定期举办大学生学术交流日、系列讲座预告等活动，聚焦AI前沿研究。",
+      "source_url": "https://collegeai.tsinghua.edu.cn/",
+      "contact": {
+        "official_email": "collegeai@mail.tsinghua.edu.cn",
+        "ai_dept_email": null,
+        "phone": "010-62788817",
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.85
+    },
+    {
+      "school": "重庆理工大学",
+      "activity_name": "抖音AI创变者计划2026黑客松联赛（重庆站）",
+      "date": "2026-04",
+      "type": "黑客松",
+      "description": "字节跳动主办的AI创变者计划多站黑客松之一，重庆理工大学计算机学院承办，面向零基础学生，鼓励AI产品落地。",
+      "source_url": "https://www.cqut.edu.cn/info/1263/70092.htm",
+      "contact": {
+        "official_email": "douyinaiia@bytedance.com",
+        "ai_dept_email": null,
+        "phone": "023-62563071",
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.82
+    },
+    {
+      "school": "多校联合（清华/北大/浙大/上交大等校友会）",
+      "activity_name": "AI国际先锋大赛",
+      "date": "2026-06-30",
+      "type": "竞赛",
+      "description": "Web3 Festival期间启动的全球AI竞赛，覆盖香港、北京、上海、深圳、杭州等赛区，包含AI+金融/Web3赛道。",
+      "source_url": "https://tech.chinadaily.com.cn/a/202604/27/WS69eefb4ca310942cc49a97cc.html",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.75
+    },
+    {
+      "school": "全国高校",
+      "activity_name": "全国人工智能应用场景创新挑战赛（第四届）",
+      "date": "2026-12",
+      "type": "竞赛",
+      "description": "鼓励高校承办校赛/院赛的全国性AI应用创新挑战赛，总决赛12月举行，报名已于6月30日截止。",
+      "source_url": "https://www.cicas.cn/",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.70
+    }
+  ],
+  "meta": {
+    "query_time": "2026-07-04T02:30:00+08:00",
+    "total_found": 7,
+    "search_keywords": [
+      "中国高校 AI 活动 2026 黑客松 讲座",
+      "985 211 大学 人工智能 Web3 竞赛 分享会 2026",
+      "AdventureX 2026 黑客松 杭州 联系方式",
+      "中国科学院大学 人工智能学院 联系方式",
+      "清华大学 人工智能学院 联系邮箱",
+      "重庆理工大学 抖音AI创变者 2026 联系方式"
+    ]
+  }
+}

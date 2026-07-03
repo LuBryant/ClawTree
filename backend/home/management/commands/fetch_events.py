@@ -1,12 +1,22 @@
 """
 高校 AI/Web3 活动采集命令
 
-用法: python manage.py fetch_events [--max-results N] [--dry-run]
+用法:
+    # 完整流程：搜索 + LLM 提取 + 直接入库
+    python manage.py fetch_events
+
+    # openclaw 工作流：搜索 + LLM 提取 → 输出 JSON → save_events 入库
+    python manage.py fetch_events --output-json --score-min 5 --dry-run
+    python manage.py save_events --json '<JSON_ARRAY>'
+
+    # 自定义搜索关键词
+    python manage.py fetch_events --keywords "清华大学 AI 黑客松,北大 Web3 讲座"
 
 多渠道自动检索高校 AI/Web3 活动，LLM 结构化提取后存入数据库。
-参考 fetch_topic.py + fetch_news.py 模式。
+参考 fetch_github.py + save_github.py 模式。
 
 数据流: 搜索 → 详情抓取 → LLM 提取 → 邮箱正则 → 去重入库
+openclaw 工作流: 搜索 → LLM 提取 → JSON 输出 → save_events → 去重入库
 """
 import os
 import re
@@ -133,6 +143,17 @@ class Command(BaseCommand):
             help='仅搜索和提取，不入库',
         )
         parser.add_argument(
+            '--output-json',
+            action='store_true',
+            help='将提取结果以 JSON 格式输出到 stdout（可配合 save_events 使用）',
+        )
+        parser.add_argument(
+            '--score-min',
+            type=int,
+            default=3,
+            help='最低评分阈值（默认 3），低于此分的活动跳过',
+        )
+        parser.add_argument(
             '--keywords',
             type=str,
             help='自定义搜索关键词（逗号分隔），覆盖默认关键词',
@@ -141,6 +162,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         max_results = options['max_results']
         dry_run = options['dry_run']
+        output_json = options['output_json']
+        score_min = options['score_min']
 
         # 关键词
         if options.get('keywords'):
@@ -204,6 +227,7 @@ class Command(BaseCommand):
         # -------------------------------------------------------------------
         saved_count = 0
         skipped_count = 0
+        saved_items = []  # 用于 --output-json 模式收集结果
 
         for i, item in enumerate(unique_items):
             self.stdout.write(f'  [{i+1}/{len(unique_items)}] {item["title"][:60]}...')
@@ -237,9 +261,9 @@ class Command(BaseCommand):
 
             # 评分过滤
             score = extracted.get('score', 0)
-            if score < 3:
+            if score < score_min:
                 skipped_count += 1
-                self.stdout.write(f'    评分 {score} < 3，跳过')
+                self.stdout.write(f'    评分 {score} < {score_min}，跳过')
                 continue
 
             # -------------------------------------------------------------------
@@ -253,6 +277,7 @@ class Command(BaseCommand):
                     )
                 )
                 saved_count += 1
+                saved_items.append(self._build_item(item, extracted))
                 continue
 
             _, created = UniversityEvent.objects.update_or_create(
@@ -288,11 +313,14 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f'    已存在，跳过')
 
+            # 无论新增还是更新，都收集到 JSON 输出列表
+            saved_items.append(self._build_item(item, extracted))
+
             # 频率控制
             time.sleep(0.5)
 
         # -------------------------------------------------------------------
-        # 4. 输出统计
+        # 4. 输出统计 & JSON
         # -------------------------------------------------------------------
         self.stdout.write('')
         self.stdout.write(
@@ -301,6 +329,14 @@ class Command(BaseCommand):
                 f'共处理 {len(unique_items)} 条'
             )
         )
+
+        # --output-json: 将结果以 JSON 格式输出到 stdout
+        if output_json and saved_items:
+            self.stdout.write('')
+            self.stdout.write('=' * 60)
+            self.stdout.write('JSON 输出（可直接用于 save_events --json）:')
+            self.stdout.write('=' * 60)
+            self.stdout.write(json.dumps(saved_items, ensure_ascii=False, indent=2))
 
     # =======================================================================
     # 搜索方法
@@ -563,3 +599,27 @@ class Command(BaseCommand):
         """确保活动类型在有效选项中"""
         valid = {'讲座', '黑客松', '论坛', '工作坊', '其他'}
         return value if value in valid else '其他'
+
+    @staticmethod
+    def _build_item(search_item, extracted):
+        """构建用于 JSON 输出的标准化活动数据
+
+        将搜索来源和 LLM 提取结果合并为 save_events.py 可接受的格式。
+        """
+        return {
+            'title': extracted.get('title', search_item.get('title', ''))[:500],
+            'university': extracted.get('university', '')[:200],
+            'event_date': extracted.get('event_date', None),
+            'event_end_date': extracted.get('event_end_date', None),
+            'location': extracted.get('location', '')[:300],
+            'description': extracted.get('description', '')[:1000],
+            'source_url': search_item['url'],
+            'source_name': search_item.get('source_name', '')[:100],
+            'contact_email': extracted.get('contact_email', '')[:200],
+            'contact_phone': extracted.get('contact_phone', '')[:50],
+            'category': extracted.get('category', 'AI'),
+            'event_type': extracted.get('event_type', '其他'),
+            'registration_url': extracted.get('registration_url', '')[:500],
+            'score': min(int(extracted.get('score', 0)), 10),
+            'is_contacted': False,
+        }
