@@ -99,6 +99,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ---------------------------------------------------------------------------
+# 邮件配置 — 163 邮箱
+# ---------------------------------------------------------------------------
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('SMTP_HOST', 'smtp.163.com')
+EMAIL_PORT = int(os.environ.get('SMTP_PORT', '465'))
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = os.environ.get('SMTP_USER', '13108157968@163.com')
+EMAIL_HOST_PASSWORD = os.environ.get('SMTP_PASS', 'ZRA4czU2gGtTqfLe')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# ---------------------------------------------------------------------------
 # DRF 配置（与 openclaw-panel 一致）
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {

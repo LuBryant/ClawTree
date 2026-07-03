@@ -2,6 +2,7 @@ import os
 import json
 import time
 
+from django.core.mail import send_mail
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -160,15 +161,33 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
         draft = self.get_object()
         if draft.status not in ('draft', 'awaiting_approval'):
             return Response({'error': '仅草稿和待审批状态可批准'}, status=400)
+
         draft.status = 'approved'
         draft.approved_by = request.data.get('approved_by', 'admin')
         draft.approved_at = time.strftime('%Y-%m-%dT%H:%M:%S+08:00')
+
         # 保存编辑后的内容
         edited_body = request.data.get('email_body', '')
         if edited_body:
             draft.email_body = edited_body
         draft.save()
-        return Response({'status': 'approved', 'id': draft.id})
+
+        # 发送邮件
+        try:
+            subject = draft.subject or f'合作邀请｜大树财经高校行 — {draft.university_event.title}'
+            recipient = draft.recipient_email or draft.university_event.contact_email
+            if recipient:
+                send_mail(
+                    subject=subject,
+                    message=draft.email_body,
+                    from_email=None,  # 使用 DEFAULT_FROM_EMAIL
+                    recipient_list=[recipient],
+                    fail_silently=False,
+                )
+                return Response({'status': 'approved', 'id': draft.id, 'sent': True})
+            return Response({'status': 'approved', 'id': draft.id, 'sent': False, 'reason': '无收件人邮箱'})
+        except Exception as e:
+            return Response({'status': 'approved', 'id': draft.id, 'sent': False, 'reason': str(e)})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):

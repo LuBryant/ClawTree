@@ -217,8 +217,8 @@ export function fetchOutreachDrafts(): Promise<OutreachDraft[]> {
   return request<{ results: OutreachDraft[] }>('/outreach/').then((r) => r.results);
 }
 
-export function approveOutreachDraft(id: number, approvedBy: string, emailBody?: string): Promise<{ status: string }> {
-  return requestWithBody<{ status: string }>(`/outreach/${id}/approve/`, 'POST', { approved_by: approvedBy, email_body: emailBody });
+export function approveOutreachDraft(id: number, approvedBy: string, emailBody?: string): Promise<{ status: string; sent?: boolean; reason?: string }> {
+  return requestWithBody<{ status: string; sent?: boolean; reason?: string }>(`/outreach/${id}/approve/`, 'POST', { approved_by: approvedBy, email_body: emailBody });
 }
 
 export function rejectOutreachDraft(id: number): Promise<{ status: string }> {

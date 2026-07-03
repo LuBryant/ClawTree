@@ -34,8 +34,13 @@ export default function AdminOutreachPage() {
 
   const handleApprove = async (id: number, editedBody?: string) => {
     try {
-      await approveOutreachDraft(id, 'admin', editedBody);
+      const res = await approveOutreachDraft(id, 'admin', editedBody);
       setDrafts((p) => p.map((d) => d.id === id ? { ...d, status: 'approved' as const } : d));
+      if (res.sent) {
+        alert('✅ 邮件已批准并发送成功');
+      } else {
+        alert(`⚠️ 已批准但发送失败：${res.reason || '未知原因'}`);
+      }
     } catch { alert('审批失败'); }
   };
 

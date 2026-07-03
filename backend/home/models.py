@@ -397,8 +397,19 @@ class OutreachDraft(models.Model):
         verbose_name = '外联草稿'
         verbose_name_plural = '外联草稿'
 
+    ALLOWED_TRANSITIONS = {
+        None: {'draft'},
+        'draft': {'awaiting_approval', 'approved', 'rejected'},
+        'awaiting_approval': {'approved', 'rejected'},
+        'approved': set(),
+        'rejected': set(),
+    }
+
     def __str__(self):
         return f'[{self.get_status_display()}] {self.university_event.university} — {self.university_event.title[:40]}'
+
+    def can_transition_to(self, next_status):
+        return next_status in self.ALLOWED_TRANSITIONS.get(self.status, set())
 
     def clean(self):
         super().clean()
