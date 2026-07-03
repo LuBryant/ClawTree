@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UniversityEvent, EventReview, TweetReview
+from .models import UniversityEvent, EventReview, TweetReview, OutreachDraft
 
 
 @admin.register(UniversityEvent)
@@ -30,3 +30,12 @@ class TweetReviewAdmin(admin.ModelAdmin):
     search_fields = ['text', 'summary']
     ordering = ['-published_at']
     readonly_fields = ['created_at', 'tweet_id']
+
+
+@admin.register(OutreachDraft)
+class OutreachDraftAdmin(admin.ModelAdmin):
+    list_display = ['university_event', 'status', 'recipient_email', 'approved_by', 'created_at']
+    list_filter = ['status']
+    search_fields = ['email_body', 'recipient_email']
+    ordering = ['-created_at']
+    readonly_fields = ['created_at', 'updated_at']

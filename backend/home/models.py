@@ -362,6 +362,44 @@ class EditorialReview(models.Model):
     def can_transition_to(self, next_status):
         return next_status in self.ALLOWED_TRANSITIONS.get(self.status, set())
 
+
+class OutreachDraft(models.Model):
+    """
+    外联审批草稿
+
+    每封 AI 生成的合作邀请邮件对应一条记录，需人工审批后才能发送。
+    """
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('awaiting_approval', '待审批'),
+        ('approved', '已批准'),
+        ('rejected', '已驳回'),
+    ]
+
+    university_event = models.ForeignKey(
+        UniversityEvent, on_delete=models.CASCADE,
+        related_name='outreach_drafts', verbose_name='关联活动',
+    )
+    subject = models.CharField(max_length=300, blank=True, default='', verbose_name='邮件主题')
+    email_body = models.TextField(verbose_name='邮件正文')
+    recipient_email = models.CharField(max_length=200, blank=True, default='', verbose_name='收件人邮箱')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='draft',
+        verbose_name='审批状态',
+    )
+    approved_by = models.CharField(max_length=100, blank=True, default='', verbose_name='审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '外联草稿'
+        verbose_name_plural = '外联草稿'
+
+    def __str__(self):
+        return f'[{self.get_status_display()}] {self.university_event.university} — {self.university_event.title[:40]}'
+
     def clean(self):
         super().clean()
         if not self.pk:

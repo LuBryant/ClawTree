@@ -180,6 +180,51 @@ export function fetchEventDetail(id: number): Promise<UniversityEvent> {
   return request<UniversityEvent>(`/events/${id}/`);
 }
 
+/** AI 生成合作邀请邮件 */
+export interface GenerateEmailResult {
+  event_id: number;
+  title: string;
+  university: string;
+  email_body: string;
+}
+
+export function generateEmail(eventIds: number[]): Promise<{ results: GenerateEmailResult[] }> {
+  return requestWithBody<{ results: GenerateEmailResult[] }>(
+    '/events/generate_email/', 'POST', { event_ids: eventIds },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 外联审批 API
+// ---------------------------------------------------------------------------
+
+export interface OutreachDraft {
+  id: number;
+  university_event: number;
+  university_name: string;
+  event_title: string;
+  subject: string;
+  email_body: string;
+  recipient_email: string;
+  status: 'draft' | 'awaiting_approval' | 'approved' | 'rejected';
+  approved_by: string;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function fetchOutreachDrafts(): Promise<OutreachDraft[]> {
+  return request<{ results: OutreachDraft[] }>('/outreach/').then((r) => r.results);
+}
+
+export function approveOutreachDraft(id: number, approvedBy: string, emailBody?: string): Promise<{ status: string }> {
+  return requestWithBody<{ status: string }>(`/outreach/${id}/approve/`, 'POST', { approved_by: approvedBy, email_body: emailBody });
+}
+
+export function rejectOutreachDraft(id: number): Promise<{ status: string }> {
+  return requestWithBody<{ status: string }>(`/outreach/${id}/reject/`, 'POST');
+}
+
 // ---------------------------------------------------------------------------
 // 活动回顾 API
 // ---------------------------------------------------------------------------

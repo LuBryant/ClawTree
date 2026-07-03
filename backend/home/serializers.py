@@ -7,6 +7,7 @@ from .models import (
     IngestionRun,
     ContentItem,
     EditorialReview,
+    OutreachDraft,
 )
 
 
@@ -167,3 +168,26 @@ class EditorialReviewSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+
+class OutreachDraftSerializer(serializers.ModelSerializer):
+    university_name = serializers.CharField(source='university_event.university', read_only=True)
+    event_title = serializers.CharField(source='university_event.title', read_only=True)
+
+    class Meta:
+        model = OutreachDraft
+        fields = [
+            'id',
+            'university_event',
+            'university_name',
+            'event_title',
+            'subject',
+            'email_body',
+            'recipient_email',
+            'status',
+            'approved_by',
+            'approved_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'approved_at']

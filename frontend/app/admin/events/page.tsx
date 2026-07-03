@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  fetchEvents, fetchEventStats,
-  type UniversityEvent, type EventStats, type EventsFilter,
+  fetchEvents, fetchEventStats, generateEmail,
+  type UniversityEvent, type EventStats, type EventsFilter, type GenerateEmailResult,
 } from '../../lib/api-client';
 
 const CATEGORIES = ['', 'AI', 'Web3', 'AI+Web3'] as const;
@@ -45,6 +45,8 @@ export default function AdminEventsPage() {
   const [showModal, setShowModal] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [reviewNotice, setReviewNotice] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [emailResults, setEmailResults] = useState<GenerateEmailResult[]>([]);
 
   const load = useCallback(async (f: EventsFilter, p: number) => {
     setLoading(true); setError('');
@@ -65,20 +67,32 @@ export default function AdminEventsPage() {
   const selectAll = () => setSelected(selected.size === events.length ? new Set() : new Set(events.map((e) => e.id)));
   const selEvents = events.filter((e) => selected.has(e.id));
 
-  const buildMail = (e: UniversityEvent) => template
-    .replace(/\{高校名称\}/g, e.university || '贵校')
-    .replace(/\{活动标题\}/g, e.title)
-    .replace(/\{你的名字\}/g, '大树财经高校行团队');
-
-  const sendOne = (e: UniversityEvent) => {
-    const body = buildMail(e);
-    setReviewNotice(`已为「${e.title}」生成一校一稿模拟草稿（${body.length} 字）。请进入 /admin/outreach 完成人工审批；本页不会打开邮箱、不会发送、不会写外部系统。`);
+  const sendOne = async (e: UniversityEvent) => {
+    setGenerating(true); setReviewNotice('');
+    try {
+      const res = await generateEmail([e.id]);
+      setEmailResults(res.results);
+      setReviewNotice(`已为「${e.title}」AI 生成合作邀请草稿。必须进入 /admin/outreach 逐校审批，不得直接发送。`);
+    } catch {
+      setReviewNotice('AI 生成失败，请确认后端已配置 DEEPSEEK_API_KEY');
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const sendBatch = () => {
+  const sendBatch = async () => {
     if (!selEvents.length) { alert('请先选择活动'); return; }
-    const draftCount = selEvents.length;
-    setReviewNotice(`已生成 ${draftCount} 个独立模拟草稿。批量仅表示批量进入审批队列；每校仍是一封独立草稿，本页不会 BCC、不会发送、不会写外部系统。`);
+    const ids = selEvents.map((e) => e.id);
+    setGenerating(true); setReviewNotice('');
+    try {
+      const res = await generateEmail(ids);
+      setEmailResults(res.results);
+      setReviewNotice(`已为 ${ids.length} 个活动 AI 生成合作邀请草稿。批量仅为进入审批队列，每校一封独立草稿，不得 BCC 群发。`);
+    } catch {
+      setReviewNotice('AI 生成失败，请确认后端已配置 DEEPSEEK_API_KEY');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const pages = Math.ceil(total / PS);
@@ -120,7 +134,9 @@ export default function AdminEventsPage() {
       {selected.size > 0 && (
         <section style={{ border: '1px solid rgba(248,214,109,0.42)', background: 'rgba(248,214,109,0.06)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <span className="text-sm font-black" style={{ color: 'var(--warning)' }}>已选 {selected.size} 项</span>
-          <button className="btn btn-warning btn-sm" onClick={sendBatch}>📝 生成逐校审批草稿</button>
+          <button className="btn btn-warning btn-sm" onClick={sendBatch} disabled={generating}>
+            {generating ? '⏳ AI 生成中...' : '📝 ai批量生成邮件文案'}
+          </button>
           <button className="btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消选择</button>
         </section>
       )}
@@ -129,6 +145,24 @@ export default function AdminEventsPage() {
         <section style={{ border: '1px solid rgba(22,242,179,0.38)', background: 'rgba(22,242,179,0.06)', padding: '14px 20px' }}>
           <p className="text-sm font-bold" style={{ color: 'var(--success)' }}>{reviewNotice}</p>
           <a className="btn-outline btn-sm mt-3 inline-flex" href="/admin/outreach">前往外联审批台</a>
+        </section>
+      )}
+
+      {emailResults.length > 0 && (
+        <section className="flex flex-col gap-4">
+          {emailResults.map((r) => (
+            <div key={r.event_id} className="panel" style={{ padding: '18px' }}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--warning)' }}>
+                  📧 {r.university} — {r.title}
+                </h3>
+                <span className="text-xs" style={{ color: 'var(--muted)' }}>草稿 · 待审批</span>
+              </div>
+              <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-dim)', fontFamily: 'inherit' }}>
+                {r.email_body}
+              </pre>
+            </div>
+          ))}
         </section>
       )}
 
@@ -154,7 +188,7 @@ export default function AdminEventsPage() {
         <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {events.map((e) => (
-              <EventCard key={e.id} event={e} sel={selected.has(e.id)} onToggle={() => toggle(e.id)} onSend={() => sendOne(e)} />
+              <EventCard key={e.id} event={e} sel={selected.has(e.id)} onToggle={() => toggle(e.id)} onSend={() => sendOne(e)} generating={generating} />
             ))}
             {events.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>暂无匹配数据</div>}
           </section>
@@ -196,7 +230,7 @@ export default function AdminEventsPage() {
 
 /* ------------------------------------------------------------------ */
 
-function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent; sel: boolean; onToggle: () => void; onSend: () => void }) {
+function EventCard({ event: e, sel, onToggle, onSend, generating }: { event: UniversityEvent; sel: boolean; onToggle: () => void; onSend: () => void; generating: boolean }) {
   const dateStr = e.event_date || '日期待定';
   const endStr = e.event_end_date ? ` → ${e.event_end_date}` : '';
   const catColors: Record<string, string> = { AI: 'var(--info)', Web3: 'var(--warning)', 'AI+Web3': 'var(--danger)' };
@@ -230,7 +264,7 @@ function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent
           {e.contact_phone && <span style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
         </div>
         <div className="flex gap-2">
-          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📝 生成草稿</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
+          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? '⏳ 生成中...' : '📝 ai生成邮件文案'}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
           <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>
