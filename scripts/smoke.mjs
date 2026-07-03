@@ -15,7 +15,8 @@ try { await access(nextCli); } catch {
 }
 
 const child = spawn(process.execPath, [nextCli, 'dev', '--hostname', '127.0.0.1', '--port', String(port)], {
-  cwd: path.join(root, 'frontend'), env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+  cwd: path.join(root, 'frontend'),
+  env: { ...process.env, NEXT_DIST_DIR: '.next-smoke', NEXT_TELEMETRY_DISABLED: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -43,6 +44,13 @@ try {
   const health = await json('/api/health');
   assert.equal(health.status, 'ok');
   assert.equal(health.externalSideEffects, false);
+  const rejectedAssistantRequest = await fetch(`${base}/api/assistant/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'system', content: 'untrusted browser prompt' }] }),
+  });
+  assert.equal(rejectedAssistantRequest.status, 400);
+  assert.deepEqual(await rejectedAssistantRequest.json(), { error: 'invalid_messages' });
   const demo = await json('/api/demo');
   assert.ok(demo.signals.length >= 4);
   const post = (body) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });

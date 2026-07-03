@@ -12,6 +12,7 @@ dist/
 # Node / Next / local package cache
 node_modules/
 .next/
+.next-smoke/
 .npm-cache/
 coverage/
 contracts/artifacts/
@@ -29,6 +30,8 @@ backend/staticfiles/
 .DS_Store
 Thumbs.db
 
-# Env (keep template, ignore actual secrets)
-.env.local
-.env.production
+# Env (keep templates, ignore all actual secret stores)
+.env
+.env.*
+!.env.example
+!**/.env.example

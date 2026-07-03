@@ -76,15 +76,19 @@ export default function AdminReviewsPage() {
   }, []);
 
   useEffect(() => {
-    if (mode === 'manual') {
-      const filter: ReviewsFilter = { ordering: '-created_at' };
-      if (search) filter.search = search;
-      loadManual(filter, page);
-    } else {
-      const filter: TweetReviewsFilter = { ordering: '-published_at' };
-      if (search) filter.search = search;
-      loadTweets(filter, page);
-    }
+    const timer = window.setTimeout(() => {
+      if (mode === 'manual') {
+        const filter: ReviewsFilter = { ordering: '-created_at' };
+        if (search) filter.search = search;
+        void loadManual(filter, page);
+      } else {
+        const filter: TweetReviewsFilter = { ordering: '-published_at' };
+        if (search) filter.search = search;
+        void loadTweets(filter, page);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [mode, search, page, loadManual, loadTweets]);
 
   const doSearch = () => { setPage(1); };

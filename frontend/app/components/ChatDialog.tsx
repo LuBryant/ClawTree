@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getDeepSeekClient } from '../lib/llm-client';
-import { SYSTEM_PROMPT, QUICK_ACTIONS } from '../lib/assistant-config';
+import { getAssistantClient } from '../lib/llm-client';
+import { QUICK_ACTIONS } from '../lib/assistant-config';
 
 interface Message {
   id: number;
@@ -21,8 +21,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const chatHistory = useRef<Array<{ role: string; content: string }>>([
-    { role: 'system', content: SYSTEM_PROMPT },
+  const chatHistory = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: messages[0].text },
   ]);
   const msgsEnd = useRef<HTMLDivElement>(null);
@@ -46,8 +45,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
     setMessages((prev) => [...prev, asstMsg]);
 
     try {
-      const client = getDeepSeekClient();
-      const result = await client.streamChat(chatHistory.current, undefined, {
+      const client = getAssistantClient();
+      const result = await client.streamChat(chatHistory.current, {
         onChunk: (chunk) => {
           asstMsg.text += chunk;
           setMessages((prev) =>
@@ -62,8 +61,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
         prev.map((m) => (m.id === asstMsg.id ? { ...m, text: finalText } : m)),
       );
       chatHistory.current.push({ role: 'assistant', content: finalText });
-    } catch (e) {
-      asstMsg.text = `抱歉，请求出错：${(e as Error).message}。请稍后重试。`;
+    } catch {
+      asstMsg.text = 'AI 客服暂时不可用，请稍后重试或联系人工支持。';
       setMessages((prev) =>
         prev.map((m) => (m.id === asstMsg.id ? { ...m, text: asstMsg.text } : m)),
       );

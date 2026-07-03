@@ -5,12 +5,20 @@ Django settings for ClawTree backend.
 """
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
+from config.database import DatabaseConfigurationError, build_database_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'clawtree-insecure-secret-key-change-in-production')
-
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = get_random_secret_key()
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY is required when DJANGO_DEBUG is false')
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -67,30 +75,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # ---------------------------------------------------------------------------
 # 数据库 — MySQL（数据库名: clawtree）
 # ---------------------------------------------------------------------------
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': os.environ.get('MYSQL_DATABASE', 'clawtree'),
-#         'HOST': os.environ.get('MYSQL_HOST', '127.0.0.1'),
-#         'USER': os.environ.get('MYSQL_USER', 'root'),
-#         'PASSWORD': os.environ.get('MYSQL_PASSWORD', ''),
-#         'PORT': os.environ.get('MYSQL_PORT', '3306'),
-#         'OPTIONS': {
-#             'charset': 'utf8mb4',
-#         },
-#     }
-# }
-
-DATABASES = {
-  'default':{
-    'ENGINE':'django.db.backends.mysql',
-    'NAME':'clawtree',
-    'HOST':'127.0.0.1',
-    'USER':'root',
-    'PASSWORD':'123456',
-    'PORT': '3306',
-  }
-}
+try:
+    DATABASES = build_database_config(os.environ, BASE_DIR, DEBUG)
+except DatabaseConfigurationError as error:
+    raise ImproperlyConfigured(str(error)) from error
 
 
 AUTH_PASSWORD_VALIDATORS = [
