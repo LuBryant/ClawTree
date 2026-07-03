@@ -6,6 +6,12 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
+function resolvedApiBase() {
+  return API_BASE.startsWith('http')
+    ? API_BASE
+    : `${typeof window === 'undefined' ? 'http://127.0.0.1:3000' : window.location.origin}${API_BASE}`;
+}
+
 // ---------------------------------------------------------------------------
 // 类型定义
 // ---------------------------------------------------------------------------
@@ -99,10 +105,7 @@ export interface ReviewsFilter {
 // ---------------------------------------------------------------------------
 
 async function request<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
-  const base = API_BASE.startsWith('http')
-    ? API_BASE
-    : `${typeof window === 'undefined' ? 'http://127.0.0.1:3000' : window.location.origin}${API_BASE}`;
-  const url = new URL(`${base}${path.replace(/\/$/, '')}`);
+  const url = new URL(`${resolvedApiBase()}${path.replace(/\/$/, '')}`);
 
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -129,7 +132,7 @@ async function requestWithBody<T>(
   method: 'POST' | 'PUT' | 'DELETE',
   body?: unknown,
 ): Promise<T> {
-  const url = new URL(`${API_BASE}${path}`);
+  const url = new URL(`${resolvedApiBase()}${path}`);
 
   const res = await fetch(url.toString(), {
     method,

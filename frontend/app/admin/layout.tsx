@@ -7,6 +7,10 @@ const links = [
   { href: '/admin', label: '📊 Dashboard', exact: true },
   { href: '/admin/events', label: '📅 活动浏览器', exact: false },
   { href: '/admin/reviews', label: '📸 活动回顾', exact: false },
+  { href: '/admin/ingestion', label: '🛰 采集运行', exact: false },
+  { href: '/admin/content', label: '📝 内容审核', exact: false },
+  { href: '/admin/proposals', label: '🤝 合作提案', exact: false },
+  { href: '/admin/outreach', label: '✉️ 外联审批', exact: false },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

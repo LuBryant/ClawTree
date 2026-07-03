@@ -13,7 +13,10 @@ dist/
 node_modules/
 .next/
 .next-smoke/
+.next-harness/
 .npm-cache/
+frontend/.next-smoke/
+frontend/.next-harness/
 coverage/
 contracts/artifacts/
 contracts/cache/

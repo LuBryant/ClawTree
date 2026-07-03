@@ -19,17 +19,16 @@ const DEFAULT_TEMPLATE = `尊敬的 {高校名称} 老师：
 
 大树财经是 Web3+AI 领域的媒体与活动品牌，正推动全球高校行计划，已成功支持多场黑客松和学术论坛。我们希望能与贵校探讨以下合作方向：
 
-1. 联合举办 AI/Web3 主题活动（线上/线下/混合）
-2. 嘉宾分享与技术资源支持
-3. 学生实习与人才对接
+1. 媒体支持与活动复盘
+2. AI/Web3 主题公开课或圆桌联动
+3. 高校行联合活动的人工评估
 
-期待与您进一步沟通！
+以上为模拟草稿，必须进入 /admin/outreach 逐校审批；不得直接发送，不得 BCC 群发。
 
 此致
 敬礼
 
-大树财经团队
-联系方式：{你的邮箱}`;
+大树财经高校行团队`;
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<UniversityEvent[]>([]);
@@ -45,18 +44,7 @@ export default function AdminEventsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
-  const [senderName, setSenderName] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('clawtree_sender_name') || 'leaf';
-    return 'leaf';
-  });
-  const [senderEmail, setSenderEmail] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('clawtree_sender_email') || 'a894074295@gmail.com';
-    return 'a894074295@gmail.com';
-  });
-
-  // 持久化到 localStorage
-  useEffect(() => { localStorage.setItem('clawtree_sender_name', senderName); }, [senderName]);
-  useEffect(() => { localStorage.setItem('clawtree_sender_email', senderEmail); }, [senderEmail]);
+  const [reviewNotice, setReviewNotice] = useState('');
 
   const load = useCallback(async (f: EventsFilter, p: number) => {
     setLoading(true); setError('');
@@ -80,23 +68,17 @@ export default function AdminEventsPage() {
   const buildMail = (e: UniversityEvent) => template
     .replace(/\{高校名称\}/g, e.university || '贵校')
     .replace(/\{活动标题\}/g, e.title)
-    .replace(/\{你的名字\}/g, senderName || '[你的名字]')
-    .replace(/\{你的邮箱\}/g, senderEmail || '[你的邮箱]');
+    .replace(/\{你的名字\}/g, '大树财经高校行团队');
 
   const sendOne = (e: UniversityEvent) => {
     const body = buildMail(e);
-    window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${e.contact_email}&su=${encodeURIComponent(`大树财经 · 高校合作邀请 — ${e.title}`)}&body=${encodeURIComponent(body)}`, '_blank');
+    setReviewNotice(`已为「${e.title}」生成一校一稿模拟草稿（${body.length} 字）。请进入 /admin/outreach 完成人工审批；本页不会打开邮箱、不会发送、不会写外部系统。`);
   };
 
   const sendBatch = () => {
-    const list = selEvents.filter((e) => e.contact_email);
-    if (!list.length) { alert('所选活动中没有可用的联系邮箱'); return; }
-    const emails = list.map((e) => e.contact_email).join(',');
-    const body = list.map((e, i) => {
-      const c = buildMail(e);
-      return list.length > 1 ? `--- 第 ${i + 1} 封：${e.university} — ${e.title} ---\n${c}` : c;
-    }).join('\n\n');
-    window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${emails}&su=${encodeURIComponent(`大树财经 · 高校合作邀请 — ${list[0].title}${list.length > 1 ? ` 等 ${list.length} 项` : ''}`)}&body=${encodeURIComponent(body)}`, '_blank');
+    if (!selEvents.length) { alert('请先选择活动'); return; }
+    const draftCount = selEvents.length;
+    setReviewNotice(`已生成 ${draftCount} 个独立模拟草稿。批量仅表示批量进入审批队列；每校仍是一封独立草稿，本页不会 BCC、不会发送、不会写外部系统。`);
   };
 
   const pages = Math.ceil(total / PS);
@@ -112,14 +94,14 @@ export default function AdminEventsPage() {
             {stats && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.total}</span> 条，已联系 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.contacted}</span> 条</span>}
           </p>
         </div>
-        <button className="btn-outline" onClick={() => setShowModal(true)}>📧 邮件模板</button>
+        <button className="btn-outline" onClick={() => setShowModal(true)}>📝 草稿模板</button>
       </section>
 
       {/* 筛选栏 */}
       <section className="flex flex-wrap items-center gap-3">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doSearch()}
           placeholder="搜索标题、高校…" className="input-field w-full sm:w-64" />
-        <button className="btn btn-success btn-sm" onClick={doSearch}>搜索</button>
+          <button className="btn btn-success btn-sm" onClick={doSearch}>搜索</button>
         <select value={filter.category || ''} onChange={(e) => { setFilter((f) => ({ ...f, category: e.target.value })); setPage(1); }} className="select-field">
           {CATEGORIES.map((c) => (<option key={c} value={c}>{CAT_LABEL[c]}</option>))}
         </select>
@@ -138,8 +120,15 @@ export default function AdminEventsPage() {
       {selected.size > 0 && (
         <section style={{ border: '1px solid rgba(248,214,109,0.42)', background: 'rgba(248,214,109,0.06)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <span className="text-sm font-black" style={{ color: 'var(--warning)' }}>已选 {selected.size} 项</span>
-          <button className="btn btn-warning btn-sm" onClick={sendBatch}>📧 批量发送邮件</button>
+          <button className="btn btn-warning btn-sm" onClick={sendBatch}>📝 生成逐校审批草稿</button>
           <button className="btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消选择</button>
+        </section>
+      )}
+
+      {reviewNotice && (
+        <section style={{ border: '1px solid rgba(22,242,179,0.38)', background: 'rgba(22,242,179,0.06)', padding: '14px 20px' }}>
+          <p className="text-sm font-bold" style={{ color: 'var(--success)' }}>{reviewNotice}</p>
+          <a className="btn-outline btn-sm mt-3 inline-flex" href="/admin/outreach">前往外联审批台</a>
         </section>
       )}
 
@@ -185,27 +174,17 @@ export default function AdminEventsPage() {
           <div className="mx-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             style={{ border: '1px solid rgba(22,242,179,0.2)', background: 'linear-gradient(135deg, rgba(22,242,179,0.06), rgba(120,166,255,0.04) 50%, rgba(248,214,109,0.06)), #081118', boxShadow: '0 24px 80px rgba(0,0,0,0.55)', padding: '24px' }}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-black uppercase tracking-wider">📧 邮件模板配置</h2>
+              <h2 className="text-xl font-black uppercase tracking-wider">📝 模拟草稿模板</h2>
               <button onClick={() => setShowModal(false)} className="text-xl leading-none" style={{ color: 'var(--muted)' }}>✕</button>
             </div>
             <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
-              变量：<code style={{ color: 'var(--warning)' }}>{'{高校名称}'}</code> <code style={{ color: 'var(--warning)' }}>{'{活动标题}'}</code> <code style={{ color: 'var(--warning)' }}>{'{你的名字}'}</code> <code style={{ color: 'var(--warning)' }}>{'{你的邮箱}'}</code>
+              变量：<code style={{ color: 'var(--warning)' }}>{'{高校名称}'}</code> <code style={{ color: 'var(--warning)' }}>{'{活动标题}'}</code>。本页仅生成草稿，不打开邮箱、不发送、不 BCC。
             </p>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>你的名字</label>
-                <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="张三" className="input-field w-full" />
-              </div>
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>你的邮箱</label>
-                <input type="email" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder="zhangsan@treefinance.com" className="input-field w-full" />
-              </div>
-            </div>
             <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>邮件正文</label>
             <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={14}
               className="input-field w-full resize-y mono text-xs leading-relaxed" />
             <div className="flex gap-3 mt-4 justify-end">
-              <button className="btn-outline btn-sm" onClick={() => { setTemplate(DEFAULT_TEMPLATE); setSenderName('leaf'); setSenderEmail('a894074295@gmail.com'); }}>恢复默认</button>
+              <button className="btn-outline btn-sm" onClick={() => setTemplate(DEFAULT_TEMPLATE)}>恢复默认</button>
               <button className="btn btn-success btn-sm" onClick={() => setShowModal(false)}>保存模板</button>
             </div>
           </div>
@@ -246,11 +225,11 @@ function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent
       {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs min-w-0">
-          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ {e.contact_email}</span> : <span className="whitespace-nowrap" style={{ color: 'var(--muted)' }}>✉️ 无联系方式</span>}
-          {e.contact_phone && <span className="truncate" style={{ color: 'var(--muted)' }}>📞 {e.contact_phone}</span>}
+          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ 公开联系证据已记录（默认遮罩）</span> : <span className="whitespace-nowrap" style={{ color: 'var(--muted)' }}>✉️ 无公开联系证据</span>}
+          {e.contact_phone && <span className="truncate" style={{ color: 'var(--muted)' }}>📞 电话已隐藏，需授权视图查看</span>}
         </div>
         <div className="flex gap-2 shrink-0">
-          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📧 发送邮件</button> : <span className="text-xs whitespace-nowrap font-bold" style={{ color: 'var(--muted)' }}>暂无邮箱</span>}
+          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📝 生成草稿</button> : <span className="text-xs whitespace-nowrap font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
           <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>

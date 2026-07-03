@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-07-03T15:48:12.936Z",
+  "cwd": "D:\\0-Document\\University\\PKU\\Phd\\Society\\Blockchain\\Competition\\202607_HTX_ClawTree\\ClawTree",
+  "platform": {
+    "os": "win32",
+    "release": "10.0.19045",
+    "arch": "x64",
+    "node": "v22.13.0"
+  },
+  "steps": [
+    {
+      "name": "docs:check",
+      "command": "npm run docs:check",
+      "exitCode": 0,
+      "durationMs": 2836,
+      "outputTail": "\n> clawtree@0.2.0 docs:check\n> node scripts/docs-check.mjs\n\nDOCS CHECK PASS: 9 markdown files, 15 routes\n",
+      "error": null
+    },
+    {
+      "name": "harness:matrix",
+      "command": "npm run harness:matrix",
+      "exitCode": 0,
+      "durationMs": 2015,
+      "outputTail": "\n> clawtree@0.2.0 harness:matrix\n> node scripts/harness-matrix.mjs\n\nHARNESS MATRIX PASS: scripts, smoke assertions, viewport checklist, reliability matrix\n",
+      "error": null
+    },
+    {
+      "name": "flight:test",
+      "command": "npm run flight:test",
+      "exitCode": 0,
+      "durationMs": 2005,
+      "outputTail": "\n> clawtree@0.2.0 flight:test\n> node scripts/offline-golden-path.mjs\n\nOFFLINE GOLDEN PATH PASS: no key/db/wallet/network dependency required for fixture demo\n",
+      "error": null
+    },
+    {
+      "name": "secret:scan:source",
+      "command": "npm run secret:scan:source",
+      "exitCode": 0,
+      "durationMs": 2305,
+      "outputTail": "\n> clawtree@0.2.0 secret:scan:source\n> node scripts/secret-scan.mjs source\n\nSECRET SCAN PASS (source)\n",
+      "error": null
+    },
+    {
+      "name": "secret:scan:diff",
+      "command": "npm run secret:scan:diff",
+      "exitCode": 0,
+      "durationMs": 2321,
+      "outputTail": "\n> clawtree@0.2.0 secret:scan:diff\n> node scripts/secret-scan.mjs diff\n\nSECRET SCAN PASS (diff)\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'backend/home/models.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'backend/home/serializers.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'docs/tasks.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/admin/events/page.tsx', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/admin/layout.tsx', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/admin/reviews/page.tsx', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/layout.tsx', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/lib/api-client.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/app/lib/assistant-config.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'frontend/tsconfig.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/secret-scan.mjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'scripts/smoke.mjs', LF will be replaced by CRLF the next time Git touches it\n",
+      "error": null
+    },
+    {
+      "name": "test",
+      "command": "npm run test",
+      "exitCode": 0,
+      "durationMs": 3696,
+      "outputTail": "\n> clawtree@0.2.0 test\n> node --test tests/*.test.mjs\n\nTAP version 13\n# Subtest: browser assistant uses only the same-origin proxy\nok 1 - browser assistant uses only the same-origin proxy\n  ---\n  duration_ms: 3.9729\n  ...\n# Subtest: assistant provider credential is read only by the server route\nok 2 - assistant provider credential is read only by the server route\n  ---\n  duration_ms: 1.289\n  ...\n# Subtest: DATA-1~4 content relay models and migration are present\nok 3 - DATA-1~4 content relay models and migration are present\n  ---\n  duration_ms: 10.147\n  ...\n# Subtest: DATA-4 editorial state machine is fail-closed\nok 4 - DATA-4 editorial state machine is fail-closed\n  ---\n  duration_ms: 1.1294\n  ...\n# Subtest: DATA-5 legacy EventReview and TweetReview expose compatibility snapshots\nok 5 - DATA-5 legacy EventReview and TweetReview expose compatibility snapshots\n  ---\n  duration_ms: 3.7644\n  ...\n# Subtest: backend serializers use explicit allowlists for public boundary fields\nok 6 - backend serializers use explicit allowlists for public boundary fields\n  ---\n  duration_ms: 1.4215\n  ...\n# Subtest: GATE-5 golden set contains 10 content items, 10 events, and 3 proposal targets\nok 7 - GATE-5 golden set contains 10 content items, 10 events, and 3 proposal targets\n  ---\n  duration_ms: 1.1527\n  ...\n# Subtest: AI-2 fixed schemas cover all agent tasks and are strict\nok 8 - AI-2 fixed schemas cover all agent tasks and are strict\n  ---\n  duration_ms: 4.4605\n  ...\n# Subtest: AI-1/AI-3 provider keeps credentials server-side and falls back deterministically\nok 9 - AI-1/AI-3 provider keeps credentials server-side and falls back deterministically\n  ---\n  duration_ms: 0.7898\n  ...\n# Subtest: AI-2 provider validates model JSON against task schema before returning\nok 10 - AI-2 provider validates model JSON against task schema before returning\n  ---\n  duration_ms: 2.4666\n  ...\n# Subtest: demo fixture has traceable signals and no fake-real contacts\nok 11 - demo fixture has traceable signals and no fake-real contacts\n  ---\n  duration_ms: 4.2875\n  ...\n# Subtest: campaign references only existing signals\nok 12 - campaign references only existing signals\n  ---\n  duration_ms: 0.9942\n  ...\n# Subtest: outreach state machine cannot skip human approval\nok 13 - outreach state machine cannot skip human approval\n  ---\n  duration_ms: 2.5447\n  ...\n# Subtest: proof public payload allowlist excludes private fields\nok 14 - proof public payload allowlist excludes private fields\n  ---\n  duration_ms: 0.6598\n  ...\n# Subtest: USER-1~7 public portal routes exist\nok 15 - USER-1~7 public portal routes exist\n  ---\n  duration_ms: 6.1697\n  ...\n# Subtest: ADMIN-2~5 management routes exist\nok 16 - ADMIN-2~5 management routes exist\n  ---\n  duration_ms: 4.7993\n  ...\n# Subtest: public user API routes use allowlisted fields and hide private operational data\nok 17 - public user API routes use allowlisted fields and hide private operational data\n  ---\n  duration_ms: 23.4712\n  ...\n# Subtest: public-data keeps contact details masked outside admin/outreach fixtures\nok 18 - public-data keeps contact details masked outside admin/outreach fixtures\n  ---\n  duration_ms: 7.5921\n  ...\n# Subtest: legacy admin event browser has no real email side effects\nok 19 - legacy admin event browser has no real email side effects\n  ---\n  duration_ms: 5.3888\n  ...\n# Subtest: browser API client resolves same-origin URLs for write operations\nok 20 - browser API client resolves same-origin URLs for write operations\n  ---\n  duration_ms: 3.6459\n  ...\n# Subtest: QA-7/QA-11 harness scripts are wired into package scripts\nok 21 - QA-7/QA-11 harness scripts are wired into package scripts\n  ---\n  duration_ms: 15.8654\n  ...\n# Subtest: QA-6 smoke covers public APIs, outreach, approval, and proof\nok 22 - QA-6 smoke covers public APIs, outreach, approval, and proof\n  ---\n  duration_ms: 4.2419\n  ...\n# Subtest: QA-8~QA-12 verification assets exist\nok 23 - QA-8~QA-12 verification assets exist\n  ---\n  duration_ms: 6.0098\n  ...\n# Subtest: secret scanner detects representative credentials without echoing values\nok 24 - secret scanner detects representative credentials without echoing values\n  ---\n  duration_ms: 6.2479\n  ...\n# Subtest: secret scanner accepts empty and environment-backed configuration\nok 25 - secret scanner accepts empty and environment-backed configuration\n  ---\n  duration_ms: 1.1647\n  ...\n# Subtest: git diff scanner considers additions but ignores removed leaked values\nok 26 - git diff scanner considers additions but ignores removed leaked values\n  ---\n  duration_ms: 0.6971\n  ...\n1..26\n# tests 26\n# suites 0\n# pass 26\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 988.9905\n",
+      "error": null
+    },
+    {
+      "name": "frontend:check",
+      "command": "npm --prefix frontend run check",
+      "exitCode": 0,
+      "durationMs": 80640,
+      "outputTail": "\n> frontend@0.1.0 check\n> npm run lint && npm run typecheck && npm run build\n\n\n> frontend@0.1.0 lint\n> eslint\n\n\n> frontend@0.1.0 typecheck\n> tsc --noEmit\n\n\n> frontend@0.1.0 build\n> next build\n\n▲ Next.js 16.2.9 (Turbopack)\n\n  Creating an optimized production build ...\n✓ Compiled successfully in 7.0s\n  Running TypeScript ...\n  Finished TypeScript in 22.9s ...\n  Collecting page data using 11 workers ...\n  Generating static pages using 11 workers (0/37) ...\n  Generating static pages using 11 workers (9/37) \r\n  Generating static pages using 11 workers (18/37) \r\n  Generating static pages using 11 workers (27/37) \r\n✓ Generating static pages using 11 workers (37/37) in 2.9s\n  Finalizing page optimization ...\n\nRoute (app)\n┌ ○ /\n├ ○ /_not-found\n├ ○ /admin\n├ ○ /admin/content\n├ ○ /admin/events\n├ ○ /admin/ingestion\n├ ○ /admin/outreach\n├ ○ /admin/proposals\n├ ○ /admin/reviews\n├ ƒ /api/assistant/chat\n├ ƒ /api/demo\n├ ƒ /api/events\n├ ƒ /api/events/stats\n├ ƒ /api/health\n├ ƒ /api/outreach/approve\n├ ƒ /api/outreach/draft\n├ ƒ /api/proofs/anchor\n├ ƒ /api/user/events\n├ ƒ /api/user/feed\n├ ƒ /api/user/recaps\n├ ○ /demo\n├ ○ /user\n├ ○ /user/about\n├ ○ /user/cooperate\n├ ○ /user/events\n├ ○ /user/recaps\n├ ● /user/recaps/[id]\n│ ├ /user/recaps/tf-campus-launch\n│ ├ /user/recaps/tf-nuist-recap\n│ ├ /user/recaps/tf-guangzhou-campus\n│ └ [+5 more paths]\n└ ○ /user/signals\n\n\n○  (Static)   prerendered as static content\n●  (SSG)      prerendered as static HTML (uses generateStaticParams)\nƒ  (Dynamic)  server-rendered on demand\n\n",
+      "error": null
+    },
+    {
+      "name": "secret:scan:bundle",
+      "command": "npm run secret:scan:bundle",
+      "exitCode": 0,
+      "durationMs": 4043,
+      "outputTail": "\n> clawtree@0.2.0 secret:scan:bundle\n> node scripts/secret-scan.mjs bundle\n\nSECRET SCAN PASS (bundle)\n",
+      "error": null
+    },
+    {
+      "name": "smoke",
+      "command": "npm run smoke",
+      "exitCode": 0,
+      "durationMs": 14628,
+      "outputTail": "\n> clawtree@0.2.0 smoke\n> node scripts/smoke.mjs\n\nSMOKE PASS: health → demo → draft → human approval → privacy-safe proof\n",
+      "error": null
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0
+  }
+}

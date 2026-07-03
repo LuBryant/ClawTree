@@ -39,6 +39,14 @@ async function json(pathname, init) {
   return payload;
 }
 
+function assertPublicPayload(payload, label) {
+  const serialized = JSON.stringify(payload);
+  for (const privateField of ['contact_email', 'contactEmail', 'maskedEmail', 'recipient', 'internalScore', 'prompt', 'riskLabels', 'rawText', 'replyText']) {
+    assert.equal(serialized.includes(privateField), false, label + ' leaked ' + privateField);
+  }
+  assert.equal(payload.externalSideEffect, false, label);
+}
+
 try {
   await waitUntilReady();
   const health = await json('/api/health');
@@ -53,6 +61,9 @@ try {
   assert.deepEqual(await rejectedAssistantRequest.json(), { error: 'invalid_messages' });
   const demo = await json('/api/demo');
   assert.ok(demo.signals.length >= 4);
+  assertPublicPayload(await json('/api/user/feed'), 'user feed');
+  assertPublicPayload(await json('/api/user/events'), 'user events');
+  assertPublicPayload(await json('/api/user/recaps'), 'user recaps');
   const post = (body) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const draft = await json('/api/outreach/draft', post({ campaignId: demo.campaign.id, targetId: demo.targets[0].id }));
   assert.equal(draft.status, 'draft');

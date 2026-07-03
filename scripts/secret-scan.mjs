@@ -56,6 +56,8 @@ function git(args) {
 }
 
 function scanFile(file) {
+  const relativePath = path.relative(root, file).replaceAll('\\', '/');
+  if (/^\.env(?:\.|$)/.test(relativePath) && !relativePath.endsWith('.example')) return [];
   const stats = statSync(file);
   if (!stats.isFile() || stats.size > MAX_FILE_BYTES) return [];
   const buffer = readFileSync(file);

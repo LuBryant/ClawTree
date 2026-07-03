@@ -1,0 +1,77 @@
+import { agentRuns, capabilityLibrary, proposalTargets } from '../../lib/public-data';
+
+const tierLabels: Record<string, string> = {
+  light: '轻量合作',
+  medium: '中度联动',
+  deep: '深度合作',
+};
+
+export default function AdminProposalsPage() {
+  return (
+    <div className="flex flex-col gap-6">
+      <section>
+        <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>
+          合作提案
+        </h1>
+        <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
+          Proposal Agent 管理面：每个契合点必须引用活动事实或能力库事实；缺证据时进入待确认。
+        </p>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        {proposalTargets.map((target) => (
+          <article key={target.id} className="panel p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="badge badge-success">score {target.score}</span>
+              <span className="badge">{target.city}</span>
+              <span className={target.approvalStatus === 'ready_for_review' ? 'badge badge-warning' : 'badge'}>{target.approvalStatus}</span>
+            </div>
+            <h2 className="mt-4 text-xl font-black">{target.organization}</h2>
+            <ul className="mt-4 grid gap-2 text-sm leading-6" style={{ color: 'var(--text-dim)' }}>
+              {target.reasons.map((reason) => <li key={reason}>✓ {reason}</li>)}
+            </ul>
+            <div className="mt-5 grid gap-3">
+              {Object.entries(target.tiers).map(([tier, value]) => (
+                <div key={tier} className="panel-deep p-3">
+                  <strong className="text-sm">{tierLabels[tier] || tier}</strong>
+                  <p className="mt-2 text-xs leading-6" style={{ color: 'var(--muted)' }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 text-xs leading-6" style={{ color: 'var(--muted)' }}>
+              <p>必须引用：{target.mustCite.join(', ')}</p>
+              <p>禁止承诺：{target.mustNotPromise.join(', ')}</p>
+              <p>联系邮箱：{target.maskedEmail}（默认遮罩）</p>
+            </div>
+            <button type="button" className="btn btn-success btn-sm mt-5">进入人工审批</button>
+          </article>
+        ))}
+      </section>
+
+      <section className="panel p-5">
+        <h2 className="text-xl font-black">能力库引用</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {capabilityLibrary.map((capability) => (
+            <div key={capability.id} className="panel-deep p-3 text-sm">
+              <strong>{capability.title}</strong>
+              <p className="mt-2 text-xs leading-6" style={{ color: 'var(--muted)' }}>{capability.boundary}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel p-5">
+        <h2 className="text-xl font-black">Agent 运行证据</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {agentRuns.map((run) => (
+            <div key={run.id} className="panel-deep p-3 text-xs leading-6" style={{ color: 'var(--muted)' }}>
+              <strong className="block text-sm" style={{ color: 'var(--text)' }}>{run.task}</strong>
+              <span>{run.provider} · {run.latency} · {run.cost}</span>
+              <span className="block">refs: {run.refs.join(', ')}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

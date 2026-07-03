@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import {
   fetchReviews, createReview, deleteReview,
   fetchTweetReviews,
@@ -94,7 +95,13 @@ export default function AdminReviewsPage() {
   const doSearch = () => { setPage(1); };
 
   const toggleExpand = (id: number) => setExpanded((p) => {
-    const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n;
+    const n = new Set(p);
+    if (n.has(id)) {
+      n.delete(id);
+    } else {
+      n.add(id);
+    }
+    return n;
   });
 
   const handleDelete = async (id: number) => {
@@ -371,7 +378,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
         <div className={`grid gap-2 mb-2 ${mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {mediaUrls.map((url, i) => (
             <a key={i} href={t.twitter_url} target="_blank" rel="noopener noreferrer">
-              <img src={url} alt={`图 ${i + 1}`} loading="lazy"
+              <Image src={url} alt={`图 ${i + 1}`} width={640} height={360} unoptimized
                 className="w-full object-cover" style={{ aspectRatio: '16/9', display: 'block' }} />
             </a>
           ))}

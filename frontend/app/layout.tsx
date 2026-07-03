@@ -19,6 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span>ClawTree <small>树爪智动</small></span>
             </Link>
             <nav className="top-nav" aria-label="主导航">
+              <Link href="/user">用户端</Link>
               <Link href="/demo">现场 Demo</Link>
               <Link href="/admin">运营台</Link>
               <a href="https://treefinance.co" target="_blank" rel="noreferrer">大树财经</a>
