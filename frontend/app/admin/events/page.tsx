@@ -223,15 +223,15 @@ function EventCard({ event: e, sel, onToggle, onSend }: { event: UniversityEvent
       <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>🏫 {e.university || '未知高校'}</p>
       <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>📅 {dateStr}{endStr}{e.location ? ` · 📍 ${e.location}` : ''}</p>
       {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
-      <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-        <div className="flex flex-col gap-0.5 text-xs min-w-0">
-          {e.contact_email ? <span className="truncate" style={{ color: 'var(--success)' }}>✉️ {e.contact_email}</span> : <span className="text-xs" style={{ color: 'var(--muted)' }}>✉️ 无邮箱</span>}
-          {e.contact_wechat && <span className="truncate" style={{ color: 'var(--success)' }}>💬 {e.contact_wechat}</span>}
-          {e.contact_phone && <span className="truncate" style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
+      <div className="mt-3 flex flex-col gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="flex flex-col gap-0.5 text-xs">
+          {e.contact_email ? <span style={{ color: 'var(--success)', wordBreak: 'break-all' }}>✉️ {e.contact_email}</span> : <span className="text-xs" style={{ color: 'var(--muted)' }}>✉️ 无邮箱</span>}
+          {e.contact_wechat && <span style={{ color: 'var(--success)' }}>💬 {e.contact_wechat}</span>}
+          {e.contact_phone && <span style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
         </div>
-        <div className="flex gap-2 shrink-0">
-          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📝 生成草稿</button> : <span className="text-xs whitespace-nowrap font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
-          <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
+        <div className="flex gap-2">
+          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend}>📝 生成草稿</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
+          <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>
     </div>
