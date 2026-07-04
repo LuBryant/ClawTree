@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": "2026-07-03.v1",
+    "version": "2026-07-04.wc-v2",
     "mode": "mock",
-    "notice": "公开来源仅用于演示产品工作流；高校联系人和执行结果均为 MOCK。"
+    "notice": "非赛事官方项目，不使用赛事标识或受限图片；公开来源用于匹配演示，高校联系人、回复与执行结果均为 MOCK。"
   },
   "signals": [
     {
@@ -64,43 +64,124 @@
   ],
   "campaign": {
     "id": "cmp-worldcup-guangzhou-2026",
-    "name": "世界杯 × AI：广州高校事件驱动财经素养计划",
+    "name": "全球足球赛事 × AI：广州高校事件驱动财经素养计划",
     "objective": "为广州高校行增加一个可传播的热点内容单元，并在 7 天内获得至少 3 个合格高校合作回复。",
     "audience": ["广州高校学生", "AI/Web3 社团", "财经与传播专业师生", "生态赞助伙伴"],
-    "angle": "从世界杯公共事件出发，讲解 AI 如何辅助信息验证、数据权益与预测市场研究；只做教育和活动策划，不构成投资建议。",
+    "angle": "从全球足球赛事这一公共事件出发，用 AI 做信息验证、叙事校准与赛后事实复盘；只做财经素养和技术教育，不预测比分，不构成投资建议。",
     "formats": ["校园圆桌", "X Space", "AI 数据工作坊", "赛后趋势短报告"],
+    "localTopics": ["体育消费", "跨境电商", "内容出海", "机器人 / AI"],
     "signalIds": ["sig-guangzhou-campus", "sig-ai-data-ama", "sig-htx-waic", "sig-worldcup-market"],
     "status": "draft"
   },
   "targets": [
     {
       "id": "target-gdufe",
-      "organization": "广东财经大学数智学院（演示目标）",
+      "organization": "广东财经大学大数据与人工智能学院（候选）",
       "city": "广州",
       "score": 94,
       "reasons": ["财经与数智主题高度匹配", "位于广州，适合作为高校行联动节点", "公开动态已有相关校友嘉宾线索"],
+      "focus": "数字金融 × AI 决策",
+      "recommendedFormat": "事件驱动财经素养公开课",
+      "evidence": [
+        { "label": "大数据与人工智能学院简介", "url": "https://info.gdufe.edu.cn/2025/0821/c4479a224127/page.htm" },
+        { "label": "智能科学与技术学科方向", "url": "https://info.gdufe.edu.cn/2025/0824/c4484a224342/page.htm" }
+      ],
       "contact": { "email": "demo-gdufe@example.invalid", "isMock": true },
       "status": "shortlisted"
     },
     {
       "id": "target-sysu",
-      "organization": "中山大学 AI 学生社团（演示目标）",
+      "organization": "中山大学计算机学院 / 管理学院（候选）",
       "city": "广州",
-      "score": 88,
-      "reasons": ["AI 学生受众与工作坊形式匹配", "具备跨学科传播潜力", "与广州站时间和地域一致"],
+      "score": 92,
+      "reasons": ["公开研究方向覆盖区块链与去中心化系统", "大数据、AI 与管理决策交叉", "适合事实核验和数据权益议题"],
+      "focus": "可信计算 × 管理决策",
+      "recommendedFormat": "AI 叙事核验挑战",
+      "evidence": [
+        { "label": "先进网络与计算系统研究所", "url": "https://cse.sysu.edu.cn/research/team/07" },
+        { "label": "大数据管理行为与决策实验室", "url": "https://bus.sysu.edu.cn/Research/Research/dsj" }
+      ],
       "contact": { "email": "demo-sysu@example.invalid", "isMock": true },
       "status": "suggested"
     },
     {
       "id": "target-scut",
-      "organization": "华南理工大学区块链协会（演示目标）",
+      "organization": "华南理工大学未来技术学院（候选）",
       "city": "广州",
-      "score": 86,
-      "reasons": ["Web3 与 AI×Web3 赛道匹配", "技术社群适合承接实操内容", "可连接 HTX Genesis 项目招募"],
+      "score": 90,
+      "reasons": ["AI 培养方案包含区块链课程", "可信算力与产业应用基础扎实", "适合技术工作坊和原型挑战"],
+      "focus": "可信算力 × 区块链工程",
+      "recommendedFormat": "AI Agent 原型工作坊",
+      "evidence": [
+        { "label": "未来技术学院 AI 培养方向", "url": "https://www2.scut.edu.cn/ft/2021/0818/c30249a438835/page.htm" },
+        { "label": "国产可信算力联合实验室", "url": "https://news.scut.edu.cn/2026/0514/c41a59894/page.htm" }
+      ],
       "contact": { "email": "demo-scut@example.invalid", "isMock": true },
       "status": "suggested"
+    },
+    {
+      "id": "target-jnu",
+      "organization": "暨南大学信息学院 / 产业经济研究院（候选）",
+      "city": "广州",
+      "score": 93,
+      "reasons": ["公开师资方向覆盖区块链、AI 安全与大数据", "设有人工智能与数字经济研究中心", "兼具技术、财经与国际传播语境"],
+      "focus": "Web3 安全 × 数字经济",
+      "recommendedFormat": "数据权益与内容出海圆桌",
+      "evidence": [
+        { "label": "信息学院区块链与 AI 方向", "url": "https://xxxy.jnu.edu.cn/27499/main.psp" },
+        { "label": "人工智能与数字经济论坛", "url": "https://iie.jnu.edu.cn/2024/1023/c41368a823687/page.htm" }
+      ],
+      "contact": { "email": "demo-jnu@example.invalid", "isMock": true },
+      "status": "shortlisted"
+    },
+    {
+      "id": "target-hkustgz",
+      "organization": "香港科技大学（广州）金融科技学域（候选）",
+      "city": "广州",
+      "score": 96,
+      "reasons": ["学域明确覆盖区块链、智能合约与数字货币", "AI、金融大数据与监管议题完整", "已有 Web3 主题项目式研讨场景"],
+      "focus": "金融科技 × 智能合约",
+      "recommendedFormat": "可信市场叙事联合实验室",
+      "evidence": [
+        { "label": "金融科技学域研究方向", "url": "https://www.hkust-gz.edu.cn/zh/academics/hubs-and-thrust-areas/society-hub/financial-technology/" },
+        { "label": "Web3.0 合约交易平台研讨会", "url": "https://cft.hkust-gz.edu.cn/2024/07/10/%E4%BC%81%E4%B8%9A%E7%A0%94%E8%AE%A8%E4%BC%9A%EF%BD%9C%E6%89%93%E9%80%A0-web3-0-%E6%97%B6%E4%BB%A3%E7%9A%84%E5%90%88%E7%BA%A6%E4%BA%A4%E6%98%93%E5%B9%B3%E5%8F%B0/" }
+      ],
+      "contact": { "email": "demo-hkustgz@example.invalid", "isMock": true },
+      "status": "shortlisted"
     }
   ],
+  "themePackage": {
+    "course": {
+      "title": "全球足球赛事作为事件驱动市场实验室",
+      "duration": "90 MIN",
+      "promise": "学生带走的不是比分答案，而是一套可复用的信号核验与复盘方法。",
+      "modules": ["公开信号核验", "事件叙事图谱", "数据权益与 AI", "赛后事实复盘"]
+    },
+    "challenge": {
+      "title": "AI Agent：赛前叙事 / 赛后事实复盘挑战",
+      "phases": ["T-7D 建立假设", "T-1D 校准置信度", "T+1D 对照事实", "T+7D 发布复盘"],
+      "rubric": [
+        { "label": "引用质量", "weight": 35 },
+        { "label": "概率校准", "weight": 25 },
+        { "label": "反方证据", "weight": 20 },
+        { "label": "复盘质量", "weight": 20 }
+      ]
+    },
+    "mediaPlan": [
+      { "stage": "赛前", "timing": "T-7D", "asset": "议题雷达 + 报名海报" },
+      { "stage": "现场", "timing": "T0", "asset": "数据看板 + 观点切片" },
+      { "stage": "赛后", "timing": "T+1D", "asset": "事实复盘 + 获胜 Agent" },
+      { "stage": "30 天", "timing": "T+30D", "asset": "校园趋势短报告" },
+      { "stage": "90 天", "timing": "T+90D", "asset": "Impact Passport" }
+    ],
+    "sponsorTiers": [
+      { "name": "SIGNAL", "price": "媒体支持", "deliverables": "联合露出 / 复盘引用 / 公开指标" },
+      { "name": "LAB", "price": "内容共创", "deliverables": "主题工作坊 / 嘉宾席 / 数据挑战" },
+      { "name": "CAMPUS", "price": "联合活动", "deliverables": "逐校提案 / 路演 / 影响力报告" }
+    ],
+    "impactMetrics": ["核验信号数", "有效参与人数", "高校合作转化", "内容二次传播"],
+    "guardrails": ["无博彩", "无比分预测", "无投资建议", "无收益承诺", "无结果保证"]
+  },
   "reply": {
     "id": "reply-demo-positive",
     "intent": "positive",
@@ -112,7 +193,7 @@
   "funnel": {
     "signalsVerified": 4,
     "opportunities": 1,
-    "targetsShortlisted": 3,
+    "targetsShortlisted": 5,
     "drafts": 1,
     "positiveReplies": 1
   }
