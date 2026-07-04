@@ -43,6 +43,7 @@ class UniversityEvent(models.Model):
         ('研讨会', '研讨会'),
         ('论坛', '论坛'),
         ('工作坊', '工作坊'),
+        ('夏令营', '夏令营'),
         ('其他', '其他'),
     ]
     event_type = models.CharField(

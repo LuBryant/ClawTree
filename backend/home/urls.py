@@ -11,8 +11,8 @@ from .api_views import (
     AdminSourceConnectorViewSet,
     AdminIngestionRunViewSet,
     AdminContentReviewViewSet,
+    PipelineViewSet,
 )
-from .api_views import UniversityEventViewSet, EventReviewViewSet, TweetReviewViewSet, OutreachDraftViewSet, PipelineViewSet
 
 router = DefaultRouter()
 router.register(r'events', UniversityEventViewSet, basename='event')
