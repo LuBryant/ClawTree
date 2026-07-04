@@ -1,10 +1,26 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { publicEvents, publicRecaps, publicSignals } from '../lib/public-data';
+import { publicRecaps, publicSignals } from '../lib/public-data';
+import { fetchEvents, type UniversityEvent } from '../lib/api-client';
+
+const PS = 12;
+const formatDate = (s: string | null) => {
+  if (!s) return '';
+  return new Date(s).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+};
 
 export default function UserHomePage() {
   const heroSignal = publicSignals[0];
   const heroRecap = publicRecaps[0];
-  const heroEvent = publicEvents[0];
+  const [heroEvent, setHeroEvent] = useState<UniversityEvent | null>(null);
+
+  useEffect(() => {
+    fetchEvents({ ordering: '-event_date', page: 1 }).then((d) => {
+      if (d.results.length > 0) setHeroEvent(d.results[0]);
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="flex flex-col gap-8">
@@ -56,15 +72,29 @@ export default function UserHomePage() {
           </p>
           <Link href="/user/recaps" className="mt-5 inline-flex text-sm font-black" style={{ color: 'var(--success)' }}>阅读回顾 →</Link>
         </article>
-        <article className="panel p-5">
-          <span className="badge badge-warning">Event</span>
-          <h3 className="mt-4 text-xl font-black">{heroEvent.title}</h3>
-          <p className="mt-3 text-sm leading-6" style={{ color: 'var(--muted)' }}>
-            {heroEvent.city} · {heroEvent.startsDate} · {heroEvent.status}
-          </p>
-          <p className="mt-4 text-xs" style={{ color: 'var(--text-dim)' }}>{heroEvent.publicNote}</p>
-          <Link href="/user/events" className="mt-5 inline-flex text-sm font-black" style={{ color: 'var(--warning)' }}>查看活动 →</Link>
-        </article>
+        {heroEvent ? (
+          <article className="panel p-5">
+            <span className="badge badge-warning">Event</span>
+            <h3 className="mt-4 text-xl font-black">
+              {heroEvent.source_url ? (
+                <a href={heroEvent.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{heroEvent.title}</a>
+              ) : heroEvent.title}
+            </h3>
+            <p className="mt-3 text-sm leading-6" style={{ color: 'var(--muted)' }}>
+              {heroEvent.university || '未知高校'}
+              {heroEvent.event_date && ` · ${formatDate(heroEvent.event_date)}`}
+              {heroEvent.location && ` · ${heroEvent.location}`}
+            </p>
+            <p className="mt-4 text-xs" style={{ color: 'var(--text-dim)' }}>
+              公开端不展示联系邮箱、内部评分、风险原文或 prompt。
+            </p>
+            <Link href="/user/events" className="mt-5 inline-flex text-sm font-black" style={{ color: 'var(--warning)' }}>查看活动 →</Link>
+          </article>
+        ) : (
+          <article className="panel p-5 flex items-center justify-center" style={{ minHeight: 180 }}>
+            <div className="spinner" />
+          </article>
+        )}
       </section>
     </div>
   );

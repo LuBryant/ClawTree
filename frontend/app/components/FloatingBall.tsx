@@ -59,7 +59,7 @@ export default function FloatingBall({ onClick, size = 72 }: Props) {
   return (
     <div
       ref={elRef}
-      className="fixed z-[9999] touch-none select-none transition-transform duration-200"
+      className="fixed z-[9999] touch-none select-none transition-transform duration-200 cursor-pointer"
       style={{
         left: pos.left,
         top: pos.top,

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import TopNav from './components/TopNav';
+import HumanSupportLink from './components/HumanSupportLink';
+import AiAssistant from './components/AiAssistant';
 
 export const metadata: Metadata = {
   title: 'ClawTree · AI 媒体活动增长操作系统',
@@ -19,10 +21,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="brand-mark">CT</span>
               <span>ClawTree <small>树爪智动</small></span>
             </Link>
-            <TopNav />
+            <div className="flex items-center gap-6">
+              <HumanSupportLink />
+              <TopNav />
+            </div>
           </div>
         </header>
         {children}
+        <AiAssistant />
       </body>
     </html>
   );
