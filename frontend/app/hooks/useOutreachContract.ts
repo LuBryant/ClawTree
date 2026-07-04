@@ -69,36 +69,64 @@ export function useOutreachContract() {
       const emailHash = tw.sha3(params.emailBodyHash);
       if (!emailHash) throw new Error('sha3 哈希失败');
 
-      let txHash = '';
+      // 记录当前 outreachCount，用于判断交易是否成功
+      const countBefore = await contract.outreachCount().call();
 
       try {
-        const result = await contract.recordOutreach(
+        // send() 在 TronLink 中会弹出确认框；返回格式因版本而异
+        const result: unknown = await contract.recordOutreach(
           params.outreachId,
           params.university,
           params.eventTitle,
           emailHash,
-        ).send({
-          feeLimit: 100_000_000,
-          shouldPollResponse: true,
-        });
+        ).send({ feeLimit: 100_000_000 });
 
-        txHash = result?.transaction?.txID || result?.txid || result;
-        if (typeof txHash !== 'string') txHash = JSON.stringify(txHash);
+        // 尝试多种路径提取 txID
+        const txHash = extractTxHash(result);
 
-        return {
-          txHash,
-          network: 'TRON Nile',
-          isMock: false,
-          explorerUrl: `${EXPLORER_BASE}/#/transaction/${txHash}`,
-        };
+        // 验证交易是否真的成功了
+        const countAfter = await contract.outreachCount().call();
+        const succeeded = countAfter.toString() !== countBefore.toString();
+
+        if (txHash) {
+          return {
+            txHash,
+            network: succeeded ? 'TRON Nile' : 'TRON Nile (reverted)',
+            isMock: false,
+            explorerUrl: `${EXPLORER_BASE}/#/transaction/${txHash}`,
+          };
+        }
+
+        if (succeeded) {
+          // 交易成功但没拿到 txID — 用 outreachId 生成确定性引用
+          const fallbackHash = '0x' + tw.sha3(params.outreachId).replace(/^0x/, '');
+          return {
+            txHash: fallbackHash,
+            network: 'TRON Nile (confirmed)',
+            isMock: false,
+            explorerUrl: `${EXPLORER_BASE}/#/contract/${contractAddr}`,
+          };
+        }
+
+        throw new Error('交易未确认');
       } catch (sendErr: unknown) {
-        // REVERT 或其它链上错误 — 尝试提取 txID
-        const err = sendErr as Record<string, unknown> | undefined;
-        txHash = (err?.transaction?.txID
-          || err?.txid
-          || err?.txID
-          || '') as string;
+        // 检查是否尽管 catch 了但交易仍成功了
+        try {
+          const countAfter = await contract.outreachCount().call();
+          if (countAfter.toString() !== countBefore.toString()) {
+            const fallbackHash = '0x' + tw.sha3(params.outreachId).replace(/^0x/, '');
+            return {
+              txHash: fallbackHash,
+              network: 'TRON Nile (confirmed)',
+              isMock: false,
+              explorerUrl: `${EXPLORER_BASE}/#/contract/${contractAddr}`,
+            };
+          }
+        } catch { /* ignore */ }
 
+        // 提取 txID
+        const err = sendErr as Record<string, unknown> | undefined;
+        const txHash = extractTxHash(err);
         if (txHash) {
           return {
             txHash,
@@ -120,6 +148,15 @@ export function useOutreachContract() {
   }, []);
 
   return { anchor, anchoring };
+}
+
+/** 从 send() 的返回值中尝试提取 txID（兼容各种 tronweb 版本） */
+function extractTxHash(result: unknown): string {
+  if (!result) return '';
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result)) return '';
+  const r = result as Record<string, unknown>;
+  return String(r?.txid || r?.txID || r?.transaction?.txID || r?.tx || '').replace('[]', '');
 }
 
 /** 本地 mock 锚定（合约未部署或无 TronLink 时使用） */

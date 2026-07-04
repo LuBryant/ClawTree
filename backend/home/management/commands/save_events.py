@@ -71,14 +71,33 @@ class Command(BaseCommand):
         saved = skipped = 0
 
         for i, ev in enumerate(events):
+            # 兼容两种输入格式
+            # 格式 A（OpenClaw 旧版）: school, activity_name, date, type, contact:{official_email,...}, confidence
+            # 格式 B（OpenClaw 新版）: university, title, event_date, event_type, contact_email, score
             contact = ev.get('contact', {})
-            title = ev.get('activity_name', '')[:500]
-            university = ev.get('school', '')[:200]
-            desc = ev.get('description', '')[:1000]
+            title = (ev.get('title') or ev.get('activity_name') or '')[:500]
+            university = (ev.get('university') or ev.get('school') or '')[:200]
+            desc = (ev.get('description') or '')[:1000]
             source_url = ev.get('source_url', '')
-            ev_type = ev.get('type', '其他')
+            ev_type = ev.get('event_type') or ev.get('type') or '其他'
             if ev_type not in VALID_TYPES:
                 ev_type = '其他'
+            event_date_raw = ev.get('event_date') or ev.get('date') or None
+            contact_email = (ev.get('contact_email') or contact.get('official_email') or '')[:200]
+            contact_ai_email = (ev.get('contact_ai_email') or contact.get('ai_dept_email') or '')[:200]
+            contact_phone = (ev.get('contact_phone') or contact.get('phone') or '')[:50]
+            contact_wechat = (ev.get('contact_wechat') or contact.get('wechat') or '')[:100]
+            contact_qq = (ev.get('contact_qq') or contact.get('qq') or '')[:50]
+            location = (ev.get('location') or '')[:300]
+            # score: 新版直接是整数，旧版 confidence 是 0-1 浮点
+            raw_score = ev.get('score') or ev.get('confidence')
+            if raw_score is not None:
+                if isinstance(raw_score, (int, float)) and raw_score <= 1:
+                    score = int(raw_score * 100)
+                else:
+                    score = int(min(raw_score, 100))
+            else:
+                score = 0
 
             self.stdout.write(f'  [{i+1}/{len(events)}] {title[:60]}')
 
@@ -97,17 +116,18 @@ class Command(BaseCommand):
                 defaults={
                     'title': title,
                     'university': university,
-                    'event_date': _parse_date(ev.get('date')),
+                    'event_date': _parse_date(event_date_raw),
                     'description': desc,
+                    'location': location,
                     'source_name': 'openclaw',
-                    'contact_email': (contact.get('official_email') or '')[:200],
-                    'contact_ai_email': (contact.get('ai_dept_email') or '')[:200],
-                    'contact_phone': (contact.get('phone') or '')[:50],
-                    'contact_wechat': (contact.get('wechat') or '')[:100],
-                    'contact_qq': (contact.get('qq') or '')[:50],
+                    'contact_email': contact_email,
+                    'contact_ai_email': contact_ai_email,
+                    'contact_phone': contact_phone,
+                    'contact_wechat': contact_wechat,
+                    'contact_qq': contact_qq,
                     'category': _infer_category(title, desc),
                     'event_type': ev_type,
-                    'score': int(min(ev.get('confidence', 0) * 100, 100)),
+                    'score': score,
                     'raw_data': json.dumps(ev, ensure_ascii=False),
                 },
             )
