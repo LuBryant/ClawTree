@@ -54,7 +54,7 @@ export default function UserHomePage() {
           <p className="mt-4 text-xs" style={{ color: 'var(--text-dim)' }}>
             编辑状态：{heroRecap.editorialStatus} · {heroRecap.fetchedDate}
           </p>
-          <Link href={'/user/recaps/' + heroRecap.slug} className="mt-5 inline-flex text-sm font-black" style={{ color: 'var(--success)' }}>阅读回顾 →</Link>
+          <Link href="/user/recaps" className="mt-5 inline-flex text-sm font-black" style={{ color: 'var(--success)' }}>阅读回顾 →</Link>
         </article>
         <article className="panel p-5">
           <span className="badge badge-warning">Event</span>
