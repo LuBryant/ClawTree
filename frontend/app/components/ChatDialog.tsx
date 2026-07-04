@@ -190,8 +190,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
             <div ref={msgsEnd} />
           </div>
 
-          {/* Quick actions */}
-          {!loading && messages.length <= 2 && (
+          {/* Quick actions — 始终显示 */}
+          {!loading && (
             <div className="grid grid-cols-2 gap-2 px-5 pb-2">
               {QUICK_ACTIONS[audience].map((action) => (
                 <button
