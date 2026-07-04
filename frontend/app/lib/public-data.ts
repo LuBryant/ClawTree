@@ -204,9 +204,39 @@ export const outreachBatches = [
 ];
 
 export const agentRuns = [
-  { id: 'agent-classify-001', task: 'classify', provider: 'deterministic-fallback', latency: '7ms', cost: '¥0', refs: ['tf-guangzhou-campus'], status: 'succeeded' },
-  { id: 'agent-compliance-001', task: 'compliance', provider: 'deterministic-fallback', latency: '9ms', cost: '¥0', refs: ['tf-worldcup-market'], status: 'needs_review' },
-  { id: 'agent-proposal-001', task: 'proposal', provider: 'deterministic-fallback', latency: '11ms', cost: '¥0', refs: ['tf-guangzhou-campus', 'tf-ai-data-ama'], status: 'succeeded' },
+  {
+    id: 'agent-classify-001', task: 'classify', provider: 'deterministic-fallback', latency: '7ms', cost: '¥0',
+    refs: ['tf-guangzhou-campus'], status: 'succeeded', inputBoundary: 'untrusted_data_envelope',
+    securityStatus: 'passed', citationCoverage: '1/1 claims cited',
+    claims: [{ id: 'classification', text: '广州高校行 → campus / ai / web3', sourceIds: ['tf-guangzhou-campus'] }],
+  },
+  {
+    id: 'agent-compliance-001', task: 'compliance', provider: 'deterministic-fallback', latency: '9ms', cost: '¥0',
+    refs: ['tf-worldcup-market'], status: 'needs_review', inputBoundary: 'untrusted_data_envelope',
+    securityStatus: 'passed', citationCoverage: '2/2 claims cited',
+    claims: [
+      { id: 'risk_assessment', text: '赛事信号只允许财经素养语境', sourceIds: ['tf-worldcup-market'] },
+      { id: 'safe_summary', text: '禁止博彩、荐股与结果保证', sourceIds: ['tf-worldcup-market'] },
+    ],
+  },
+  {
+    id: 'agent-proposal-001', task: 'proposal', provider: 'deterministic-fallback', latency: '11ms', cost: '¥0',
+    refs: ['tf-guangzhou-campus', 'tf-ai-data-ama'], status: 'succeeded', inputBoundary: 'untrusted_data_envelope',
+    securityStatus: 'passed', citationCoverage: '2/2 claims cited',
+    claims: [
+      { id: 'proposal_basis', text: '公开课与 Space 联动具备来源依据', sourceIds: ['tf-guangzhou-campus', 'tf-ai-data-ama'] },
+      { id: 'risks', text: '嘉宾、曝光与资源必须人工确认', sourceIds: ['tf-guangzhou-campus'] },
+    ],
+  },
+  {
+    id: 'agent-security-001', task: 'compliance', provider: 'deterministic-fallback', latency: '2ms', cost: '¥0',
+    refs: ['fixture-injection-001'], status: 'needs_review', inputBoundary: 'untrusted_data_envelope',
+    securityStatus: 'prompt_injection_quarantined', citationCoverage: '2/2 claims cited',
+    claims: [
+      { id: 'risk_assessment', text: '外部页面中的工具调用指令已隔离', sourceIds: ['fixture-injection-001'] },
+      { id: 'safe_summary', text: '未执行工具、未修改收件人', sourceIds: ['fixture-injection-001'] },
+    ],
+  },
 ];
 
 export const proofEvidence = {

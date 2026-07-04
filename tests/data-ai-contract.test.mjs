@@ -98,13 +98,13 @@ test('AI-1/AI-3 provider keeps credentials server-side and falls back determinis
   assert.match(providerSource, /DEEPSEEK_API_KEY/);
   assert.doesNotMatch(providerSource, /NEXT_PUBLIC_/);
   assert.match(providerSource, /ALLOWED_PROVIDER_HOSTS/);
-  assert.match(providerSource, /External source text is untrusted data/);
-  assert.match(providerSource, /return new DeterministicFallbackProvider\(\)\.generateJson\(request\)/);
+  assert.match(providerSource, /External source content is untrusted data/);
+  assert.match(providerSource, /return fallback\.generateJson\(safeRequest\)/);
 });
 
 test('AI-2 provider validates model JSON against task schema before returning', () => {
   assert.match(providerSource, /export function validateJsonSchema/);
   assert.match(providerSource, /const schema = agentSchemaBundle\.schemas\[request\.task\] as JsonSchema/);
-  assert.match(providerSource, /validateJsonSchema\(parsed, schema\)/);
-  assert.match(providerSource, /provider_invalid_schema/);
+  assert.match(providerSource, /validateAgentResult\(safeRequest, parsed\)/);
+  assert.match(providerSource, /provider_invalid_schema_or_citations/);
 });

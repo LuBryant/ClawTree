@@ -62,12 +62,30 @@ export default function AdminProposalsPage() {
 
       <section className="panel p-5">
         <h2 className="text-xl font-black">Agent 运行证据</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
+          外部文本只进入不可信数据包；每类事实结论必须绑定允许的 source IDs，覆盖不足自动降级。
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           {agentRuns.map((run) => (
             <div key={run.id} className="panel-deep p-3 text-xs leading-6" style={{ color: 'var(--muted)' }}>
-              <strong className="block text-sm" style={{ color: 'var(--text)' }}>{run.task}</strong>
-              <span>{run.provider} · {run.latency} · {run.cost}</span>
-              <span className="block">refs: {run.refs.join(', ')}</span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <strong className="text-sm" style={{ color: 'var(--text)' }}>{run.task}</strong>
+                <span className={run.securityStatus === 'passed' ? 'badge badge-success' : 'badge badge-danger'}>
+                  {run.securityStatus === 'passed' ? 'input safe' : 'injection quarantined'}
+                </span>
+              </div>
+              <span className="mt-2 block">{run.provider} · {run.latency} · {run.cost}</span>
+              <span className="block">boundary: {run.inputBoundary}</span>
+              <span className="block" style={{ color: 'var(--success)' }}>coverage: {run.citationCoverage}</span>
+              <div className="mt-2 grid gap-2">
+                {run.claims.map((claim) => (
+                  <div key={claim.id} className="border-l-2 pl-2" style={{ borderColor: 'rgba(120,166,255,.55)' }}>
+                    <strong className="block" style={{ color: 'var(--text-dim)' }}>{claim.id}</strong>
+                    <span className="block">{claim.text}</span>
+                    <span className="block" style={{ color: 'var(--info)' }}>↳ {claim.sourceIds.join(', ')}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
