@@ -29,7 +29,6 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'contact_phone',
             'contact_wechat',
             'contact_qq',
-            'has_public_contact',
             'category',
             'event_type',
             'registration_url',
@@ -37,7 +36,7 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'score',
             'created_at',
         ]
-        read_only_fields = ['created_at', 'has_public_contact']
+        read_only_fields = ['created_at']
 
 
 class EventReviewSerializer(serializers.ModelSerializer):
