@@ -24,20 +24,15 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'description',
             'source_url',
             'source_name',
-            'contact_email',
-            'contact_ai_email',
-            'contact_phone',
-            'contact_wechat',
-            'contact_qq',
+            'has_public_contact',
             'category',
             'event_type',
             'registration_url',
             'is_contacted',
             'score',
-            'raw_data',
             'created_at',
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'has_public_contact']
 
 
 class EventReviewSerializer(serializers.ModelSerializer):

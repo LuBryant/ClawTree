@@ -56,6 +56,16 @@ class UniversityEvent(models.Model):
     raw_data = models.TextField(blank=True, default='', verbose_name='原始数据 JSON')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='收录时间')
 
+    @property
+    def has_public_contact(self):
+        return bool(
+            self.contact_email
+            or self.contact_ai_email
+            or self.contact_phone
+            or self.contact_wechat
+            or self.contact_qq
+        )
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = '高校活动'

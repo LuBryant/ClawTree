@@ -107,6 +107,9 @@ export default function AdminEventsPage() {
             AI Agent 自动采集的高校 AI/Web3 活动
             {stats && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.total}</span> 条，已联系 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{stats.contacted}</span> 条</span>}
           </p>
+          <p className="mt-2 text-xs font-bold" style={{ color: 'var(--warning)' }}>
+            本页不会打开邮箱、不会发送、不会写外部系统；批量只生成草稿，每校仍是一封独立草稿。
+          </p>
         </div>
         <button className="btn-outline" onClick={() => setShowModal(true)}>📝 草稿模板</button>
       </section>
@@ -259,12 +262,14 @@ function EventCard({ event: e, sel, onToggle, onSend, generating }: { event: Uni
       {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
       <div className="mt-3 flex flex-col gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs">
-          {e.contact_email ? <span style={{ color: 'var(--success)', wordBreak: 'break-all' }}>✉️ {e.contact_email}</span> : <span className="text-xs" style={{ color: 'var(--muted)' }}>✉️ 无邮箱</span>}
-          {e.contact_wechat && <span style={{ color: 'var(--success)' }}>💬 {e.contact_wechat}</span>}
-          {e.contact_phone && <span style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
+          {e.has_public_contact ? (
+            <span style={{ color: 'var(--success)' }}>已有公开联系证据，具体收件人仅进入外联审批台</span>
+          ) : (
+            <span className="text-xs" style={{ color: 'var(--muted)' }}>待补联系证据</span>
+          )}
         </div>
         <div className="flex gap-2">
-          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? '⏳ 生成中...' : '📝 ai生成邮件文案'}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
+          {e.has_public_contact ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? '⏳ AI 生成中...' : '📝 ai生成邮件文案'}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
           <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>
