@@ -1,106 +1,47 @@
 /**
- * Deploy ClawTree contracts to TRON Nile Testnet (EVM-Compatible).
+ * ClawTree 合约部署脚本
  *
- * Contracts:
- *   EventRegistry   — 高校活动上链注册
- *   OutreachRecord  — 外联记录存证
- *   TrendOracle     — 趋势数据锚定
+ * 用法：
+ *   npx hardhat run scripts/deploy.js --network tron_nile
  *
- * Required in project-root .env:
- *   DEPLOYER_PRIVATE_KEY=0x...
- *   TRON_NILE_RPC_URL=https://nile.trongrid.io
- *
- * Run:
- *   npm run deploy:nile        (TRON Nile)
- *   npm run deploy:injective   (Injective 备用)
+ * 前提：
+ *   .env 中已填写 DEPLOYER_PRIVATE_KEY
+ *   部署者有足够的 TRX 测试币（Nile Faucet: https://nileex.io/join/getJoinPage）
  */
-const fs = require('node:fs');
-const path = require('node:path');
-const hre = require('hardhat');
-
-const { ethers, network, artifacts } = hre;
-
-const NETWORK_META = {
-  tron_nile: {
-    name: 'TRON Nile Testnet (EVM)',
-    explorerBase: 'https://nile.tronscan.org',
-    explorerTxPath: '/tx',
-    explorerAddressPath: '/address',
-    gasToken: 'TRX',
-    faucetUrl: 'https://nileex.io/join/getJoinPage'
-  },
-  injective_testnet: {
-    name: 'Injective Testnet (inEVM)',
-    explorerBase: 'https://testnet.explorer.injective.network',
-    explorerTxPath: '/tx',
-    explorerAddressPath: '/address',
-    gasToken: 'INJ',
-    faucetUrl: 'https://testnet.faucet.injective.network/'
-  }
-};
-
-const CONTRACT_NAMES = ['EventRegistry', 'OutreachRecord', 'TrendOracle'];
 
 async function main() {
-  const meta = NETWORK_META[network.name];
-  if (!meta) {
-    throw new Error(
-      `不支持的网络: ${network.name}\n` +
-      `  请使用: npm run deploy:nile        (TRON Nile)\n` +
-      `           npm run deploy:injective   (Injective 备用)`
-    );
-  }
+  console.log('部署者地址:', (await ethers.getSigners())[0].address);
+  console.log('');
 
-  const [deployer] = await ethers.getSigners();
-  const balance = await ethers.provider.getBalance(deployer.address);
+  // ---- OutreachRecord ----
+  const OutreachRecord = await ethers.getContractFactory('OutreachRecord');
+  const outreach = await OutreachRecord.deploy();
+  await outreach.waitForDeployment();
+  const outreachAddr = await outreach.getAddress();
+  console.log('OutreachRecord:', outreachAddr);
 
-  console.log(`\n🌐 网络: ${meta.name}`);
-  console.log(`👤 部署者: ${deployer.address}`);
-  console.log(`💰 余额:   ${ethers.formatEther(balance)} ${meta.gasToken}\n`);
+  // ---- EventRegistry ----
+  const EventRegistry = await ethers.getContractFactory('EventRegistry');
+  const events = await EventRegistry.deploy();
+  await events.waitForDeployment();
+  console.log('EventRegistry: ', await events.getAddress());
 
-  if (balance === 0n) {
-    console.log(`💧 请先获取测试 ${meta.gasToken}: ${meta.faucetUrl}`);
-    throw new Error(`部署者余额为 0 ${meta.gasToken}`);
-  }
+  // ---- TrendOracle ----
+  const TrendOracle = await ethers.getContractFactory('TrendOracle');
+  const oracle = await TrendOracle.deploy();
+  await oracle.waitForDeployment();
+  console.log('TrendOracle:  ', await oracle.getAddress());
 
-  const chainId = (await ethers.provider.getNetwork()).chainId;
-  const deployed = {};
-
-  for (const name of CONTRACT_NAMES) {
-    process.stdout.write(`⛓  部署 ${name}... `);
-    const Factory = await ethers.getContractFactory(name);
-    const contract = await Factory.deploy();
-    await contract.waitForDeployment();
-    const address = await contract.getAddress();
-    deployed[name] = address;
-    console.log(address);
-  }
-
-  // 写入部署记录
-  const record = {
-    network: network.name,
-    networkName: meta.name,
-    chainId: Number(chainId),
-    deployer: deployer.address,
-    contracts: deployed,
-    explorerBase: meta.explorerBase,
-    gasToken: meta.gasToken,
-    deployedAt: new Date().toISOString()
-  };
-
-  const outDir = path.join(__dirname, '..', 'deployments');
-  fs.mkdirSync(outDir, { recursive: true });
-  const recordPath = path.join(outDir, `${network.name}.json`);
-  fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
-
-  console.log('\n📄 部署记录 →', recordPath);
-  console.log(`\n✅ ClawTree 三合约部署完成 (${meta.name})\n`);
-  for (const [name, addr] of Object.entries(deployed)) {
-    console.log(`   ${name}: ${meta.explorerBase}${meta.explorerAddressPath}/${addr}`);
-  }
+  console.log('');
+  console.log('===== 全部部署完成 =====');
+  console.log('');
+  console.log('请将以下地址填入 frontend/app/config/tron.ts 的 CONTRACTS 中：');
+  console.log(`  EventRegistry:  '${await events.getAddress()}'`);
+  console.log(`  OutreachRecord: '${outreachAddr}'`);
+  console.log(`  TrendOracle:    '${await oracle.getAddress()}'`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+main().catch((err) => {
+  console.error('部署失败:', err);
+  process.exit(1);
 });

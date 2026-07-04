@@ -7,6 +7,7 @@ module.exports = {
   solidity: {
     version: '0.8.24',
     settings: {
+      viaIR: true,
       optimizer: {
         enabled: true,
         runs: 200
@@ -22,7 +23,7 @@ module.exports = {
   networks: {
     // TRON Nile Testnet (EVM-compatible) — 主部署目标（HTX Genesis 黑客松）
     tron_nile: {
-      url: process.env.TRON_NILE_RPC_URL || 'https://nile.trongrid.io',
+      url: process.env.TRON_NILE_RPC_URL || 'https://nile.trongrid.io/jsonrpc',
       chainId: 3448148188,
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY.trim()] : []
     },

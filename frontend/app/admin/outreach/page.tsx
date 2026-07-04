@@ -5,6 +5,13 @@ import {
   fetchOutreachDrafts, approveOutreachDraft, rejectOutreachDraft,
   type OutreachDraft,
 } from '../../lib/api-client';
+import { useOutreachContract } from '../../hooks/useOutreachContract';
+
+interface ProofResult {
+  network: string;
+  txHash: string;
+  isMock: boolean;
+}
 
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿',
@@ -17,6 +24,9 @@ export default function AdminOutreachPage() {
   const [drafts, setDrafts] = useState<OutreachDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [proofs, setProofs] = useState<Record<number, ProofResult | null>>({});
+  const [proving, setProving] = useState<Set<number>>(new Set());
+  const { anchor: contractAnchor, anchoring: contractAnchoring } = useOutreachContract();
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -49,6 +59,23 @@ export default function AdminOutreachPage() {
       await rejectOutreachDraft(id);
       setDrafts((p) => p.map((d) => d.id === id ? { ...d, status: 'rejected' as const } : d));
     } catch { alert('驳回失败'); }
+  };
+
+  const anchorProof = async (d: OutreachDraft) => {
+    setProving((p) => new Set(p).add(d.id));
+    try {
+      const result = await contractAnchor({
+        outreachId: `clawtree-outreach-${d.id}`,
+        university: d.university_name,
+        eventTitle: d.event_title,
+        emailBodyHash: d.email_body,
+      });
+      setProofs((p) => ({ ...p, [d.id]: result }));
+    } catch {
+      alert('链上凭证生成失败，请确认 TronLink 已连接 TRON Nile 测试网');
+    } finally {
+      setProving((p) => { const n = new Set(p); n.delete(d.id); return n; });
+    }
   };
 
   const formatDate = (s: string | null) => {
@@ -95,7 +122,9 @@ export default function AdminOutreachPage() {
             {pending.map((d) => (
               <DraftCard key={d.id} draft={d} formatDate={formatDate}
                 onApprove={(body) => handleApprove(d.id, body)}
-                onReject={() => handleReject(d.id)} />
+                onReject={() => handleReject(d.id)}
+                proof={proofs[d.id]} proving={proving.has(d.id)}
+                onAnchor={() => anchorProof(d)} />
             ))}
           </div>
         </section>
@@ -109,7 +138,9 @@ export default function AdminOutreachPage() {
           </h2>
           <div className="grid gap-4 opacity-60">
             {processed.map((d) => (
-              <DraftCard key={d.id} draft={d} formatDate={formatDate} />
+              <DraftCard key={d.id} draft={d} formatDate={formatDate}
+                proof={proofs[d.id]} proving={proving.has(d.id)}
+                onAnchor={() => anchorProof(d)} />
             ))}
           </div>
         </section>
@@ -118,11 +149,14 @@ export default function AdminOutreachPage() {
   );
 }
 
-function DraftCard({ draft: d, formatDate, onApprove, onReject }: {
+function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, onAnchor }: {
   draft: OutreachDraft;
   formatDate: (s: string | null) => string;
   onApprove?: (editedBody: string) => void;
   onReject?: () => void;
+  proof?: ProofResult | null;
+  proving?: boolean;
+  onAnchor?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(d.email_body);
@@ -177,6 +211,31 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject }: {
             ↩ 还原原文
           </button>
           <button className="btn btn-danger btn-sm" onClick={onReject}>❌ 驳回</button>
+        </div>
+      )}
+
+      {/* 链上凭证 */}
+      {d.status === 'approved' && onAnchor && !proof && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <button
+            className="btn btn-sm"
+            style={{ background: 'var(--info)', color: '#fff' }}
+            onClick={onAnchor}
+            disabled={proving}
+          >
+            {proving ? '⏳ 生成链上凭证…' : '🔗 生成链上凭证'}
+          </button>
+        </div>
+      )}
+
+      {proof && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="proof-card">
+            <span>PROOF ANCHORED · {proof.isMock ? 'MOCK' : 'ON-CHAIN'}</span>
+            <strong>{proof.network}</strong>
+            <code style={{ wordBreak: 'break-all' }}>TX: {proof.txHash}</code>
+            <small>仅包含外联 ID、高校名称、活动标题、邮件哈希；不含联系人和邮件正文。</small>
+          </div>
         </div>
       )}
     </article>

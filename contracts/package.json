@@ -15,5 +15,8 @@
     "dotenv": "^16.4.7",
     "ethers": "^6.13.4",
     "hardhat": "^2.22.17"
+  },
+  "dependencies": {
+    "tronweb": "^6.4.0"
   }
 }

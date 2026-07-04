@@ -15,7 +15,7 @@ export const TRON_NILE = {
     decimals: 6,
   },
   rpcUrls: {
-    default: { http: ['https://nile.trongrid.io'] },
+    default: { http: ['https://nile.trongrid.io/jsonrpc'] },
   },
   blockExplorers: {
     default: {
@@ -33,7 +33,7 @@ export const FAUCET_URL = 'https://nileex.io/join/getJoinPage';
 /** Contract addresses deployed on TRON Nile (filled after deploy). */
 export const CONTRACTS = {
   EventRegistry: '',
-  OutreachRecord: '',
+  OutreachRecord: 'TM33ZtfZg4ZTHAQXSe7gd6j92cQDqAjzC3',
   TrendOracle: '',
 } as const;
 
