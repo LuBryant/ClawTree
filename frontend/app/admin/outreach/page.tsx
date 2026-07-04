@@ -6,6 +6,7 @@ import {
   type OutreachDraft,
 } from '../../lib/api-client';
 import { useOutreachContract } from '../../hooks/useOutreachContract';
+import { useTronWallet } from '../../hooks/useTronWallet';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿',
@@ -20,6 +21,7 @@ export default function AdminOutreachPage() {
   const [error, setError] = useState('');
   const [proving, setProving] = useState<Set<number>>(new Set());
   const { anchor: contractAnchor } = useOutreachContract();
+  const tron = useTronWallet();
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -107,6 +109,30 @@ export default function AdminOutreachPage() {
           AI 生成的外联邮件草稿，须逐校逐封人工审批后方可发送。
           {drafts.length > 0 && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{drafts.length}</span> 封</span>}
         </p>
+      </section>
+
+      {/* 钱包状态 — TRON Nile gas 余额 */}
+      <section className="flex flex-wrap items-center gap-4 text-xs font-mono"
+        style={{ border: '1px solid var(--line)', background: 'var(--panel-2)', padding: '10px 16px' }}>
+        {tron.isConnected ? (
+          <>
+            <span style={{ color: 'var(--success)' }}>⚡ TRON Nile</span>
+            <span style={{ color: 'var(--muted)' }}>{tron.address?.slice(0, 6)}…{tron.address?.slice(-4)}</span>
+            <span style={{ color: 'var(--warning)', fontWeight: 950 }}>{tron.balance || '—'}</span>
+            <span className="ml-auto text-xs" style={{ color: 'var(--muted)' }}>
+              HTX 生态 · 链上凭证 gas 余额
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ color: 'var(--muted)' }}>⚡ TRON Nile</span>
+            <span style={{ color: 'var(--danger)' }}>未连接</span>
+            <button onClick={tron.connect} className="btn-outline btn-sm ml-auto"
+              style={{ minHeight: 28, padding: '0 10px', fontSize: '0.72rem' }}>
+              🔗 连接 TronLink
+            </button>
+          </>
+        )}
       </section>
 
       {error && (
