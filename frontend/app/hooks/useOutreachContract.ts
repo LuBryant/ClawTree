@@ -156,7 +156,8 @@ function extractTxHash(result: unknown): string {
   if (typeof result === 'string') return result;
   if (Array.isArray(result)) return '';
   const r = result as Record<string, unknown>;
-  return String(r?.txid || r?.txID || r?.transaction?.txID || r?.tx || '').replace('[]', '');
+  const tx = r?.transaction as Record<string, unknown> | undefined;
+  return String(r?.txid || r?.txID || tx?.txID || r?.tx || '').replace('[]', '');
 }
 
 /** 本地 mock 锚定（合约未部署或无 TronLink 时使用） */
