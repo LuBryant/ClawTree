@@ -151,7 +151,6 @@ button { font: inherit; }
 .brand small { color: var(--muted); margin-left: 5px; font-size: .68rem; letter-spacing: .08em; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; color: #06130f; background: var(--success); font: 950 .76rem/1 monospace; box-shadow: 7px 7px 0 rgba(22,242,179,.14); }
 .top-nav { display: flex; align-items: center; gap: 28px; color: var(--text-dim); font-size: .82rem; font-weight: 800; }
-.top-nav a:first-child { color: var(--success); }
 .top-nav a:hover { color: #fff; }
 
 .hero { padding: 104px 0 60px; }

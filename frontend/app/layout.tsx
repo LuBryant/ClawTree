@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
+import TopNav from './components/TopNav';
 
 export const metadata: Metadata = {
   title: 'ClawTree · AI 媒体活动增长操作系统',
@@ -18,12 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <span className="brand-mark">CT</span>
               <span>ClawTree <small>树爪智动</small></span>
             </Link>
-            <nav className="top-nav" aria-label="主导航">
-              <Link href="/user">用户端</Link>
-              <Link href="/demo">现场 Demo</Link>
-              <Link href="/admin">运营台</Link>
-              <a href="https://treefinance.co" target="_blank" rel="noreferrer">大树财经</a>
-            </nav>
+            <TopNav />
           </div>
         </header>
         {children}
