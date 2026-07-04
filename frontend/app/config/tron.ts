@@ -51,6 +51,16 @@ export interface TronLinkProvider {
     getBalance: (address: string) => Promise<number>;
   };
   fromSun: (sun: number) => string;
+  sha3: (input: string) => string;
+  address: {
+    toHex: (base58: string) => string;
+  };
+  contract: (abi: unknown[], address?: string) => Promise<{
+    recordOutreach: (...args: string[]) => { send: (opts: Record<string, unknown>) => Promise<unknown> };
+    setRecorder: (addr: string, authorized: boolean) => { send: (opts: Record<string, unknown>) => Promise<unknown> };
+    recorders: (addr: string) => { call: () => Promise<boolean> };
+    outreachCount: () => { call: () => Promise<{ toString: () => string }> };
+  }>;
 }
 
 declare global {
