@@ -196,6 +196,24 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
         draft.save()
         return Response({'status': 'rejected', 'id': draft.id})
 
+    @action(detail=True, methods=['post'])
+    def anchor_proof(self, request, pk=None):
+        """保存链上存证信息"""
+        draft = self.get_object()
+        draft.proof_tx_hash = request.data.get('tx_hash', '')
+        draft.proof_network = request.data.get('network', '')
+        draft.proof_explorer_url = request.data.get('explorer_url', '')
+        draft.proof_created_at = time.strftime('%Y-%m-%dT%H:%M:%S+08:00')
+        draft.save(update_fields=['proof_tx_hash', 'proof_network', 'proof_explorer_url', 'proof_created_at'])
+        return Response({
+            'status': 'anchored',
+            'id': draft.id,
+            'proof_tx_hash': draft.proof_tx_hash,
+            'proof_network': draft.proof_network,
+            'proof_explorer_url': draft.proof_explorer_url,
+            'proof_created_at': draft.proof_created_at,
+        })
+
 
 class EventReviewViewSet(viewsets.ModelViewSet):
     """活动回顾 API — 支持 CRUD"""

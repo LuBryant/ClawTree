@@ -389,6 +389,13 @@ class OutreachDraft(models.Model):
     )
     approved_by = models.CharField(max_length=100, blank=True, default='', verbose_name='审批人')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+
+    # 链上存证
+    proof_tx_hash = models.CharField(max_length=200, blank=True, default='', verbose_name='链上交易哈希')
+    proof_network = models.CharField(max_length=50, blank=True, default='', verbose_name='链上网络')
+    proof_explorer_url = models.URLField(max_length=500, blank=True, default='', verbose_name='浏览器链接')
+    proof_created_at = models.DateTimeField(null=True, blank=True, verbose_name='凭证生成时间')
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 

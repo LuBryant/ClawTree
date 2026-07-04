@@ -209,6 +209,10 @@ export interface OutreachDraft {
   status: 'draft' | 'awaiting_approval' | 'approved' | 'rejected';
   approved_by: string;
   approved_at: string | null;
+  proof_tx_hash: string;
+  proof_network: string;
+  proof_explorer_url: string;
+  proof_created_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -223,6 +227,17 @@ export function approveOutreachDraft(id: number, approvedBy: string, emailBody?:
 
 export function rejectOutreachDraft(id: number): Promise<{ status: string }> {
   return requestWithBody<{ status: string }>(`/outreach/${id}/reject/`, 'POST');
+}
+
+/** 保存链上存证到后端 */
+export function anchorOutreachProof(id: number, proof: {
+  tx_hash: string;
+  network: string;
+  explorer_url: string;
+}): Promise<{ status: string; proof_tx_hash: string; proof_explorer_url: string }> {
+  return requestWithBody<{ status: string; proof_tx_hash: string; proof_explorer_url: string }>(
+    `/outreach/${id}/anchor_proof/`, 'POST', proof,
+  );
 }
 
 // ---------------------------------------------------------------------------

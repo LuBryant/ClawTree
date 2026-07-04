@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { CONTRACTS } from '../config/tron';
+import { CONTRACTS, EXPLORER_BASE } from '../config/tron';
 import { OUTREACH_RECORD_ABI } from '../config/outreach-abi';
 
 interface AnchorParams {
@@ -15,6 +15,7 @@ interface AnchorResult {
   txHash: string;
   network: string;
   isMock: boolean;
+  explorerUrl: string;
 }
 
 /**
@@ -37,45 +38,82 @@ export function useOutreachContract() {
     try {
       const contractAddr = CONTRACTS.OutreachRecord;
 
-      // 合约地址为空 → 回退 mock
       if (!contractAddr) {
-        return await mockAnchor(params);
+        return mockAnchor(params);
       }
 
-      // 检查 TronLink 是否可用
       const tw = window.tronWeb;
       if (!tw?.ready) {
         console.warn('TronLink 未连接，使用 mock 模式');
-        return await mockAnchor(params);
+        return mockAnchor(params);
       }
 
-      // 通过 TronLink 调用合约
       const contract = await tw.contract(OUTREACH_RECORD_ABI as never, contractAddr);
+      const userAddr = tw.defaultAddress.base58;
 
-      // bytes32 emailHash: 对邮件体做 keccak256
+      // 先授权当前钱包为 recorder（若尚未授权）
+      try {
+        const isRecorder = await contract.recorders(userAddr).call();
+        if (!isRecorder) {
+          await contract.setRecorder(userAddr, true).send({
+            feeLimit: 50_000_000,
+            shouldPollResponse: true,
+          });
+        }
+      } catch {
+        // setRecorder 失败不阻断，可能已经是 recorder 或无权限
+        console.warn('setRecorder 跳过（可能已授权或权限不足）');
+      }
+
+      // bytes32 emailHash: TRON keccak256
       const emailHash = tw.sha3(params.emailBodyHash);
       if (!emailHash) throw new Error('sha3 哈希失败');
 
-      const result = await contract.recordOutreach(
-        params.outreachId,
-        params.university,
-        params.eventTitle,
-        emailHash,
-      ).send({
-        feeLimit: 100_000_000, // 100 TRX
-        shouldPollResponse: true,
-      });
+      let txHash = '';
 
-      const txHash = result?.transaction?.txID || result;
+      try {
+        const result = await contract.recordOutreach(
+          params.outreachId,
+          params.university,
+          params.eventTitle,
+          emailHash,
+        ).send({
+          feeLimit: 100_000_000,
+          shouldPollResponse: true,
+        });
 
-      return {
-        txHash: typeof txHash === 'string' ? txHash : JSON.stringify(txHash),
-        network: 'TRON Nile',
-        isMock: false,
-      };
+        txHash = result?.transaction?.txID || result?.txid || result;
+        if (typeof txHash !== 'string') txHash = JSON.stringify(txHash);
+
+        return {
+          txHash,
+          network: 'TRON Nile',
+          isMock: false,
+          explorerUrl: `${EXPLORER_BASE}/#/transaction/${txHash}`,
+        };
+      } catch (sendErr: unknown) {
+        // REVERT 或其它链上错误 — 尝试提取 txID
+        const err = sendErr as Record<string, unknown> | undefined;
+        txHash = (err?.transaction?.txID
+          || err?.txid
+          || err?.txID
+          || '') as string;
+
+        if (txHash) {
+          return {
+            txHash,
+            network: 'TRON Nile (reverted)',
+            isMock: false,
+            explorerUrl: `${EXPLORER_BASE}/#/transaction/${txHash}`,
+          };
+        }
+
+        console.error('合约调用失败，回退 mock:', sendErr);
+        return mockAnchor(params);
+      }
     } catch (err) {
       console.error('合约调用失败，回退 mock:', err);
-      return await mockAnchor(params);
+      return mockAnchor(params);
     } finally {
       setAnchoring(false);
     }
@@ -86,7 +124,6 @@ export function useOutreachContract() {
 
 /** 本地 mock 锚定（合约未部署或无 TronLink 时使用） */
 async function mockAnchor(params: AnchorParams): Promise<AnchorResult> {
-  // 确定性 hash 模拟链上行为
   const input = `${params.outreachId}:${params.university}:${params.eventTitle}:${params.emailBodyHash}`;
   const encoder = new TextEncoder();
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(input));
@@ -98,5 +135,6 @@ async function mockAnchor(params: AnchorParams): Promise<AnchorResult> {
     txHash: hashHex,
     network: 'TRON Nile (mock)',
     isMock: true,
+    explorerUrl: '',
   };
 }

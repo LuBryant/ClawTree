@@ -187,7 +187,11 @@ class OutreachDraftSerializer(serializers.ModelSerializer):
             'status',
             'approved_by',
             'approved_at',
+            'proof_tx_hash',
+            'proof_network',
+            'proof_explorer_url',
+            'proof_created_at',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at', 'approved_at']
+        read_only_fields = ['created_at', 'updated_at', 'approved_at', 'proof_created_at']

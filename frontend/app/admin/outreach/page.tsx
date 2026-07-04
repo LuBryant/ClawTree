@@ -2,16 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  fetchOutreachDrafts, approveOutreachDraft, rejectOutreachDraft,
+  fetchOutreachDrafts, approveOutreachDraft, rejectOutreachDraft, anchorOutreachProof,
   type OutreachDraft,
 } from '../../lib/api-client';
 import { useOutreachContract } from '../../hooks/useOutreachContract';
-
-interface ProofResult {
-  network: string;
-  txHash: string;
-  isMock: boolean;
-}
 
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿',
@@ -24,9 +18,8 @@ export default function AdminOutreachPage() {
   const [drafts, setDrafts] = useState<OutreachDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [proofs, setProofs] = useState<Record<number, ProofResult | null>>({});
   const [proving, setProving] = useState<Set<number>>(new Set());
-  const { anchor: contractAnchor, anchoring: contractAnchoring } = useOutreachContract();
+  const { anchor: contractAnchor } = useOutreachContract();
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -65,12 +58,27 @@ export default function AdminOutreachPage() {
     setProving((p) => new Set(p).add(d.id));
     try {
       const result = await contractAnchor({
-        outreachId: `clawtree-outreach-${d.id}`,
+        outreachId: `clawtree-outreach-${d.id}-${Date.now()}`,
         university: d.university_name,
         eventTitle: d.event_title,
         emailBodyHash: d.email_body,
       });
-      setProofs((p) => ({ ...p, [d.id]: result }));
+
+      // 链上凭证保存到后端数据库
+      const saved = await anchorOutreachProof(d.id, {
+        tx_hash: result.txHash,
+        network: result.network,
+        explorer_url: result.explorerUrl,
+      });
+
+      // 更新本地状态
+      setDrafts((p) => p.map((item) => item.id === d.id ? {
+        ...item,
+        proof_tx_hash: saved.proof_tx_hash,
+        proof_network: result.network,
+        proof_explorer_url: saved.proof_explorer_url,
+        proof_created_at: new Date().toISOString(),
+      } : item));
     } catch {
       alert('链上凭证生成失败，请确认 TronLink 已连接 TRON Nile 测试网');
     } finally {
@@ -123,7 +131,7 @@ export default function AdminOutreachPage() {
               <DraftCard key={d.id} draft={d} formatDate={formatDate}
                 onApprove={(body) => handleApprove(d.id, body)}
                 onReject={() => handleReject(d.id)}
-                proof={proofs[d.id]} proving={proving.has(d.id)}
+                proving={proving.has(d.id)}
                 onAnchor={() => anchorProof(d)} />
             ))}
           </div>
@@ -139,7 +147,7 @@ export default function AdminOutreachPage() {
           <div className="grid gap-4 opacity-60">
             {processed.map((d) => (
               <DraftCard key={d.id} draft={d} formatDate={formatDate}
-                proof={proofs[d.id]} proving={proving.has(d.id)}
+                proving={proving.has(d.id)}
                 onAnchor={() => anchorProof(d)} />
             ))}
           </div>
@@ -149,12 +157,11 @@ export default function AdminOutreachPage() {
   );
 }
 
-function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, onAnchor }: {
+function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAnchor }: {
   draft: OutreachDraft;
   formatDate: (s: string | null) => string;
   onApprove?: (editedBody: string) => void;
   onReject?: () => void;
-  proof?: ProofResult | null;
   proving?: boolean;
   onAnchor?: () => void;
 }) {
@@ -171,6 +178,8 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, 
   };
 
   const isPending = d.status === 'draft' || d.status === 'awaiting_approval';
+  // 链上凭证来自数据库
+  const hasProof = !!(d.proof_tx_hash);
 
   return (
     <article className="panel p-5">
@@ -186,6 +195,7 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, 
           <p className="text-xs mb-1" style={{ color: 'var(--muted)' }}>收件人：{d.recipient_email || '待补全'}</p>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>创建时间：{formatDate(d.created_at)}</p>
           {d.approved_at && <p className="text-xs" style={{ color: 'var(--success)' }}>审批时间：{formatDate(d.approved_at)}</p>}
+          {d.proof_created_at && <p className="text-xs" style={{ color: 'var(--info)' }}>链上凭证：{formatDate(d.proof_created_at)}</p>}
         </div>
         <div>
           {isPending ? (
@@ -215,7 +225,7 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, 
       )}
 
       {/* 链上凭证 */}
-      {d.status === 'approved' && onAnchor && !proof && (
+      {d.status === 'approved' && onAnchor && !hasProof && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
           <button
             className="btn btn-sm"
@@ -228,12 +238,20 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proof, proving, 
         </div>
       )}
 
-      {proof && (
+      {hasProof && (
         <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
           <div className="proof-card">
-            <span>PROOF ANCHORED · {proof.isMock ? 'MOCK' : 'ON-CHAIN'}</span>
-            <strong>{proof.network}</strong>
-            <code style={{ wordBreak: 'break-all' }}>TX: {proof.txHash}</code>
+            <span>PROOF ANCHORED · {d.proof_network.includes('mock') ? 'MOCK' : 'ON-CHAIN'}</span>
+            <strong>{d.proof_network}</strong>
+            {d.proof_explorer_url ? (
+              <a href={d.proof_explorer_url} target="_blank" rel="noopener noreferrer"
+                className="text-sm font-mono break-all transition hover:brightness-125"
+                style={{ color: 'var(--info)', textDecoration: 'underline' }}>
+                TX: {d.proof_tx_hash}
+              </a>
+            ) : (
+              <code style={{ wordBreak: 'break-all' }}>TX: {d.proof_tx_hash}</code>
+            )}
             <small>仅包含外联 ID、高校名称、活动标题、邮件哈希；不含联系人和邮件正文。</small>
           </div>
         </div>
