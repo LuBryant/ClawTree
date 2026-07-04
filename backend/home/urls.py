@@ -11,6 +11,7 @@ from .api_views import (
     AdminSourceConnectorViewSet,
     AdminIngestionRunViewSet,
     AdminContentReviewViewSet,
+    PipelineViewSet,
 )
 
 router = DefaultRouter()
@@ -27,4 +28,8 @@ router.register(r'admin/content-reviews', AdminContentReviewViewSet, basename='a
 urlpatterns = [
     path('user/feed/', PublicFeedView.as_view(), name='user-feed'),
     path('', include(router.urls)),
+    path('pipeline/', PipelineViewSet.as_view({'get': 'list'})),
+    path('pipeline/configure/', PipelineViewSet.as_view({'post': 'configure'})),
+    path('pipeline/trigger/', PipelineViewSet.as_view({'post': 'trigger'})),
+    path('pipeline/stop/', PipelineViewSet.as_view({'post': 'stop'})),
 ]

@@ -8,6 +8,8 @@ from .models import (
     ContentItem,
     EditorialReview,
     OutreachDraft,
+    PipelineRun,
+    PipelineConfig,
 )
 
 
@@ -296,3 +298,25 @@ class OutreachDraftSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at', 'approved_at', 'proof_created_at']
+
+
+class PipelineRunSerializer(serializers.ModelSerializer):
+    step_label = serializers.CharField(source='get_step_display', read_only=True)
+    status_label = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = PipelineRun
+        fields = [
+            'id', 'step', 'step_label', 'status', 'status_label', 'stop_requested',
+            'collected', 'added', 'skipped', 'failed', 'duration_ms',
+            'error_message', 'started_at', 'finished_at', 'created_at',
+        ]
+        read_only_fields = fields
+
+
+class PipelineConfigSerializer(serializers.ModelSerializer):
+    step_label = serializers.CharField(source='get_step_display', read_only=True)
+
+    class Meta:
+        model = PipelineConfig
+        fields = ['id', 'step', 'step_label', 'enabled', 'schedule_time', 'max_count', 'updated_at']

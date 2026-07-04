@@ -43,6 +43,7 @@ class UniversityEvent(models.Model):
         ('研讨会', '研讨会'),
         ('论坛', '论坛'),
         ('工作坊', '工作坊'),
+        ('夏令营', '夏令营'),
         ('其他', '其他'),
     ]
     event_type = models.CharField(
@@ -493,3 +494,60 @@ class OutreachDraft(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.content_item_id}:{self.status}'
+
+
+class PipelineRun(models.Model):
+    """自动化流水线运行记录 — 4 步骤：采集 → 推文 → 邮件 → 审批"""
+    STEP_CHOICES = [
+        ('collect_events', '活动采集'),
+        ('fetch_tweets', '推文回顾'),
+        ('generate_emails', 'AI 邮件生成'),
+        ('auto_approve', '自动审批发送'),
+    ]
+    STATUS_CHOICES = [
+        ('idle', '待运行'),
+        ('running', '运行中'),
+        ('stopped', '已停止'),
+        ('succeeded', '成功'),
+        ('failed', '失败'),
+    ]
+
+    step = models.CharField(max_length=30, choices=STEP_CHOICES, verbose_name='步骤')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='idle', verbose_name='状态')
+    stop_requested = models.BooleanField(default=False, verbose_name='请求停止')
+    collected = models.PositiveIntegerField(default=0, verbose_name='采集/扫描数')
+    added = models.PositiveIntegerField(default=0, verbose_name='新增数')
+    skipped = models.PositiveIntegerField(default=0, verbose_name='跳过/重复数')
+    failed = models.PositiveIntegerField(default=0, verbose_name='失败数')
+    duration_ms = models.PositiveIntegerField(default=0, verbose_name='耗时(ms)')
+    error_message = models.TextField(blank=True, default='', verbose_name='错误信息')
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name='结束时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '流水线运行'
+        verbose_name_plural = '流水线运行'
+
+    def __str__(self):
+        return f'[{self.get_step_display()}] {self.get_status_display()}'
+
+
+class PipelineConfig(models.Model):
+    """每个流水线步骤的可配置项：定时 + 开关 + 采集上限"""
+    step = models.CharField(max_length=30, choices=PipelineRun.STEP_CHOICES, unique=True, verbose_name='步骤')
+    enabled = models.BooleanField(default=False, verbose_name='启用自动运行')
+    schedule_time = models.CharField(max_length=5, default='08:00', verbose_name='定时时间 (HH:MM)')
+    max_count = models.PositiveIntegerField(default=10, verbose_name='采集/处理上限')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '流水线配置'
+        verbose_name_plural = '流水线配置'
+
+    def __str__(self):
+        return f'{self.get_step_display()} — {"启用" if self.enabled else "关闭"} @ {self.schedule_time} (max:{self.max_count})'
