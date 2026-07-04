@@ -7,9 +7,20 @@ import { fetchEventStats, type EventStats } from '../lib/api-client';
 export default function AdminDashboard() {
   const [stats, setStats] = useState<EventStats | null>(null);
   const [error, setError] = useState(false);
+  const [htxPrice, setHtxPrice] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEventStats().then(setStats).catch(() => setError(true));
+    // HTX 行情 — 体现 HTX 生态集成
+    fetch('https://api.huobi.pro/market/detail/merged?symbol=htxusdt')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.status === 'ok' && d.tick) {
+          const price = Number(d.tick.close);
+          setHtxPrice(price < 0.0001 ? price.toExponential(2) : '$' + price.toFixed(6));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -25,17 +36,18 @@ export default function AdminDashboard() {
       </section>
 
       {/* 指标 */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {[
           { label: '活动总量', v: stats?.total, sub: '已采集入库', c: 'var(--success)' },
           { label: 'AI 活动', v: stats?.by_category?.AI, sub: '人工智能相关', c: 'var(--info)' },
           { label: 'Web3 活动', v: stats?.by_category?.Web3, sub: '区块链相关', c: 'var(--warning)' },
           { label: '待外联', v: stats?.uncontacted, sub: `${stats?.contacted ?? 0} 已联系`, c: 'var(--danger)' },
+          { label: '$HTX', v: htxPrice, sub: 'HTX 生态 · TRON Nile gas', c: 'var(--success)' },
         ].map((c) => (
           <div key={c.label} className="panel" style={{ padding: '18px' }}>
             <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{c.label}</p>
             <p className="mt-2" style={{ fontSize: '2rem', fontWeight: 950, lineHeight: 1, color: c.c }}>
-              {stats ? c.v : '—'}
+              {c.v ? c.v : '—'}
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{c.sub}</p>
           </div>
