@@ -39,7 +39,10 @@ export default function UserEventsPage() {
     }
   }, []);
 
-  useEffect(() => { load(filter, page); }, [filter, page, load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(filter, page); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [filter, page, load]);
 
   const doSearch = () => { setFilter((f) => ({ ...f, search })); setPage(1); };
 

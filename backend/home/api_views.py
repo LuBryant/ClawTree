@@ -2,14 +2,34 @@ import os
 import json
 import time
 
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from openai import OpenAI
 
-from .models import UniversityEvent, EventReview, TweetReview, OutreachDraft
-from .serializers import UniversityEventSerializer, EventReviewSerializer, TweetReviewSerializer, OutreachDraftSerializer
+from .models import (
+    UniversityEvent,
+    EventReview,
+    TweetReview,
+    OutreachDraft,
+    SourceConnector,
+    IngestionRun,
+    EditorialReview,
+)
+from .serializers import (
+    UniversityEventSerializer,
+    EventReviewSerializer,
+    TweetReviewSerializer,
+    OutreachDraftSerializer,
+    SourceConnectorSerializer,
+    IngestionRunSerializer,
+    PublicContentRecapSerializer,
+    AdminContentReviewSerializer,
+)
 from .filters import UniversityEventFilter, EventReviewFilter, TweetReviewFilter
 
 
@@ -53,6 +73,125 @@ EMAIL_PROMPT_TEMPLATE = """请为以下高校活动撰写一封大树财经的�
 5. 语气真诚、有温度，不要过度营销
 
 请只返回邮件正文（纯文本），不要包含其他解释。"""
+
+
+def _error(code, detail, http_status=status.HTTP_400_BAD_REQUEST, audit_id=''):
+    return Response({
+        'error': {'code': code, 'detail': detail},
+        'audit_id': audit_id,
+        'externalSideEffect': False,
+    }, status=http_status)
+
+
+def _operator(request):
+    user = getattr(request, 'user', None)
+    if user and getattr(user, 'is_authenticated', False):
+        return user.get_username()
+    return request.data.get('operator') or request.data.get('reviewer') or 'admin'
+
+
+def _audit_id(request, prefix):
+    key = request.headers.get('Idempotency-Key') or request.data.get('idempotency_key') or ''
+    return f'{prefix}:{key}' if key else f'{prefix}:{timezone.now().strftime("%Y%m%d%H%M%S")}'
+
+
+class PublicFeedView(APIView):
+    """API-2: compact public feed envelope for /user.
+
+    It intentionally contains no internal scores, raw source text, contacts, or
+    model prompts. The response is safe to proxy from the frontend.
+    """
+
+    def get(self, request):
+        recaps = EditorialReview.objects.select_related('content_item').filter(
+            status='published',
+        ).order_by('-published_at', '-updated_at')[:6]
+        return Response({
+            'externalSideEffect': False,
+            'recaps': PublicContentRecapSerializer(recaps, many=True).data,
+        })
+
+
+class PublicContentRecapViewSet(viewsets.ReadOnlyModelViewSet):
+    """Published Content Relay recaps for teachers and students."""
+
+    serializer_class = PublicContentRecapSerializer
+    search_fields = ['suggested_title', 'suggested_text', 'content_item__publisher']
+    ordering_fields = ['published_at', 'updated_at', 'content_item__published_at']
+    ordering = ['-published_at', '-updated_at']
+
+    def get_queryset(self):
+        return EditorialReview.objects.select_related('content_item').filter(status='published')
+
+
+class AdminSourceConnectorViewSet(viewsets.ReadOnlyModelViewSet):
+    """Admin-visible source connector config without secret values."""
+
+    queryset = SourceConnector.objects.all()
+    serializer_class = SourceConnectorSerializer
+    search_fields = ['name', 'platform', 'account_or_site', 'owner']
+    ordering_fields = ['platform', 'name', 'updated_at']
+
+
+class AdminIngestionRunViewSet(viewsets.ReadOnlyModelViewSet):
+    """Admin ingestion run audit log: cursors, counts, costs, retries, errors."""
+
+    queryset = IngestionRun.objects.select_related('connector').all()
+    serializer_class = IngestionRunSerializer
+    ordering_fields = ['created_at', 'started_at', 'finished_at', 'new_count', 'failed_count']
+
+
+class AdminContentReviewViewSet(viewsets.ModelViewSet):
+    """API-3: admin review/publish queue for Content Relay."""
+
+    queryset = EditorialReview.objects.select_related('content_item').all()
+    serializer_class = AdminContentReviewSerializer
+    search_fields = ['suggested_title', 'suggested_text', 'content_item__raw_text', 'content_item__source_url']
+    ordering_fields = ['updated_at', 'published_at', 'reviewed_at', 'content_item__published_at']
+    ordering = ['-updated_at']
+
+    def _transition(self, request, next_status, updates=None):
+        review = self.get_object()
+        audit_id = _audit_id(request, f'content-review-{review.id}-{next_status}')
+        try:
+            if next_status == 'published' and 'human_review_required' in (review.risk_labels or []):
+                if request.data.get('high_risk_confirmed') is not True:
+                    return _error(
+                        'high_risk_confirmation_required',
+                        'High-risk content requires explicit human confirmation before publication.',
+                        audit_id=audit_id,
+                    )
+            review.transition_to(next_status)
+            for field, value in (updates or {}).items():
+                setattr(review, field, value)
+            if next_status in ('approved', 'published'):
+                review.reviewer = _operator(request)
+                review.reviewed_at = timezone.now()
+            if next_status == 'published':
+                review.published_at = timezone.now()
+            review.save()
+        except ValidationError as error:
+            return _error('illegal_transition', error.message_dict if hasattr(error, 'message_dict') else str(error), audit_id=audit_id)
+        return Response({
+            'status': review.status,
+            'id': review.id,
+            'audit_id': audit_id,
+            'externalSideEffect': False,
+            'review': AdminContentReviewSerializer(review).data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        return self._transition(request, 'approved')
+
+    @action(detail=True, methods=['post'])
+    def publish(self, request, pk=None):
+        return self._transition(request, 'published')
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        reason = request.data.get('rejection_reason') or 'Rejected by human reviewer.'
+        return self._transition(request, 'rejected', {'rejection_reason': reason})
 
 
 class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
@@ -151,6 +290,16 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'results': results})
 
 
+class PublicUniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
+    """API-2: public event list; no contact fields and no draft-generation action."""
+
+    queryset = UniversityEvent.objects.all()
+    serializer_class = UniversityEventSerializer
+    filterset_class = UniversityEventFilter
+    search_fields = ['title', 'university', 'description', 'source_name']
+    ordering_fields = ['event_date', 'created_at']
+
+
 class OutreachDraftViewSet(viewsets.ModelViewSet):
     """外联审批草稿 API"""
     queryset = OutreachDraft.objects.all()
@@ -164,7 +313,7 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
 
         draft.status = 'approved'
         draft.approved_by = request.data.get('approved_by', 'admin')
-        draft.approved_at = time.strftime('%Y-%m-%dT%H:%M:%S+08:00')
+        draft.approved_at = timezone.now()
 
         # 保存编辑后的内容
         edited_body = request.data.get('email_body', '')
@@ -203,7 +352,7 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
         draft.proof_tx_hash = request.data.get('tx_hash', '')
         draft.proof_network = request.data.get('network', '')
         draft.proof_explorer_url = request.data.get('explorer_url', '')
-        draft.proof_created_at = time.strftime('%Y-%m-%dT%H:%M:%S+08:00')
+        draft.proof_created_at = timezone.now()
         draft.save(update_fields=['proof_tx_hash', 'proof_network', 'proof_explorer_url', 'proof_created_at'])
         return Response({
             'status': 'anchored',

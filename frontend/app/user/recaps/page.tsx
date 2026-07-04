@@ -73,7 +73,10 @@ export default function UserRecapsPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const filtered = searchText
     ? allCards.filter((c) => {
@@ -93,9 +96,6 @@ export default function UserRecapsPage() {
     if (n.has(id)) n.delete(id); else n.add(id);
     return n;
   });
-
-  // 切换搜索关键词时重置页码
-  useEffect(() => { setPage(1); }, [searchText]);
 
   return (
     <div className="flex flex-col gap-6">

@@ -9,11 +9,13 @@ OpenClaw University-Event-Collector — 活动保存命令
 """
 import json
 import sys
+import time
 from datetime import date, datetime
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from home.models import UniversityEvent
+from home.models import IngestionRun, SourceConnector, UniversityEvent
 
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -53,10 +55,12 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('json_file', type=str, help='OpenClaw 输出的 JSON 文件路径')
         parser.add_argument('--dry-run', action='store_true', help='仅预览不入库')
+        parser.add_argument('--owner', default='Campus Opportunity Radar', help='写入 IngestionRun 的负责人')
 
     def handle(self, *args, **options):
         filepath = options['json_file']
         dry_run = options['dry_run']
+        started = time.monotonic()
 
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -68,7 +72,30 @@ class Command(BaseCommand):
         self.stdout.write(f'  query_time: {meta.get("query_time", "N/A")}')
         self.stdout.write(f'  events: {len(events)}')
 
-        saved = skipped = 0
+        saved = skipped = failed = 0
+        failed_items = []
+        run = None
+        connector = None
+
+        if not dry_run:
+            connector, _ = SourceConnector.objects.get_or_create(
+                name='OpenClaw Campus Events',
+                platform='campus',
+                defaults={
+                    'account_or_site': 'OpenClaw University-Event-Collector',
+                    'auth_mode': 'none',
+                    'frequency': 'daily',
+                    'daily_budget_cents': 0,
+                    'status': 'active',
+                    'owner': options['owner'],
+                },
+            )
+            run = IngestionRun.objects.create(
+                connector=connector,
+                status='running',
+                started_at=timezone.now(),
+                cursor_before=connector.cursor,
+            )
 
         for i, ev in enumerate(events):
             # 兼容两种输入格式
@@ -103,7 +130,8 @@ class Command(BaseCommand):
 
             if not source_url:
                 self.stderr.write(f'    无 source_url，跳过')
-                skipped += 1
+                failed += 1
+                failed_items.append({'index': i, 'title': title[:80], 'reason': 'missing_source_url'})
                 continue
 
             if dry_run:
@@ -139,5 +167,33 @@ class Command(BaseCommand):
                 skipped += 1
                 self.stdout.write(f'    SKIP (dup)')
 
+        if run and connector:
+            cursor_after = meta.get('query_time') or datetime.now().isoformat()
+            connector.cursor = str(cursor_after)
+            connector.save(update_fields=['cursor', 'updated_at'])
+            run.status = 'succeeded' if failed == 0 else 'failed'
+            run.finished_at = timezone.now()
+            run.cursor_after = str(cursor_after)
+            run.collected_count = len(events)
+            run.new_count = saved
+            run.duplicate_count = skipped
+            run.failed_count = failed
+            run.duration_ms = int((time.monotonic() - started) * 1000)
+            if failed:
+                run.error_code = 'campus_import_partial_failure'
+                run.error_message = json.dumps(failed_items, ensure_ascii=False)[:2000]
+            run.save()
+
         self.stdout.write('')
-        self.stdout.write(self.style.SUCCESS(f'DONE — saved {saved}, skipped {skipped}'))
+        source = meta.get('source') or meta.get('provider') or 'openclaw'
+        report = {
+            'source': source,
+            'json_file': filepath,
+            'dry_run': dry_run,
+            'saved': saved,
+            'skipped': skipped,
+            'failed': failed,
+            'run_id': run.id if run else None,
+        }
+        self.stdout.write(self.style.SUCCESS(f'DONE — saved {saved}, skipped {skipped}, failed {failed}'))
+        self.stdout.write(json.dumps(report, ensure_ascii=False, indent=2))

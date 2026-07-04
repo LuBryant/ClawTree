@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { publicRecaps, publicSignals } from '../lib/public-data';
 import { fetchEvents, type UniversityEvent } from '../lib/api-client';
 
-const PS = 12;
 const formatDate = (s: string | null) => {
   if (!s) return '';
   return new Date(s).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });

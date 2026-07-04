@@ -373,6 +373,47 @@ class EditorialReview(models.Model):
     def can_transition_to(self, next_status):
         return next_status in self.ALLOWED_TRANSITIONS.get(self.status, set())
 
+    def clean(self):
+        super().clean()
+        if self.status == 'published':
+            if not self.reviewer or not self.reviewed_at:
+                raise ValidationError({
+                    'status': 'Published content requires a named human reviewer and reviewed_at.',
+                })
+            if not self.source_refs:
+                raise ValidationError({
+                    'source_refs': 'Published content must keep at least one source reference.',
+                })
+            if 'human_review_required' in (self.risk_labels or []) and not self.diff_summary:
+                raise ValidationError({
+                    'diff_summary': 'High-risk published content requires an auditable diff summary.',
+                })
+        if not self.pk:
+            return
+        previous = type(self).objects.filter(pk=self.pk).only('status').first()
+        if (
+            previous
+            and previous.status != self.status
+            and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set())
+        ):
+            raise ValidationError({
+                'status': f'Illegal editorial transition: {previous.status} -> {self.status}',
+            })
+
+    def transition_to(self, next_status):
+        if not self.can_transition_to(next_status):
+            raise ValidationError({
+                'status': f'Illegal editorial transition: {self.status} -> {next_status}',
+            })
+        self.status = next_status
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.content_item_id}:{self.status}'
+
 
 class OutreachDraft(models.Model):
     """
@@ -440,19 +481,16 @@ class OutreachDraft(models.Model):
             and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set())
         ):
             raise ValidationError({
-                'status': f'Illegal editorial transition: {previous.status} -> {self.status}',
+                'status': f'Illegal outreach transition: {previous.status} -> {self.status}',
             })
 
     def transition_to(self, next_status):
         if not self.can_transition_to(next_status):
             raise ValidationError({
-                'status': f'Illegal editorial transition: {self.status} -> {next_status}',
+                'status': f'Illegal outreach transition: {self.status} -> {next_status}',
             })
         self.status = next_status
 
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f'{self.content_item_id}:{self.status}'

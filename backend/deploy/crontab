@@ -6,6 +6,11 @@
 #
 # 日志目录需提前创建: mkdir -p /var/log/clawtree
 
+# 每天 7:30 运行 TreeFinance Content Relay。
+# 无 X API Key 时仍可使用离线黄金集验证采集 -> 去重 -> 审核队列闭环；
+# 生产接入 live connector 前必须先通过 GATE-2 来源授权确认。
+30 7 * * * cd /opt/clawtree/backend && export $(cat ../.env | grep -v '^#' | xargs) && /opt/clawtree/backend/venv/bin/python manage.py run_content_relay --fixture /opt/clawtree/frontend/data/golden-gate.json >> /var/log/clawtree/cron_content_relay.log 2>&1
+
 # 每天 8:00 和 18:00 采集高校 AI/Web3 活动
 0 8,18 * * * cd /opt/clawtree/backend && export $(cat ../.env | grep -v '^#' | xargs) && /opt/clawtree/backend/venv/bin/python manage.py fetch_events >> /var/log/clawtree/cron_events.log 2>&1
 

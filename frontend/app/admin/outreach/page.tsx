@@ -33,7 +33,10 @@ export default function AdminOutreachPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const handleApprove = async (id: number, editedBody?: string) => {
     try {
@@ -58,7 +61,7 @@ export default function AdminOutreachPage() {
     setProving((p) => new Set(p).add(d.id));
     try {
       const result = await contractAnchor({
-        outreachId: `clawtree-outreach-${d.id}-${Date.now()}`,
+        outreachId: `clawtree-outreach-${d.id}`,
         university: d.university_name,
         eventTitle: d.event_title,
         emailBodyHash: d.email_body,
