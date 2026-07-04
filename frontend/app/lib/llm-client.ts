@@ -1,22 +1,35 @@
-/**
- * Same-origin streaming client. Provider credentials stay on the server.
- */
+/** Same-origin assistant client. Provider credentials and RAG context stay on the server. */
 const ASSISTANT_ENDPOINT = '/api/assistant/chat';
 const ASSISTANT_TIMEOUT_MS = 60_000;
 
+export type AssistantCitation = {
+  id: string;
+  title: string;
+  label: string;
+  url: string;
+  checkedAt: string;
+};
+
 interface StreamResult {
   content: string | null;
+  mode: 'rag_model' | 'faq_fallback' | 'policy_refusal';
+  decision: 'answer' | 'refuse' | 'handoff';
+  grounded: boolean;
+  knowledgeAsOf: string;
+  citations: AssistantCitation[];
+  handoff: { required: boolean; reason: string | null; url: string };
 }
 
 class AssistantClient {
-  /** Streams assistant text from the fixed same-origin endpoint. */
+  /** Requests a grounded answer from the fixed same-origin endpoint. */
   async streamChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    callbacks?: {
+    options?: {
+      audience?: 'teacher' | 'student';
       onChunk?: (text: string) => void;
     },
   ): Promise<StreamResult> {
-    const body = { messages };
+    const body = { messages, audience: options?.audience || 'teacher' };
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ASSISTANT_TIMEOUT_MS);
@@ -35,39 +48,20 @@ class AssistantClient {
         throw new Error(`assistant_unavailable:${response.status}`);
       }
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let content = '';
-
-      let buf = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data:')) continue;
-          const dataStr = trimmed.slice(5).trim();
-          if (dataStr === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(dataStr);
-            const delta = parsed.choices?.[0]?.delta;
-            if (!delta) continue;
-
-            if (delta.content) {
-              content += delta.content;
-              callbacks?.onChunk?.(delta.content);
-            }
-
-          } catch { /* skip unparseable line */ }
-        }
+      const payload = await response.json();
+      if (typeof payload.answer !== 'string' || !Array.isArray(payload.citations)) {
+        throw new Error('assistant_invalid_response');
       }
-
-      return { content: content || null };
+      options?.onChunk?.(payload.answer);
+      return {
+        content: payload.answer,
+        mode: payload.mode,
+        decision: payload.decision,
+        grounded: Boolean(payload.grounded),
+        knowledgeAsOf: payload.knowledgeAsOf,
+        citations: payload.citations,
+        handoff: payload.handoff,
+      };
     } finally {
       clearTimeout(timer);
     }

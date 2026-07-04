@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
@@ -8,6 +8,10 @@ const root = path.resolve(import.meta.dirname, '..');
 const nextCli = path.join(root, 'frontend', 'node_modules', 'next', 'dist', 'bin', 'next');
 const port = 3217;
 const base = `http://127.0.0.1:${port}`;
+const assistantEvals = JSON.parse(await readFile(
+  path.join(root, 'frontend', 'data', 'assistant-evals.json'),
+  'utf8',
+));
 
 try { await access(nextCli); } catch {
   console.error('Missing frontend dependencies. Run: npm run install');
@@ -16,7 +20,12 @@ try { await access(nextCli); } catch {
 
 const child = spawn(process.execPath, [nextCli, 'dev', '--hostname', '127.0.0.1', '--port', String(port)], {
   cwd: path.join(root, 'frontend'),
-  env: { ...process.env, NEXT_DIST_DIR: '.next-smoke', NEXT_TELEMETRY_DISABLED: '1' },
+  env: {
+    ...process.env,
+    NEXT_DIST_DIR: '.next-smoke',
+    NEXT_TELEMETRY_DISABLED: '1',
+    ASSISTANT_FORCE_FALLBACK: '1',
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';
@@ -59,6 +68,34 @@ try {
   });
   assert.equal(rejectedAssistantRequest.status, 400);
   assert.deepEqual(await rejectedAssistantRequest.json(), { error: 'invalid_messages' });
+  const assistantPost = (query, audience = 'teacher') => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ audience, messages: [{ role: 'user', content: query }] }),
+  });
+  const groundedAnswer = await json('/api/assistant/chat', assistantPost('大树财经是什么平台？'));
+  assert.equal(groundedAnswer.mode, 'faq_fallback');
+  assert.equal(groundedAnswer.decision, 'answer');
+  assert.equal(groundedAnswer.grounded, true);
+  assert.ok(groundedAnswer.citations.some((citation) => citation.id === 'kb-platform-overview'));
+  assert.match(groundedAnswer.knowledgeAsOf, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(groundedAnswer.externalSideEffect, false);
+  const guardedAnswer = await json('/api/assistant/chat', assistantPost('能保证某位嘉宾来参加圆桌吗？', 'student'));
+  assert.equal(guardedAnswer.decision, 'refuse');
+  assert.equal(guardedAnswer.handoff.required, true);
+  assert.ok(guardedAnswer.citations.some((citation) => citation.id === 'kb-space-support'));
+  const unknownAnswer = await json('/api/assistant/chat', assistantPost('量子农业课程有哪些合作权益？'));
+  assert.equal(unknownAnswer.decision, 'handoff');
+  assert.equal(unknownAnswer.handoff.url, '/user/cooperate');
+  for (const evalCase of assistantEvals.cases) {
+    const result = await json('/api/assistant/chat', assistantPost(evalCase.query, evalCase.audience));
+    assert.equal(result.decision, evalCase.expectedDecision, evalCase.id);
+    assert.equal(result.externalSideEffect, false, evalCase.id);
+    assert.ok(
+      result.citations.some((citation) => evalCase.citationIds.includes(citation.id)),
+      `${evalCase.id} missing expected citation`,
+    );
+  }
   const demo = await json('/api/demo');
   assert.ok(demo.signals.length >= 4);
   assertPublicPayload(await json('/api/user/feed'), 'user feed');
@@ -78,7 +115,7 @@ try {
   for (const privateField of ['email', 'contact', 'body', 'reply', 'name', 'prompt']) {
     assert.equal(proofA.privacyFields.includes(privateField), false);
   }
-  console.log('SMOKE PASS: health → demo → draft → human approval → privacy-safe proof');
+  console.log('SMOKE PASS: RAG fallback → refusal/handoff → demo → human approval → privacy-safe proof');
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   console.error(logs);

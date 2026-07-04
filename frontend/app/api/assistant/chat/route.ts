@@ -1,4 +1,14 @@
-import { ASSISTANT_SYSTEM_PROMPT } from '../../../lib/assistant-prompt.server';
+import {
+  ASSISTANT_SYSTEM_PROMPT,
+  buildAssistantRagPrompt,
+} from '../../../lib/assistant-prompt.server';
+import {
+  answerPassesGuardrails,
+  assistantHandoffUrl,
+  retrieveAssistantKnowledge,
+  type AssistantAudience,
+  type AssistantRetrieval,
+} from '../../../lib/assistant-rag.server';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +22,27 @@ const ALLOWED_PROVIDER_HOSTS = new Set(['api.deepseek.com']);
 
 function errorResponse(error: string, status: number) {
   return Response.json({ error }, { status, headers: { 'cache-control': 'no-store' } });
+}
+
+function answerResponse(
+  retrieval: AssistantRetrieval,
+  mode: 'rag_model' | 'faq_fallback' | 'policy_refusal',
+  answer = retrieval.answer,
+) {
+  return Response.json({
+    answer,
+    mode,
+    decision: retrieval.decision,
+    grounded: retrieval.citations.length > 0,
+    knowledgeAsOf: retrieval.knowledgeAsOf,
+    citations: retrieval.citations,
+    handoff: {
+      required: retrieval.handoffRequired,
+      reason: retrieval.handoffReason,
+      url: assistantHandoffUrl,
+    },
+    externalSideEffect: false,
+  }, { headers: { 'cache-control': 'no-store' } });
 }
 
 function validateMessages(value: unknown): ChatMessage[] | null {
@@ -53,13 +84,23 @@ export async function POST(request: Request) {
   } catch {
     return errorResponse('invalid_json', 400);
   }
-  const messages = validateMessages(
-    body && typeof body === 'object' ? (body as Record<string, unknown>).messages : null,
-  );
+  const bodyRecord = body && typeof body === 'object' ? body as Record<string, unknown> : null;
+  const messages = validateMessages(bodyRecord?.messages);
   if (!messages) return errorResponse('invalid_messages', 400);
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return errorResponse('assistant_unavailable', 503);
+  const audience: AssistantAudience = bodyRecord?.audience === 'student' ? 'student' : 'teacher';
+  const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+  if (!latestUserMessage) return errorResponse('invalid_messages', 400);
+  const retrieval = retrieveAssistantKnowledge(latestUserMessage.content, audience);
+
+  if (retrieval.decision !== 'answer') {
+    return answerResponse(retrieval, 'policy_refusal');
+  }
+
+  const apiKey = process.env.ASSISTANT_FORCE_FALLBACK === '1'
+    ? undefined
+    : process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) return answerResponse(retrieval, 'faq_fallback');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
@@ -69,31 +110,30 @@ export async function POST(request: Request) {
       headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify({
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
-        messages: [{ role: 'system', content: ASSISTANT_SYSTEM_PROMPT }, ...messages],
-        stream: true,
-        temperature: 0.3,
-        max_tokens: 2_048,
+        messages: [
+          { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+          { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, retrieval.context) },
+        ],
+        stream: false,
+        temperature: 0.1,
+        max_tokens: 512,
       }),
       cache: 'no-store',
       signal: controller.signal,
     });
-    if (!upstream.ok || !upstream.body) {
+    if (!upstream.ok) {
       clearTimeout(timeout);
-      return errorResponse('provider_unavailable', 502);
+      return answerResponse(retrieval, 'faq_fallback');
     }
-    const { readable, writable } = new TransformStream();
-    void upstream.body.pipeTo(writable, { signal: controller.signal })
-      .catch(() => undefined)
-      .finally(() => clearTimeout(timeout));
-    return new Response(readable, {
-      headers: {
-        'cache-control': 'no-store',
-        'content-type': 'text/event-stream; charset=utf-8',
-        'x-accel-buffering': 'no',
-      },
-    });
+    const payload = await upstream.json();
+    clearTimeout(timeout);
+    const answer = payload?.choices?.[0]?.message?.content;
+    if (typeof answer !== 'string' || !answer.trim() || !answerPassesGuardrails(answer)) {
+      return answerResponse(retrieval, 'faq_fallback');
+    }
+    return answerResponse(retrieval, 'rag_model', answer.trim());
   } catch {
     clearTimeout(timeout);
-    return errorResponse('provider_unavailable', 502);
+    return answerResponse(retrieval, 'faq_fallback');
   }
 }
