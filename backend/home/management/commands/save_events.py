@@ -44,7 +44,7 @@ def _infer_category(title, description):
     return 'AI'
 
 
-VALID_TYPES = ['黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '其他']
+VALID_TYPES = ['黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '夏令营', '其他']
 
 
 class Command(BaseCommand):
