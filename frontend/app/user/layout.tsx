@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { userIa } from '../lib/public-data';
+import UserNavLinks from '../components/UserNavLinks';
 
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,13 +14,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
         </div>
         <Link href="/admin" className="btn-outline whitespace-nowrap">切到运营端 →</Link>
       </div>
-      <nav className="mb-8 flex gap-2 overflow-x-auto pb-2" aria-label="用户端导航">
-        {userIa.map((item) => (
-          <Link key={item.href} href={item.href} className="btn-outline btn-sm whitespace-nowrap">
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <UserNavLinks />
       {children}
     </main>
   );
