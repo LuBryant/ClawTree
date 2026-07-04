@@ -7,9 +7,9 @@ import {
 } from '../../lib/api-client';
 
 const CATEGORIES = ['', 'AI', 'Web3', 'AI+Web3'] as const;
-const EVENT_TYPES = ['', '黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '其他'] as const;
+const EVENT_TYPES = ['', '黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '夏令营', '其他'] as const;
 const CAT_LABEL: Record<string, string> = { '': '全部分类', AI: '🤖 AI', Web3: '⛓️ Web3', 'AI+Web3': '⚡ AI+Web3' };
-const TYPE_LABEL: Record<string, string> = { '': '全部类型', '黑客松': '💻 黑客松', '分享会': '🎯 分享会', '讲座': '🎙️ 讲座', '竞赛': '🏆 竞赛', '研讨会': '🎓 研讨会', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '其他': '📌 其他' };
+const TYPE_LABEL: Record<string, string> = { '': '全部类型', '黑客松': '💻 黑客松', '分享会': '🎯 分享会', '讲座': '🎙️ 讲座', '竞赛': '🏆 竞赛', '研讨会': '🎓 研讨会', '论坛': '🎤 论坛', '工作坊': '🔧 工作坊', '夏令营': '🏕️ 夏令营', '其他': '📌 其他' };
 
 const DEFAULT_TEMPLATE = `尊敬的 {高校名称} 老师：
 
@@ -262,14 +262,13 @@ function EventCard({ event: e, sel, onToggle, onSend, generating }: { event: Uni
       {e.description && <p className="mt-2.5 text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--muted)' }}>{e.description}</p>}
       <div className="mt-3 flex flex-col gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex flex-col gap-0.5 text-xs">
-          {e.has_public_contact ? (
-            <span style={{ color: 'var(--success)' }}>已有公开联系证据，具体收件人仅进入外联审批台</span>
-          ) : (
-            <span className="text-xs" style={{ color: 'var(--muted)' }}>待补联系证据</span>
-          )}
+          {e.contact_email ? <span style={{ color: 'var(--success)', wordBreak: 'break-all' }}>✉️ {e.contact_email}</span> : <span className="text-xs" style={{ color: 'var(--muted)' }}>✉️ 无邮箱</span>}
+          {e.contact_ai_email && <span style={{ color: 'var(--success)' }}>🤖 AI部门：{e.contact_ai_email}</span>}
+          {e.contact_wechat && <span style={{ color: 'var(--success)' }}>💬 {e.contact_wechat}</span>}
+          {e.contact_phone && <span style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
         </div>
         <div className="flex gap-2">
-          {e.has_public_contact ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? '⏳ AI 生成中...' : '📝 ai生成邮件文案'}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
+          {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? '⏳ AI 生成中...' : '📝 ai生成邮件文案'}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>待补联系证据</span>}
           <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
         </div>
       </div>

@@ -26,9 +26,14 @@ export interface UniversityEvent {
   description: string;
   source_url: string;
   source_name: string;
+  contact_email: string;
+  contact_ai_email: string;
+  contact_phone: string;
+  contact_wechat: string;
+  contact_qq: string;
   has_public_contact: boolean;
   category: 'AI' | 'Web3' | 'AI+Web3';
-  event_type: '黑客松' | '分享会' | '讲座' | '竞赛' | '研讨会' | '论坛' | '工作坊' | '其他';
+  event_type: '黑客松' | '分享会' | '讲座' | '竞赛' | '研讨会' | '论坛' | '工作坊' | '夏令营' | '其他';
   registration_url: string;
   is_contacted: boolean;
   score: number;
