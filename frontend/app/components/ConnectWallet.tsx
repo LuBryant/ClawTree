@@ -86,16 +86,6 @@ export default function ConnectWallet() {
         🦊 MetaMask
       </button>
 
-      {/* Faucet link */}
-      <a
-        href={FAUCET_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="rounded-lg px-3 py-2 text-xs text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300 hover:ring-zinc-600 transition"
-      >
-        💧 Faucet
-      </a>
-
       {/* Error toast */}
       {tron.error && (
         <span

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import ConnectWallet from './ConnectWallet';
 
 const links = [
   { href: '/', label: '首页' },
@@ -32,6 +33,7 @@ export default function TopNav() {
       <a href="https://treefinance.co" target="_blank" rel="noreferrer">
         大树财经
       </a>
+      <ConnectWallet />
     </nav>
   );
 }

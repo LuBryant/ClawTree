@@ -4,6 +4,8 @@ import './globals.css';
 import TopNav from './components/TopNav';
 import HumanSupportLink from './components/HumanSupportLink';
 import AiAssistant from './components/AiAssistant';
+import WagmiProvider from './components/WagmiProvider';
+import { TronWalletProvider } from './hooks/useTronWallet';
 
 export const metadata: Metadata = {
   title: 'ClawTree · AI 媒体活动增长操作系统',
@@ -15,20 +17,24 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body>
-        <header className="site-header">
-          <div className="nav-wrap">
-            <Link href="/" className="brand" aria-label="ClawTree 首页">
-              <span className="brand-mark">CT</span>
-              <span>ClawTree <small>树爪智动</small></span>
-            </Link>
-            <div className="flex items-center gap-6">
-              <HumanSupportLink />
-              <TopNav />
+        <WagmiProvider>
+          <TronWalletProvider>
+            <header className="site-header">
+            <div className="nav-wrap">
+              <Link href="/" className="brand" aria-label="ClawTree 首页">
+                <span className="brand-mark">CT</span>
+                <span>ClawTree <small>树爪智动</small></span>
+              </Link>
+              <div className="flex items-center gap-6">
+                <HumanSupportLink />
+                <TopNav />
+              </div>
             </div>
-          </div>
-        </header>
-        {children}
-        <AiAssistant />
+          </header>
+          {children}
+          <AiAssistant />
+          </TronWalletProvider>
+        </WagmiProvider>
       </body>
     </html>
   );
