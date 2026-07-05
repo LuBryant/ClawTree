@@ -15,7 +15,7 @@ export default function Home() {
         <h1>把热点和高校信号，<br /><em>变成真实合作。</em></h1>
         <p className="hero-copy">
           ClawTree 是大树财经的 AI 媒体活动增长操作系统。15 分钟完成信号核验、
-          选题策划、目标匹配与个性化外联，并留下可审计的执行证据。
+          选题策划、目标匹配与个性化外联，并留下可审计的执行证据
         </p>
         <div className="hero-actions">
           <Link href="/demo" className="primary-cta">开始 3 分钟 Demo <span>→</span></Link>
