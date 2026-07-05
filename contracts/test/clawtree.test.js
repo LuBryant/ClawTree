@@ -1,6 +1,17 @@
 const { expect } = require('chai');
 const hre = require('hardhat');
 
+async function expectRevert(promise, reason) {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error.message).to.include(reason);
+    return;
+  }
+
+  throw new Error(`Expected transaction to revert with "${reason}"`);
+}
+
 describe('ClawTree Contracts', function () {
   let owner, addr1;
 
@@ -22,7 +33,7 @@ describe('ClawTree Contracts', function () {
       const future = Math.floor(Date.now() / 1000) + 86400 * 30;
       await registry.registerEvent('PKU-AI-001', '北京大学', 'AI Hackathon', 'Hackathon', future, '北京/线上混合', 'ipfs://Qm...');
 
-      const ev = await registry.getEvent('PKU-AI-001');
+      const ev = await registry['getEvent(string)']('PKU-AI-001');
       expect(ev.university).to.equal('北京大学');
       expect(ev.category).to.equal('Hackathon');
       expect(ev.exists).to.be.true;
@@ -31,16 +42,16 @@ describe('ClawTree Contracts', function () {
     it('rejects duplicate eventId', async () => {
       const future = Math.floor(Date.now() / 1000) + 86400 * 30;
       await registry.registerEvent('THU-001', '清华大学', 'Web3 Workshop', 'Workshop', future, '线上', 'ipfs://Qm...');
-      await expect(
+      await expectRevert(
         registry.registerEvent('THU-001', '清华大学', 'Web3 Workshop 2', 'Workshop', future, '线上', 'ipfs://Qm...')
-      ).to.be.revertedWith('Event already registered');
+      , 'Event already registered');
     });
 
     it('rejects non-registrar', async () => {
       const future = Math.floor(Date.now() / 1000) + 86400 * 30;
-      await expect(
+      await expectRevert(
         registry.connect(addr1).registerEvent('FDU-001', '复旦大学', 'AI Summit', 'AI', future, '上海', 'ipfs://Qm...')
-      ).to.be.revertedWith('Not authorized registrar');
+      , 'Not authorized registrar');
     });
 
     it('tracks event count and index', async () => {
@@ -48,7 +59,7 @@ describe('ClawTree Contracts', function () {
       await registry.registerEvent('A-001', 'A大学', 'Event A', 'AI', future, '线上', 'ipfs://a');
       await registry.registerEvent('B-001', 'B大学', 'Event B', 'Web3', future, '线上', 'ipfs://b');
 
-      expect(await registry.eventCount()).to.equal(2);
+      expect(await registry.eventCount()).to.equal(2n);
       const e0 = await registry.getEventAtIndex(0);
       expect(e0.eventId).to.equal('A-001');
       const e1 = await registry.getEventAtIndex(1);
@@ -73,14 +84,14 @@ describe('ClawTree Contracts', function () {
       const o = await record.getOutreach('OUT-001');
       expect(o.university).to.equal('北京大学');
       expect(o.emailHash).to.equal(emailHash);
-      expect(o.replyIntent).to.equal(0);
+      expect(o.replyIntent).to.equal(0n);
 
       const replyHash = hre.ethers.id('reply-content');
       await record.recordReply('OUT-001', replyHash, 1);
 
       const o2 = await record.getOutreach('OUT-001');
       expect(o2.replyHash).to.equal(replyHash);
-      expect(o2.replyIntent).to.equal(1);
+      expect(o2.replyIntent).to.equal(1n);
     });
   });
 
@@ -101,8 +112,8 @@ describe('ClawTree Contracts', function () {
 
       const snap = await oracle.latestSnapshot();
       expect(snap.reportHash).to.equal(hash);
-      expect(snap.totalEvents).to.equal(50);
-      expect(snap.positiveRate).to.equal(1500); // 15%
+      expect(snap.totalEvents).to.equal(50n);
+      expect(snap.positiveRate).to.equal(1500n); // 15%
     });
   });
 });

@@ -238,6 +238,14 @@ Django 会自动读取仓库根目录 .env 和 backend/.env。可以从 .env.exa
 
 本地未配置 SMTP 时，审批发送会写到 console backend，不会真的发邮件。真实发送必须配置 SMTP_HOST、SMTP_USER、SMTP_PASS 和 DEFAULT_FROM_EMAIL。
 
+## 展示合约/链上能力
+先安装合约依赖：
+```
+cd /Users/brywing/Desktop/ClawTree
+npm run install:contracts
+npm run test:contracts
+```
+
 ## 数据采集与导入
 
 OpenClaw 高校活动 JSON 导入：
