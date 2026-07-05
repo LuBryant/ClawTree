@@ -126,11 +126,19 @@ export function TronWalletProvider({ children }: { children: ReactNode }) {
   // 页面加载时自动重连（刷新后恢复钱包状态）
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const tw = window.tronWeb;
-    if (tw?.ready && tw.defaultAddress?.base58) {
-      connect();
-    }
-    // 只跑一次
+    // TronLink 扩展注入可能有延迟，轮询等待
+    let attempts = 0;
+    const tryConnect = () => {
+      const tw = window.tronWeb;
+      if (tw?.ready && tw.defaultAddress?.base58) {
+        connect();
+        return;
+      }
+      if (++attempts < 10) {
+        setTimeout(tryConnect, 300);
+      }
+    };
+    setTimeout(tryConnect, 200);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
