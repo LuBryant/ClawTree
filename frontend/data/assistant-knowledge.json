@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-04.v1",
-  "reviewedAt": "2026-07-04",
+  "version": "2026-07-05.v2",
+  "reviewedAt": "2026-07-05",
   "entries": [
     {
       "id": "kb-platform-overview",
@@ -62,14 +62,28 @@
       "id": "kb-cooperation-models",
       "category": "cooperation",
       "title": "三类高校合作模式",
-      "answer": "当前可讨论的合作分为三类：媒体支持与活动复盘、嘉宾或线上 Space 联动、联合活动或黑客松。具体资源、嘉宾、时间和权益必须逐项人工确认。",
-      "answerEn": "Three partnership models are currently open for discussion: media support and event recaps, guest or online Space collaborations, and joint events or hackathons. Resources, guests, timing, and benefits require individual human confirmation.",
-      "keywords": ["合作", "合作模式", "高校行", "活动", "媒体支持", "space", "嘉宾", "联合活动", "黑客松", "partnership", "collaboration", "campus tour", "event", "media support", "guest", "joint event", "hackathon"],
+      "answer": "当前可讨论的合作模式分三类：1）媒体支持与活动复盘：整理公开来源、产出活动回顾、协助宣发素材审核；2）嘉宾或线上 Space 联动：围绕 AI/Web3/财经素养组织圆桌、公开课或直播；3）联合活动或黑客松：从议题设计、项目招募、生态伙伴匹配到赛后复盘。AI 可以说明模式和准备清单，但具体资源、嘉宾、时间、费用、权益、主办身份必须逐项人工确认。",
+      "answerEn": "Three partnership models are open for discussion: 1) media support and event recaps, including public-source summaries, recap production, and reviewed promotional material; 2) guest or online Space collaboration around AI, Web3, and financial literacy; 3) joint events or hackathons, from theme design and project recruiting to ecosystem matching and post-event recaps. AI may explain models and preparation checklists, while resources, guests, timing, fees, benefits, and host status require human confirmation.",
+      "keywords": ["合作", "合作模式", "高校行", "活动", "媒体支持", "space", "嘉宾", "联合活动", "黑客松", "合作模式与活动流程", "partnership", "collaboration", "campus tour", "event", "media support", "guest", "joint event", "hackathon", "partnership model"],
       "audiences": ["teacher", "student"],
       "owner": "TreeFinance Business",
       "source": { "label": "申请合作与边界", "url": "/user/cooperate", "checkedAt": "2026-07-04" },
       "validFrom": "2026-07-04",
       "validUntil": "2026-09-30",
+      "approved": true
+    },
+    {
+      "id": "kb-cooperation-flow",
+      "category": "cooperation",
+      "title": "合作模式与活动流程",
+      "answer": "一次标准合作通常分 6 步：1）信号发现：从高校活动、社团议题、AI/Web3 热点或公开报名信息中发现机会；2）需求确认：确认目标受众、活动形式、时间窗口、内容边界和联系人；3）匹配与方案：AI 生成合作匹配理由、风险提示、内容选题和初版提案；4）人工审批：负责人确认权益、嘉宾、预算、发布授权、隐私和合规边界；5）执行协作：按已确认方案推进宣发、Space、圆桌、工作坊、黑客松或复盘内容；6）复盘与凭证：沉淀来源、成果摘要、审核状态和可公开的链上凭证。学生社团可从“活动/报名/社群需求”开始，高校老师可从“课程主题/合作目标/资源边界”开始。",
+      "answerEn": "A standard collaboration usually has six steps: 1) signal discovery from campus events, student-group themes, AI/Web3 trends, or public registration pages; 2) needs confirmation around audience, format, time window, content boundaries, and contacts; 3) matching and proposal drafting with AI-generated fit reasons, risks, content angles, and a first proposal; 4) human approval for benefits, guests, budget, publishing rights, privacy, and compliance; 5) execution across promotion, Spaces, roundtables, workshops, hackathons, or recap content; 6) recap and proof, preserving sources, outcome summaries, review status, and public onchain proof when appropriate. Student groups can start from event or community needs; educators can start from course themes, partnership goals, and resource boundaries.",
+      "keywords": ["合作模式与活动流程", "活动流程", "合作流程", "流程", "合作步骤", "怎么合作", "活动怎么做", "从信号到复盘", "执行流程", "partnership flow", "event process", "collaboration steps", "workflow", "how collaboration works"],
+      "audiences": ["teacher", "student"],
+      "owner": "TreeFinance Business",
+      "source": { "label": "申请合作与流程说明", "url": "/user/cooperate", "checkedAt": "2026-07-05" },
+      "validFrom": "2026-07-05",
+      "validUntil": "2026-12-31",
       "approved": true
     },
     {
@@ -104,14 +118,28 @@
       "id": "kb-hackathon-support",
       "category": "capability",
       "title": "黑客松与项目招募边界",
-      "answer": "大树财经可讨论 AI×Web3 黑客松的媒体、内容或生态协作。报名资格、开放时间、奖金、算力、投资和主办身份必须以具体活动官方页面及人工确认为准。",
-      "answerEn": "TreeFinance can discuss media, content, or ecosystem collaboration for AI × Web3 hackathons. Eligibility, application windows, prizes, compute, investment, and host status must be verified on the official event page and confirmed by a human.",
-      "keywords": ["hackathon", "黑客松", "genesis", "报名", "奖金", "算力", "项目招募", "投资", "register", "registration", "prize", "compute", "recruitment", "investment"],
+      "answer": "大树财经可讨论 AI×Web3 黑客松的媒体、内容或生态协作；Copilot 对外部黑客松报名问题会优先搜索公开官方页面，并整理报名入口、材料、截止时间、资格和注意事项的核验清单。报名提交必须由用户自行完成；报名资格、开放时间、奖金、算力、投资和主办身份必须以具体活动官方页面及人工确认为准。",
+      "answerEn": "TreeFinance can discuss media, content, or ecosystem collaboration for AI × Web3 hackathons. For external hackathon registration questions, Copilot first looks for public official pages and summarizes the application entry, materials, deadlines, eligibility, and verification checklist. Users must submit applications themselves; eligibility, windows, prizes, compute, investment, and host status must be verified on the official event page and confirmed by a human when needed.",
+      "keywords": ["hackathon", "黑客松", "genesis", "报名", "报名入口", "报名链接", "怎么报名", "奖金", "算力", "项目招募", "投资", "register", "registration", "how to register", "application", "prize", "compute", "recruitment", "investment"],
       "audiences": ["teacher", "student"],
       "owner": "TreeFinance Ecosystem",
       "source": { "label": "黑客松公开支持案例", "url": "/user/recaps/tf-htx-waic", "checkedAt": "2026-07-04" },
       "validFrom": "2026-07-04",
-      "validUntil": "2026-07-31",
+      "validUntil": "2026-12-31",
+      "approved": true
+    },
+    {
+      "id": "kb-public-event-search",
+      "category": "capability",
+      "title": "公开活动报名信息检索",
+      "answer": "对于公开活动、比赛、黑客松的报名入口、官网、截止时间和参赛材料，AI 可以先进行网页检索并整理候选官方链接与核验步骤。搜索结果只代表公开网页线索，不等于平台或主办方确认；涉及报名资格、奖项、投资、主办身份、提交状态和个人信息处理时，仍应以官方页面和人工确认为准。",
+      "answerEn": "For public events, competitions, and hackathons, AI may run web lookup for registration entries, official sites, deadlines, and application materials, then organize candidate official links and verification steps. Search results are public web leads, not platform or organizer confirmation; eligibility, prizes, investment, organizer status, submission status, and personal-data handling must be verified on official pages and by humans when needed.",
+      "keywords": ["公开活动", "网页检索", "搜索", "报名", "怎么报名", "黑客松报名", "报名入口", "报名链接", "官网", "官方页面", "截止时间", "参赛材料", "public event", "web search", "registration", "how to register", "registration link", "official site", "deadline", "application materials"],
+      "audiences": ["teacher", "student"],
+      "owner": "TreeFinance Ops",
+      "source": { "label": "近期高校活动", "url": "/user/events", "checkedAt": "2026-07-05" },
+      "validFrom": "2026-07-05",
+      "validUntil": "2026-12-31",
       "approved": true
     },
     {

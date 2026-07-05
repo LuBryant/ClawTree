@@ -12,7 +12,7 @@ export type AssistantCitation = {
 
 interface StreamResult {
   content: string | null;
-  mode: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal';
+  mode: 'rag_model' | 'ai_model' | 'web_search_model' | 'web_search_fallback' | 'faq_fallback' | 'policy_refusal';
   decision: 'answer' | 'refuse' | 'handoff';
   grounded: boolean;
   knowledgeAsOf: string;

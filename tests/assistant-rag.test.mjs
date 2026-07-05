@@ -113,7 +113,7 @@ test('CS-9 hybrid RAG + AI supports English intent and conversation context', ()
   assert.match(routeSource, /detectResponseLanguage\(latestUserMessage\.content, preferredLanguage\)/);
   assert.match(routeSource, /\\p\{Script=Han\}/);
   assert.match(routeSource, /messages\.slice\(0, -1\)\.slice\(-6\)/);
-  assert.match(routeSource, /buildAssistantRagPrompt\(latestUserMessage\.content, retrieval\.context, language\)/);
+  assert.match(routeSource, /buildAssistantRagPrompt\(latestUserMessage\.content, groundingContext, language\)/);
   assert.match(chatSource, /streamChat\(chatHistory\.current, \{ audience, language, workspaceSlug: DEMO_WORKSPACE\.slug \}\)/);
 });
 
@@ -144,4 +144,20 @@ test('CS-12 low-risk RAG misses use general AI while high-risk details stay gate
   assert.match(ragSource, /CONFIRMATION_SUBJECTS/);
   assert.match(ragSource, /CONFIRMATION_DETAILS/);
   assert.ok(evals.cases.some((item) => item.answerMode === 'ai_general' && item.citationIds.length === 0));
+});
+
+test('CS-13 public registration lookups use web search instead of immediate handoff', () => {
+  assert.match(routeSource, /shouldUseAssistantWebSearch/);
+  assert.match(routeSource, /searchAssistantWeb/);
+  assert.match(routeSource, /web_search_model/);
+  assert.match(routeSource, /web_search_fallback/);
+  assert.match(ragSource, /PUBLIC_REGISTRATION_CONTEXT/);
+  const registrationCase = evals.cases.find((item) => item.id === 'qa-13');
+  assert.ok(registrationCase);
+  assert.equal(registrationCase.expectedDecision, 'answer');
+  assert.ok(registrationCase.citationIds.includes('kb-public-event-search'));
+  const flow = knowledge.entries.find((entry) => entry.id === 'kb-cooperation-flow');
+  assert.ok(flow);
+  assert.match(flow.answer, /6 步/);
+  assert.match(flow.keywords.join(' '), /合作模式与活动流程/);
 });

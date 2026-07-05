@@ -12,7 +12,7 @@ interface Message {
   text: string;
   citations?: AssistantCitation[];
   knowledgeAsOf?: string;
-  mode?: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal';
+  mode?: 'rag_model' | 'ai_model' | 'web_search_model' | 'web_search_fallback' | 'faq_fallback' | 'policy_refusal';
   handoff?: { required: boolean; reason: string | null; url: string };
 }
 
@@ -23,15 +23,15 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
       id: 1,
       sender: 'assistant',
       text: language === 'zh'
-        ? `你好，我是 ClawTree 工作区 Copilot，当前服务示范客户「${DEMO_WORKSPACE.name}」。\n\n我只根据该工作区已审核、带来源和有效期的知识回答；遇到未知、过期或需要确认的合作信息，会明确转人工。`
-        : `Hi, I’m the ClawTree workspace copilot for genesis customer ${DEMO_WORKSPACE.nameEn}.\n\nI answer only from this workspace’s reviewed, sourced, time-bounded knowledge. Unknown, stale, or partnership-specific questions are handed to a human.`,
+        ? `你好，我是 ClawTree 工作区 Copilot，当前服务示范客户「${DEMO_WORKSPACE.name}」。\n\n平台事实会依据已审核、带来源和有效期的知识回答；公开活动报名/官网类问题可先帮你搜索并整理核验步骤。需要人工确认的合作信息，我会明确转人工。`
+        : `Hi, I’m the ClawTree workspace copilot for genesis customer ${DEMO_WORKSPACE.nameEn}.\n\nPlatform facts come from reviewed, sourced, time-bounded knowledge. For public event registration or official-site questions, I can look up web results and organize verification steps. Partnership-specific confirmations go to a human.`,
     };
     return [welcome];
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [audience, setAudience] = useState<'teacher' | 'student'>('teacher');
-  const [serviceMode, setServiceMode] = useState<'idle' | 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal'>('idle');
+  const [serviceMode, setServiceMode] = useState<'idle' | 'rag_model' | 'ai_model' | 'web_search_model' | 'web_search_fallback' | 'faq_fallback' | 'policy_refusal'>('idle');
   const chatHistory = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: messages[0].text },
   ]);
@@ -91,11 +91,15 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
     ? tx('RAG + 模型组织', 'RAG + model synthesis')
     : serviceMode === 'ai_model'
       ? tx('AI 通用回答', 'General AI response')
-    : serviceMode === 'faq_fallback'
-      ? tx('本地 FAQ 检索', 'Local FAQ retrieval')
-      : serviceMode === 'policy_refusal'
-        ? tx('安全边界回答', 'Policy-safe response')
-        : tx('等待首次检索', 'Awaiting first query');
+      : serviceMode === 'web_search_model'
+        ? tx('网页搜索整理', 'Web search synthesis')
+        : serviceMode === 'web_search_fallback'
+          ? tx('网页搜索兜底', 'Web search fallback')
+          : serviceMode === 'faq_fallback'
+            ? tx('本地 FAQ 检索', 'Local FAQ retrieval')
+            : serviceMode === 'policy_refusal'
+              ? tx('安全边界回答', 'Policy-safe response')
+              : tx('等待首次检索', 'Awaiting first query');
 
   const englishQuickActions = audience === 'teacher'
     ? ['What is ClawTree, and how does TreeFinance use it?', 'What campus partnership models are available?', 'What does media support include?', 'Can a human confirm a partnership date?']

@@ -1,1 +1,11 @@
-Django djangorestframework django-filter django-cors-headers mysqlclient pymysql openai requests beautifulsoup4 lxml python-dotenv
+Django
+djangorestframework
+django-filter
+django-cors-headers
+mysqlclient
+pymysql
+openai
+requests
+beautifulsoup4
+lxml
+python-dotenv

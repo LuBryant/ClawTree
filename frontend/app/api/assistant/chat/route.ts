@@ -5,11 +5,19 @@ import {
 import { getWorkspace } from '../../../config/workspaces';
 import {
   answerPassesGuardrails,
+  type AssistantCitation,
   assistantHandoffUrl,
   retrieveAssistantKnowledge,
   type AssistantAudience,
   type AssistantRetrieval,
 } from '../../../lib/assistant-rag.server';
+import {
+  buildAssistantWebSearchContext,
+  buildWebSearchFallbackAnswer,
+  searchAssistantWeb,
+  shouldUseAssistantWebSearch,
+  webSearchToCitations,
+} from '../../../lib/assistant-web-search.server';
 
 export const runtime = 'nodejs';
 
@@ -21,22 +29,33 @@ const MAX_TOTAL_CHARS = 20_000;
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const ALLOWED_PROVIDER_HOSTS = new Set(['api.deepseek.com']);
 
+type AssistantResponseMode =
+  | 'rag_model'
+  | 'ai_model'
+  | 'web_search_model'
+  | 'web_search_fallback'
+  | 'faq_fallback'
+  | 'policy_refusal';
+
 function errorResponse(error: string, status: number) {
   return Response.json({ error }, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 function answerResponse(
   retrieval: AssistantRetrieval,
-  mode: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal',
+  mode: AssistantResponseMode,
   answer = retrieval.answer,
+  extraCitations: AssistantCitation[] = [],
 ) {
+  const citations = [...retrieval.citations, ...extraCitations]
+    .filter((citation, index, all) => all.findIndex((item) => item.id === citation.id) === index);
   return Response.json({
     answer,
     mode,
     decision: retrieval.decision,
-    grounded: retrieval.citations.length > 0,
+    grounded: citations.length > 0,
     knowledgeAsOf: retrieval.knowledgeAsOf,
-    citations: retrieval.citations,
+    citations,
     handoff: {
       required: retrieval.handoffRequired,
       reason: retrieval.handoffReason,
@@ -110,10 +129,28 @@ export async function POST(request: Request) {
     return answerResponse(retrieval, 'policy_refusal');
   }
 
+  const shouldSearchWeb = shouldUseAssistantWebSearch(latestUserMessage.content);
+  const webSearch = shouldSearchWeb ? await searchAssistantWeb(latestUserMessage.content, language) : null;
+  const webCitations = webSearch ? webSearchToCitations(webSearch) : [];
+  const groundingContext = [
+    retrieval.context,
+    webSearch ? buildAssistantWebSearchContext(webSearch, language) : '',
+  ].filter(Boolean).join('\n\n');
+
   const apiKey = process.env.ASSISTANT_FORCE_FALLBACK === '1'
     ? undefined
     : process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) return answerResponse(retrieval, 'faq_fallback');
+  if (!apiKey) {
+    if (shouldSearchWeb) {
+      return answerResponse(
+        retrieval,
+        'web_search_fallback',
+        buildWebSearchFallbackAnswer(retrieval.answer, webSearch, language),
+        webCitations,
+      );
+    }
+    return answerResponse(retrieval, 'faq_fallback');
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
@@ -126,32 +163,57 @@ export async function POST(request: Request) {
         messages: [
           { role: 'system', content: buildAssistantSystemPrompt(workspace) },
           ...messages.slice(0, -1).slice(-6),
-          { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, retrieval.context, language) },
+          { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, groundingContext, language) },
         ],
         stream: false,
         temperature: 0.1,
-        max_tokens: 512,
+        max_tokens: shouldSearchWeb ? 900 : 700,
       }),
       cache: 'no-store',
       signal: controller.signal,
     });
     if (!upstream.ok) {
       clearTimeout(timeout);
+      if (shouldSearchWeb) {
+        return answerResponse(
+          retrieval,
+          'web_search_fallback',
+          buildWebSearchFallbackAnswer(retrieval.answer, webSearch, language),
+          webCitations,
+        );
+      }
       return answerResponse(retrieval, 'faq_fallback');
     }
     const payload = await upstream.json();
     clearTimeout(timeout);
     const answer = payload?.choices?.[0]?.message?.content;
     if (typeof answer !== 'string' || !answer.trim() || !answerPassesGuardrails(answer)) {
+      if (shouldSearchWeb) {
+        return answerResponse(
+          retrieval,
+          'web_search_fallback',
+          buildWebSearchFallbackAnswer(retrieval.answer, webSearch, language),
+          webCitations,
+        );
+      }
       return answerResponse(retrieval, 'faq_fallback');
     }
     return answerResponse(
       retrieval,
-      retrieval.citations.length > 0 ? 'rag_model' : 'ai_model',
+      shouldSearchWeb ? 'web_search_model' : retrieval.citations.length > 0 ? 'rag_model' : 'ai_model',
       answer.trim(),
+      webCitations,
     );
   } catch {
     clearTimeout(timeout);
+    if (shouldSearchWeb) {
+      return answerResponse(
+        retrieval,
+        'web_search_fallback',
+        buildWebSearchFallbackAnswer(retrieval.answer, webSearch, language),
+        webCitations,
+      );
+    }
     return answerResponse(retrieval, 'faq_fallback');
   }
 }

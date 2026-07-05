@@ -39,7 +39,9 @@ const SECRET_REQUEST = [
 ];
 const FORBIDDEN_ACTION = [
   '替我签署', '帮我发布', '请自动发布', '替我发布', '帮我发邮件', '请自动发送邮件', '代替平台确认',
+  '帮我报名', '替我报名', '帮我提交报名', '自动报名',
   'sign for me', 'publish for me', 'automatically publish', 'send an email for me', 'confirm on behalf',
+  'register me', 'submit my application for me',
 ];
 const GUARANTEE_WORDS = ['保证', '一定', '承诺', '稳赚', '保本', 'guarantee', 'promise', 'certain', 'risk-free'];
 const GUARANTEE_TARGETS = [
@@ -47,10 +49,10 @@ const GUARANTEE_TARGETS = [
   'prize', 'compute', 'investment', 'guest', 'exposure', 'host', 'reply', 'return', 'result', 'score',
 ];
 const CURRENT_DETAIL_WORDS = [
-  '怎么报名', '报名链接', '确切日期', '具体日期', '明年', '什么时候回复',
-  '合作权益', '具体权益', '具体资源', '官方身份', '报名资格', '合作费用', '合作报价', '活动报价',
-  'how to register', 'registration link', 'exact date', 'specific date', 'next year', 'when will you reply',
-  'partnership benefits', 'specific benefits', 'specific resources', 'official status', 'registration eligibility', 'partnership pricing', 'event price quote',
+  '确切日期', '具体日期', '明年', '什么时候回复',
+  '合作权益', '具体权益', '具体资源', '官方身份', '合作费用', '合作报价', '活动报价',
+  'exact date', 'specific date', 'next year', 'when will you reply',
+  'partnership benefits', 'specific benefits', 'specific resources', 'official status', 'partnership pricing', 'event price quote',
 ];
 const CONFIRMATION_SUBJECTS = [
   '合作', '活动', '平台', '黑客松', '高校行', '大树财经', 'clawtree', 'treefinance',
@@ -59,6 +61,10 @@ const CONFIRMATION_SUBJECTS = [
 const CONFIRMATION_DETAILS = [
   '权益', '具体资源', '费用', '报价', '资格', '官方身份', '主办身份',
   'benefit', 'resource commitment', 'fee', 'quote', 'eligibility', 'official status', 'host status',
+];
+const PUBLIC_REGISTRATION_CONTEXT = [
+  '报名', '报名入口', '报名链接', '参赛', '参会', '参加', '申请入口',
+  'register', 'registration', 'apply', 'application', 'participant',
 ];
 const PLATFORM_OVERVIEW_INTENTS = [
   '这是啥', '这是什么', '这是干嘛的', '这是干什么的', '你是啥', '你是什么',
@@ -73,6 +79,13 @@ const GETTING_STARTED_INTENTS = [
   '从哪里开始', '新手怎么开始', '使用方法',
   'how do i use it', 'how do i use this', 'how should i use it', 'how to use clawtree',
   'how do i get started', 'where do i start', 'getting started',
+];
+const PUBLIC_EVENT_LOOKUP_INTENTS = [
+  '怎么报名', '如何报名', '报名链接', '报名入口', '报名资格', '官网', '官方页面', '官方网站', '截止时间',
+  'how to register', 'registration link', 'registration eligibility', 'official site', 'official page', 'deadline',
+];
+const PUBLIC_EVENT_LOOKUP_SUBJECTS = [
+  'genesis', '黑客松', 'hackathon', '公开活动', '活动', '比赛', '大赛', '赛事', 'event', 'competition',
 ];
 
 function normalize(value: string) {
@@ -159,7 +172,11 @@ function policyDecision(query: string) {
   ) {
     return { decision: 'refuse' as const, ids: ['kb-football-boundary'], reason: 'financial_or_betting_request' };
   }
-  if (includesAny(query, CONFIRMATION_SUBJECTS) && includesAny(query, CONFIRMATION_DETAILS)) {
+  if (
+    includesAny(query, CONFIRMATION_SUBJECTS)
+    && includesAny(query, CONFIRMATION_DETAILS)
+    && !includesAny(query, PUBLIC_REGISTRATION_CONTEXT)
+  ) {
     return { decision: 'handoff' as const, ids: ['kb-human-handoff'], reason: 'specific_terms_require_confirmation' };
   }
   if (includesAny(query, CURRENT_DETAIL_WORDS)) {
@@ -244,6 +261,9 @@ export function retrieveAssistantKnowledge(
   const gettingStartedEntries = matchesStandaloneIntent(query, GETTING_STARTED_INTENTS)
     ? findByIds(['kb-getting-started'], currentEntries)
     : [];
+  const publicEventLookupEntries = includesAny(query, PUBLIC_EVENT_LOOKUP_INTENTS) && includesAny(query, PUBLIC_EVENT_LOOKUP_SUBJECTS)
+    ? findByIds(['kb-hackathon-support', 'kb-public-event-search'], currentEntries)
+    : [];
   const scoredEntries = currentEntries
     .map((entry) => ({ entry, score: scoreEntry(query, entry, audience) }))
     .filter((item) => item.score >= 4)
@@ -253,8 +273,9 @@ export function retrieveAssistantKnowledge(
   const ranked = uniqueEntries([
     ...intentEntries,
     ...gettingStartedEntries,
+    ...publicEventLookupEntries,
     ...scoredEntries,
-  ]).slice(0, MAX_RESULTS);
+  ]).slice(0, publicEventLookupEntries.length > 0 ? publicEventLookupEntries.length : MAX_RESULTS);
 
   if (ranked.length === 0) {
     const staleMatch = approvedEntries.some((entry) => !isCurrent(entry, today) && scoreEntry(query, entry, audience) >= 4);
