@@ -1,8 +1,10 @@
 'use client';
 
 import { openChat } from '../lib/chat-store';
+import { useLanguage } from '../i18n/LanguageProvider';
 
 export default function HumanSupportLink() {
+  const { tx } = useLanguage();
   return (
     <a
       href="#"
@@ -16,7 +18,7 @@ export default function HumanSupportLink() {
         whiteSpace: 'nowrap',
       }}
     >
-      客服咨询
+      {tx('客服咨询', 'Support')}
     </a>
   );
 }

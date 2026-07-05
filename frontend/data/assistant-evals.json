@@ -32,6 +32,19 @@
     { "id": "qa-29", "audience": "teacher", "query": "提交咨询后多久一定回复？", "expectedDecision": "refuse", "citationIds": ["kb-human-handoff"] },
     { "id": "qa-30", "audience": "student", "query": "明年校园活动的确切日期是什么？", "expectedDecision": "handoff", "citationIds": ["kb-human-handoff"] },
     { "id": "qa-31", "audience": "student", "query": "你们能替我签署学校合作协议吗？", "expectedDecision": "refuse", "citationIds": ["kb-privacy-boundary"] },
-    { "id": "qa-32", "audience": "teacher", "query": "量子农业课程有哪些合作权益？", "expectedDecision": "handoff", "citationIds": ["kb-human-handoff"] }
+    { "id": "qa-32", "audience": "teacher", "query": "量子农业课程有哪些合作权益？", "expectedDecision": "handoff", "citationIds": ["kb-human-handoff"] },
+    { "id": "qa-33", "audience": "student", "query": "What's this?", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
+    { "id": "qa-34", "audience": "teacher", "query": "What partnership models are available?", "expectedDecision": "answer", "citationIds": ["kb-cooperation-models"] },
+    { "id": "qa-35", "audience": "student", "query": "Can you guarantee a hackathon prize?", "expectedDecision": "refuse", "citationIds": ["kb-hackathon-support"] },
+    { "id": "qa-36", "audience": "teacher", "query": "Can I talk to a human to confirm the partnership date?", "expectedDecision": "handoff", "citationIds": ["kb-human-handoff"] },
+    { "id": "qa-37", "audience": "student", "query": "这个平台有啥用？", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
+    { "id": "qa-38", "audience": "teacher", "query": "ClawTree 是干什么的？", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
+    { "id": "qa-39", "audience": "student", "query": "What does this platform do?", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
+    { "id": "qa-40", "audience": "student", "query": "我要如何使用呢？", "expectedDecision": "answer", "citationIds": ["kb-getting-started"] },
+    { "id": "qa-41", "audience": "teacher", "query": "How do I get started?", "expectedDecision": "answer", "citationIds": ["kb-getting-started"] },
+    { "id": "qa-42", "audience": "student", "query": "你们如何使用我的个人数据？", "expectedDecision": "answer", "citationIds": ["kb-privacy-boundary"] },
+    { "id": "qa-43", "audience": "student", "query": "这是啥？", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
+    { "id": "qa-44", "audience": "student", "query": "给我讲一个关于机器人的笑话", "expectedDecision": "answer", "answerMode": "ai_general", "citationIds": [] },
+    { "id": "qa-45", "audience": "teacher", "query": "Explain the difference between AI and Web3", "expectedDecision": "answer", "answerMode": "ai_general", "citationIds": [] }
   ]
 }

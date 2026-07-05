@@ -12,7 +12,7 @@ export type AssistantCitation = {
 
 interface StreamResult {
   content: string | null;
-  mode: 'rag_model' | 'faq_fallback' | 'policy_refusal';
+  mode: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal';
   decision: 'answer' | 'refuse' | 'handoff';
   grounded: boolean;
   knowledgeAsOf: string;
@@ -26,10 +26,15 @@ class AssistantClient {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     options?: {
       audience?: 'teacher' | 'student';
+      language?: 'zh' | 'en';
       onChunk?: (text: string) => void;
     },
   ): Promise<StreamResult> {
-    const body = { messages, audience: options?.audience || 'teacher' };
+    const body = {
+      messages,
+      audience: options?.audience || 'teacher',
+      language: options?.language || 'zh',
+    };
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ASSISTANT_TIMEOUT_MS);

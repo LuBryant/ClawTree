@@ -7,6 +7,7 @@ import {
 } from '../../lib/api-client';
 import { useOutreachContract } from '../../hooks/useOutreachContract';
 import { useTronWallet } from '../../hooks/useTronWallet';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: '草稿',
@@ -14,8 +15,10 @@ const STATUS_LABEL: Record<string, string> = {
   approved: '已批准',
   rejected: '已驳回',
 };
+const STATUS_LABEL_EN: Record<string, string> = { draft: 'Draft', awaiting_approval: 'Awaiting approval', approved: 'Approved', rejected: 'Rejected' };
 
 export default function AdminOutreachPage() {
+  const { locale, tx } = useLanguage();
   const [drafts, setDrafts] = useState<OutreachDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,11 +32,11 @@ export default function AdminOutreachPage() {
       const data = await fetchOutreachDrafts();
       setDrafts(data);
     } catch {
-      setError('无法连接后端 API');
+      setError(tx('无法连接后端 API', 'Unable to reach the backend API'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -45,18 +48,18 @@ export default function AdminOutreachPage() {
       const res = await approveOutreachDraft(id, 'admin', editedBody);
       setDrafts((p) => p.map((d) => d.id === id ? { ...d, status: 'approved' as const } : d));
       if (res.sent) {
-        alert('✅ 邮件已批准并发送成功');
+        alert(tx('✅ 邮件已批准并发送成功', '✅ Email approved and sent'));
       } else {
-        alert(`⚠️ 已批准但发送失败：${res.reason || '未知原因'}`);
+        alert(tx(`⚠️ 已批准但发送失败：${res.reason || '未知原因'}`, `⚠️ Approved but delivery failed: ${res.reason || 'unknown reason'}`));
       }
-    } catch { alert('审批失败'); }
+    } catch { alert(tx('审批失败', 'Approval failed')); }
   };
 
   const handleReject = async (id: number) => {
     try {
       await rejectOutreachDraft(id);
       setDrafts((p) => p.map((d) => d.id === id ? { ...d, status: 'rejected' as const } : d));
-    } catch { alert('驳回失败'); }
+    } catch { alert(tx('驳回失败', 'Rejection failed')); }
   };
 
   const anchorProof = async (d: OutreachDraft) => {
@@ -85,7 +88,7 @@ export default function AdminOutreachPage() {
         proof_created_at: new Date().toISOString(),
       } : item));
     } catch {
-      alert('链上凭证生成失败，请确认 TronLink 已连接 TRON Nile 测试网');
+      alert(tx('链上凭证生成失败，请确认 TronLink 已连接 TRON Nile 测试网', 'Proof generation failed. Confirm TronLink is connected to TRON Nile.'));
     } finally {
       setProving((p) => { const n = new Set(p); n.delete(d.id); return n; });
     }
@@ -93,7 +96,7 @@ export default function AdminOutreachPage() {
 
   const formatDate = (s: string | null) => {
     if (!s) return '';
-    return new Date(s).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return new Date(s).toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
   const pending = drafts.filter((d) => d.status === 'draft' || d.status === 'awaiting_approval');
@@ -103,11 +106,11 @@ export default function AdminOutreachPage() {
     <div className="flex flex-col gap-6">
       <section>
         <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>
-          外联审批
+          {tx('外联审批', 'Outreach Review')}
         </h1>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          AI 生成的外联邮件草稿，须逐校逐封人工审批后方可发送。
-          {drafts.length > 0 && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{drafts.length}</span> 封</span>}
+          {tx('AI 生成的外联邮件草稿，须逐校逐封人工审批后方可发送。', 'AI-generated outreach drafts require individual human approval for every campus and message.')}
+          {drafts.length > 0 && <span> — <span style={{ color: 'var(--success)', fontWeight: 950 }}>{drafts.length}</span> {tx('封', 'drafts')}</span>}
         </p>
       </section>
 
@@ -120,16 +123,16 @@ export default function AdminOutreachPage() {
             <span style={{ color: 'var(--muted)' }}>{tron.address?.slice(0, 6)}…{tron.address?.slice(-4)}</span>
             <span style={{ color: 'var(--warning)', fontWeight: 950 }}>{tron.balance || '—'}</span>
             <span className="ml-auto text-xs" style={{ color: 'var(--muted)' }}>
-              HTX 生态 · 链上凭证 gas 余额
+              {tx('HTX 生态 · 链上凭证 gas 余额', 'HTX ecosystem · onchain proof gas balance')}
             </span>
           </>
         ) : (
           <>
             <span style={{ color: 'var(--muted)' }}>⚡ TRON Nile</span>
-            <span style={{ color: 'var(--danger)' }}>未连接</span>
+            <span style={{ color: 'var(--danger)' }}>{tx('未连接', 'Not connected')}</span>
             <button onClick={tron.connect} className="btn-outline btn-sm ml-auto"
               style={{ minHeight: 28, padding: '0 10px', fontSize: '0.72rem' }}>
-              🔗 连接 TronLink
+              🔗 {tx('连接 TronLink', 'Connect TronLink')}
             </button>
           </>
         )}
@@ -145,7 +148,7 @@ export default function AdminOutreachPage() {
 
       {!loading && !error && drafts.length === 0 && (
         <div className="text-center py-16" style={{ color: 'var(--muted)' }}>
-          暂无外联草稿，请先在活动浏览器中 AI 生成合作邮件。
+          {tx('暂无外联草稿，请先在活动浏览器中 AI 生成合作邮件。', 'No outreach drafts yet. Generate a partnership email from the event browser first.')}
         </div>
       )}
 
@@ -153,7 +156,7 @@ export default function AdminOutreachPage() {
       {pending.length > 0 && (
         <section>
           <h2 className="text-sm font-black uppercase tracking-widest mb-3" style={{ color: 'var(--warning)' }}>
-            ⏳ 待审批 ({pending.length})
+            ⏳ {tx('待审批', 'Awaiting approval')} ({pending.length})
           </h2>
           <div className="grid gap-4">
             {pending.map((d) => (
@@ -171,7 +174,7 @@ export default function AdminOutreachPage() {
       {processed.length > 0 && (
         <section>
           <h2 className="text-sm font-black uppercase tracking-widest mb-3" style={{ color: 'var(--muted)' }}>
-            ✅ 已处理 ({processed.length})
+            ✅ {tx('已处理', 'Processed')} ({processed.length})
           </h2>
           <div className="grid gap-4 opacity-60">
             {processed.map((d) => (
@@ -194,6 +197,7 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAncho
   proving?: boolean;
   onAnchor?: () => void;
 }) {
+  const { language, tx } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(d.email_body);
 
@@ -214,17 +218,17 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAncho
     <article className="panel p-5">
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <span className="badge" style={{ borderColor: statusColors[d.status], background: statusBgs[d.status], color: statusColors[d.status] }}>
-          {STATUS_LABEL[d.status]}
+          {language === 'zh' ? STATUS_LABEL[d.status] : STATUS_LABEL_EN[d.status]}
         </span>
         <span className="text-xs" style={{ color: 'var(--muted)' }}>{d.university_name}</span>
         <span className="text-xs font-bold" style={{ color: 'var(--text-dim)' }}>{d.event_title}</span>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <div>
-          <p className="text-xs mb-1" style={{ color: 'var(--muted)' }}>收件人：{d.recipient_email || '待补全'}</p>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>创建时间：{formatDate(d.created_at)}</p>
-          {d.approved_at && <p className="text-xs" style={{ color: 'var(--success)' }}>审批时间：{formatDate(d.approved_at)}</p>}
-          {d.proof_created_at && <p className="text-xs" style={{ color: 'var(--info)' }}>链上凭证：{formatDate(d.proof_created_at)}</p>}
+          <p className="text-xs mb-1" style={{ color: 'var(--muted)' }}>{tx('收件人', 'Recipient')}: {d.recipient_email || tx('待补全', 'Pending')}</p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>{tx('创建时间', 'Created')}: {formatDate(d.created_at)}</p>
+          {d.approved_at && <p className="text-xs" style={{ color: 'var(--success)' }}>{tx('审批时间', 'Approved')}: {formatDate(d.approved_at)}</p>}
+          {d.proof_created_at && <p className="text-xs" style={{ color: 'var(--info)' }}>{tx('链上凭证', 'Onchain proof')}: {formatDate(d.proof_created_at)}</p>}
         </div>
         <div>
           {isPending ? (
@@ -244,12 +248,12 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAncho
       {(onApprove || onReject) && (
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="btn btn-success btn-sm" onClick={() => onApprove?.(body)}>
-            ✅ 批准并发送
+            ✅ {tx('批准并发送', 'Approve and send')}
           </button>
           <button className="btn btn-outline btn-sm" onClick={() => { setBody(d.email_body); setEditing(false); }}>
-            ↩ 还原原文
+            ↩ {tx('还原原文', 'Restore original')}
           </button>
-          <button className="btn btn-danger btn-sm" onClick={onReject}>❌ 驳回</button>
+          <button className="btn btn-danger btn-sm" onClick={onReject}>❌ {tx('驳回', 'Reject')}</button>
         </div>
       )}
 
@@ -262,7 +266,7 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAncho
             onClick={onAnchor}
             disabled={proving}
           >
-            {proving ? '⏳ 生成链上凭证…' : '🔗 生成链上凭证'}
+            {proving ? tx('⏳ 生成链上凭证…', '⏳ Generating onchain proof…') : tx('🔗 生成链上凭证', '🔗 Generate onchain proof')}
           </button>
         </div>
       )}
@@ -281,7 +285,7 @@ function DraftCard({ draft: d, formatDate, onApprove, onReject, proving, onAncho
             ) : (
               <code style={{ wordBreak: 'break-all' }}>TX: {d.proof_tx_hash}</code>
             )}
-            <small>仅包含外联 ID、高校名称、活动标题、邮件哈希；不含联系人和邮件正文。</small>
+            <small>{tx('仅包含外联 ID、高校名称、活动标题、邮件哈希；不含联系人和邮件正文。', 'Contains only outreach ID, university, event title, and email hash—never contacts or email content.')}</small>
           </div>
         </div>
       )}

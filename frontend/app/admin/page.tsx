@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { fetchEventStats, type EventStats } from '../lib/api-client';
+import { useLanguage } from '../i18n/LanguageProvider';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<EventStats | null>(null);
   const [error, setError] = useState(false);
   const [htxPrice, setHtxPrice] = useState<string | null>(null);
+  const { tx } = useLanguage();
 
   useEffect(() => {
     fetchEventStats().then(setStats).catch(() => setError(true));
@@ -31,18 +33,18 @@ export default function AdminDashboard() {
           Dashboard
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
-          大树财经团队 · 高校 AI/Web3 活动运营控制台
+          {tx('大树财经团队 · 高校 AI/Web3 活动运营控制台', 'TreeFinance · Campus AI/Web3 Operations Console')}
         </p>
       </section>
 
       {/* 指标 */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {[
-          { label: '活动总量', v: stats?.total, sub: '已采集入库', c: 'var(--success)' },
-          { label: 'AI 活动', v: stats?.by_category?.AI, sub: '人工智能相关', c: 'var(--info)' },
-          { label: 'Web3 活动', v: stats?.by_category?.Web3, sub: '区块链相关', c: 'var(--warning)' },
-          { label: '待外联', v: stats?.uncontacted, sub: `${stats?.contacted ?? 0} 已联系`, c: 'var(--danger)' },
-          { label: '$HTX', v: htxPrice, sub: 'HTX 生态 · TRON Nile gas', c: 'var(--success)' },
+          { label: tx('活动总量', 'Total events'), v: stats?.total, sub: tx('已采集入库', 'collected'), c: 'var(--success)' },
+          { label: tx('AI 活动', 'AI events'), v: stats?.by_category?.AI, sub: tx('人工智能相关', 'AI-related'), c: 'var(--info)' },
+          { label: tx('Web3 活动', 'Web3 events'), v: stats?.by_category?.Web3, sub: tx('区块链相关', 'blockchain-related'), c: 'var(--warning)' },
+          { label: tx('待外联', 'Awaiting outreach'), v: stats?.uncontacted, sub: `${stats?.contacted ?? 0} ${tx('已联系', 'contacted')}`, c: 'var(--danger)' },
+          { label: '$HTX', v: htxPrice, sub: tx('HTX 生态 · TRON Nile gas', 'HTX ecosystem · TRON Nile gas'), c: 'var(--success)' },
         ].map((c) => (
           <div key={c.label} className="panel" style={{ padding: '18px' }}>
             <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{c.label}</p>
@@ -56,21 +58,21 @@ export default function AdminDashboard() {
 
       {/* 快捷操作 */}
       <section>
-        <h2 className="text-sm font-black uppercase tracking-widest mb-4">⚡ 快捷操作</h2>
+        <h2 className="text-sm font-black uppercase tracking-widest mb-4">⚡ {tx('快捷操作', 'Quick actions')}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link href="/admin/events" className="panel event-card" style={{ padding: '20px' }}>
             <p className="text-2xl mb-3">📅</p>
-            <h3 className="text-base font-black uppercase tracking-wider">活动浏览器</h3>
-            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>浏览、筛选所有已采集活动及联系方式</p>
+            <h3 className="text-base font-black uppercase tracking-wider">{tx('活动浏览器', 'Event browser')}</h3>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{tx('浏览、筛选所有已采集活动及联系方式', 'Browse and filter collected events and contacts')}</p>
           </Link>
           <Link href="/admin/reviews" className="panel event-card" style={{ padding: '20px' }}>
             <p className="text-2xl mb-3">📸</p>
-            <h3 className="text-base font-black uppercase tracking-wider">活动回顾</h3>
-            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>AI 整理的往期活动回顾与精彩瞬间</p>
+            <h3 className="text-base font-black uppercase tracking-wider">{tx('活动回顾', 'Event recaps')}</h3>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{tx('AI 整理的往期活动回顾与精彩瞬间', 'AI-organized event recaps and highlights')}</p>
           </Link>
           {[
-            { icon: '📨', title: '外联管道', desc: '即将上线 — 智能邮件 + 批量发送' },
-            { icon: '📈', title: '趋势洞察', desc: '即将上线 — 趋势分析 + 报告' },
+            { icon: '📨', title: tx('外联管道', 'Outreach pipeline'), desc: tx('即将上线 — 智能邮件 + 批量发送', 'Coming soon — smart email + batch delivery') },
+            { icon: '📈', title: tx('趋势洞察', 'Trend intelligence'), desc: tx('即将上线 — 趋势分析 + 报告', 'Coming soon — trend analysis + reports') },
           ].map((x) => (
             <div key={x.title} className="panel event-card" style={{ padding: '20px', opacity: 0.45 }}>
               <p className="text-2xl mb-3">{x.icon}</p>

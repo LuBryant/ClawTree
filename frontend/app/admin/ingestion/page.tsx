@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 interface PipelineStep {
   step: string;
@@ -41,6 +42,12 @@ const STEP_DESC: Record<string, string> = {
   generate_emails: '对活动浏览器中未外联的活动，批量 AI 生成合作邀请邮件，提交到外联审批台',
   auto_approve: '对外联审批台待审批草稿，自动审批并进行安全审核后发送邮件',
 };
+const STEP_DESC_EN: Record<string, string> = {
+  collect_events: 'OpenClaw collects campus AI/Web3 events and extracts titles, dates, and contacts',
+  fetch_tweets: 'Fetch TreeFinance posts, classify key themes, and filter sensitive content',
+  generate_emails: 'Generate partnership email drafts for uncontacted events and queue them for review',
+  auto_approve: 'Run safety checks on pending drafts before controlled delivery',
+};
 
 function formatDuration(ms: number) {
   if (ms < 1000) return `${ms}ms`;
@@ -62,6 +69,7 @@ function resolveUrl(path: string) {
 }
 
 export default function AdminIngestionPage() {
+  const { language, tx } = useLanguage();
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -82,13 +90,16 @@ export default function AdminIngestionPage() {
       }
       setRunning(active);
     } catch {
-      setError('无法连接后端 API');
+      setError(tx('无法连接后端 API', 'Unable to reach the backend API'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   // 自动轮询运行中步骤的状态
   useEffect(() => {
@@ -122,7 +133,7 @@ export default function AdminIngestionPage() {
       if (!res.ok) throw new Error('trigger failed');
       await load();
     } catch {
-      alert('执行失败，请确认后端正在运行');
+      alert(tx('执行失败，请确认后端正在运行', 'Run failed. Confirm the backend is running.'));
       setRunning((p) => { const n = new Set(p); n.delete(step); return n; });
     }
   };
@@ -143,7 +154,7 @@ export default function AdminIngestionPage() {
       });
       await load();
     } catch {
-      alert('配置保存失败');
+      alert(tx('配置保存失败', 'Failed to save configuration'));
     } finally {
       setSaving((p) => { const n = new Set(p); n.delete(step); return n; });
     }
@@ -153,10 +164,10 @@ export default function AdminIngestionPage() {
     <div className="flex flex-col gap-6">
       <section>
         <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>
-          采集运行
+          {tx('采集运行', 'Ingestion Runs')}
         </h1>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          OpenClaw 自动化流水线 — 4 步全链路：采集活动 → 推文筛选 → AI 邮件 → 审批发送
+          {tx('OpenClaw 自动化流水线 — 4 步全链路：采集活动 → 推文筛选 → AI 邮件 → 审批发送', 'OpenClaw automation — four stages: collect events → filter posts → draft with AI → approve and send')}
         </p>
       </section>
 
@@ -187,15 +198,15 @@ export default function AdminIngestionPage() {
                   <div className="flex items-center gap-3">
                     <span style={{ fontSize: '1.6rem' }}>{STEP_ICONS[s.step]}</span>
                     <div>
-                      <h3 className="text-base font-black uppercase tracking-wider">{s.step_label}</h3>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{STEP_DESC[s.step]}</p>
+                      <h3 className="text-base font-black uppercase tracking-wider">{language === 'zh' ? s.step_label : s.step.replaceAll('_', ' ')}</h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{language === 'zh' ? STEP_DESC[s.step] : STEP_DESC_EN[s.step]}</p>
                     </div>
                   </div>
                   {/* 控制区 */}
                   <div className="flex items-center gap-3">
                     {/* 数量配置 */}
                     <div className="flex items-center gap-1">
-                      <span className="text-xs" style={{ color: 'var(--muted)' }}>上限</span>
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}>{tx('上限', 'Limit')}</span>
                       <input type="number" min={1} max={999} value={s.max_count ?? 10}
                         disabled={isSaving || isRunning}
                         onChange={(e) => updateConfig(s.step, { max_count: parseInt(e.target.value) || 10 })}
@@ -205,14 +216,14 @@ export default function AdminIngestionPage() {
                     <button
                       className={`btn btn-sm ${isRunning ? 'btn-danger' : 'btn-success'}`}
                       onClick={() => trigger(s.step)}>
-                      {isRunning ? '⏹ 停止' : '▶ 启动'}
+                      {isRunning ? tx('⏹ 停止', '⏹ Stop') : tx('▶ 启动', '▶ Start')}
                     </button>
                     {/* 定时开关 */}
                     <label className="flex items-center gap-2 text-xs font-bold cursor-pointer select-none"
                       style={{ color: s.enabled ? 'var(--success)' : 'var(--muted)' }}>
                       <input type="checkbox" checked={s.enabled} disabled={isSaving}
                         onChange={(e) => updateConfig(s.step, { enabled: e.target.checked })} />
-                      定时
+                      {tx('定时', 'Schedule')}
                     </label>
                     {s.enabled && (
                       <input type="time" value={s.schedule_time} disabled={isSaving}
@@ -227,7 +238,7 @@ export default function AdminIngestionPage() {
                   <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
                     <div className="flex flex-wrap items-center gap-4 text-xs">
                       <span className="badge" style={{ borderColor: statusColor, background: `${statusColor}22`, color: statusColor }}>
-                        {run.status_label}
+                        {language === 'zh' ? run.status_label : run.status}
                       </span>
                       <span style={{ color: 'var(--muted)' }}>
                         {formatDate(run.started_at)} · {formatDuration(run.duration_ms)}
@@ -235,7 +246,7 @@ export default function AdminIngestionPage() {
                       {run.collected > 0 && <span style={{ color: 'var(--text-dim)' }}>📊 {run.collected}</span>}
                       {run.added > 0 && <span style={{ color: 'var(--success)' }}>✅ +{run.added}</span>}
                       {run.skipped > 0 && <span style={{ color: 'var(--warning)' }}>⏭ {run.skipped}</span>}
-                      {run.failed > 0 && run.step === 'fetch_tweets' && <span style={{ color: 'var(--info)' }}>✨ 润色 {run.failed}</span>}
+                      {run.failed > 0 && run.step === 'fetch_tweets' && <span style={{ color: 'var(--info)' }}>✨ {tx('润色', 'Edited')} {run.failed}</span>}
                       {run.failed > 0 && run.step !== 'fetch_tweets' && <span style={{ color: 'var(--danger)' }}>❌ {run.failed}</span>}
                     </div>
                     {/* 进度条 */}
@@ -257,7 +268,7 @@ export default function AdminIngestionPage() {
                 {/* 无运行记录 */}
                 {!run && (
                   <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
-                    <span className="text-xs" style={{ color: 'var(--muted)' }}>暂无运行记录</span>
+                    <span className="text-xs" style={{ color: 'var(--muted)' }}>{tx('暂无运行记录', 'No run history')}</span>
                   </div>
                 )}
               </article>

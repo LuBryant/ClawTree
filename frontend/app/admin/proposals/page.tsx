@@ -1,20 +1,23 @@
-import { agentRuns, capabilityLibrary, proposalTargets } from '../../lib/public-data';
+'use client';
 
-const tierLabels: Record<string, string> = {
-  light: '轻量合作',
-  medium: '中度联动',
-  deep: '深度合作',
-};
+import { agentRuns, capabilityLibrary, proposalTargets } from '../../lib/public-data';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 export default function AdminProposalsPage() {
+  const { tx } = useLanguage();
+  const tierLabels: Record<string, string> = {
+    light: tx('轻量合作', 'Light partnership'),
+    medium: tx('中度联动', 'Integrated collaboration'),
+    deep: tx('深度合作', 'Deep partnership'),
+  };
   return (
     <div className="flex flex-col gap-6">
       <section>
         <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>
-          合作提案
+          {tx('合作提案', 'Partnership Proposals')}
         </h1>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          Proposal Agent 管理面：每个契合点必须引用活动事实或能力库事实；缺证据时进入待确认。
+          {tx('Proposal Agent 管理面：每个契合点必须引用活动事实或能力库事实；缺证据时进入待确认。', 'Proposal Agent workspace: every fit point must cite event or capability facts; insufficient evidence is held for review.')}
         </p>
       </section>
 
@@ -39,17 +42,17 @@ export default function AdminProposalsPage() {
               ))}
             </div>
             <div className="mt-5 text-xs leading-6" style={{ color: 'var(--muted)' }}>
-              <p>必须引用：{target.mustCite.join(', ')}</p>
-              <p>禁止承诺：{target.mustNotPromise.join(', ')}</p>
-              <p>联系邮箱：{target.maskedEmail}（默认遮罩）</p>
+              <p>{tx('必须引用', 'Required citations')}: {target.mustCite.join(', ')}</p>
+              <p>{tx('禁止承诺', 'Prohibited promises')}: {target.mustNotPromise.join(', ')}</p>
+              <p>{tx('联系邮箱', 'Contact email')}: {target.maskedEmail} ({tx('默认遮罩', 'masked by default')})</p>
             </div>
-            <button type="button" className="btn btn-success btn-sm mt-5">进入人工审批</button>
+            <button type="button" className="btn btn-success btn-sm mt-5">{tx('进入人工审批', 'Open human review')}</button>
           </article>
         ))}
       </section>
 
       <section className="panel p-5">
-        <h2 className="text-xl font-black">能力库引用</h2>
+        <h2 className="text-xl font-black">{tx('能力库引用', 'Capability citations')}</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {capabilityLibrary.map((capability) => (
             <div key={capability.id} className="panel-deep p-3 text-sm">
@@ -61,9 +64,9 @@ export default function AdminProposalsPage() {
       </section>
 
       <section className="panel p-5">
-        <h2 className="text-xl font-black">Agent 运行证据</h2>
+        <h2 className="text-xl font-black">{tx('Agent 运行证据', 'Agent run evidence')}</h2>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          外部文本只进入不可信数据包；每类事实结论必须绑定允许的 source IDs，覆盖不足自动降级。
+          {tx('外部文本只进入不可信数据包；每类事实结论必须绑定允许的 source IDs，覆盖不足自动降级。', 'External text enters only an untrusted data envelope. Every factual conclusion must bind to allowed source IDs; insufficient coverage is automatically downgraded.')}
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {agentRuns.map((run) => (

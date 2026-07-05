@@ -152,6 +152,10 @@ button { font: inherit; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; color: #06130f; background: var(--success); font: 950 .76rem/1 monospace; box-shadow: 7px 7px 0 rgba(22,242,179,.14); }
 .top-nav { display: flex; align-items: center; gap: 28px; color: var(--text-dim); font-size: .82rem; font-weight: 800; }
 .top-nav a:hover { color: #fff; }
+.language-switcher { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid var(--line); background: rgba(255,255,255,.035); font: 800 .68rem/1 monospace; color: var(--muted); }
+.language-switcher button { border: 0; padding: 2px; background: transparent; color: inherit; cursor: pointer; }
+.language-switcher button:hover { color: var(--text); }
+.language-switcher button.active { color: var(--success); }
 
 .hero { padding: 104px 0 60px; }
 .eyebrow, .console-kicker { color: var(--success); font: 800 .72rem/1.4 monospace; letter-spacing: .15em; }
@@ -333,7 +337,7 @@ button:disabled { opacity: .55; cursor: wait; }
   .shell, .nav-wrap { width: min(100% - 24px, 1180px); }
   .nav-wrap > div { gap: 8px; }
   .top-nav { gap: 8px; }
-  .top-nav > button, .top-nav > div { display: none; }
+  .top-nav > button, .top-nav > div:not(.language-switcher) { display: none; }
   .top-nav a:nth-child(n+2), .brand small { display: none; }
   .hero { padding-top: 70px; }
   .hero h1 { font-size: clamp(2.8rem, 15vw, 4.7rem); }

@@ -1,14 +1,18 @@
+'use client';
+
 import { contentReviewQueue } from '../../lib/public-data';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 export default function AdminContentPage() {
+  const { tx } = useLanguage();
   return (
     <div className="flex flex-col gap-6">
       <section>
         <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>
-          内容审核台
+          {tx('内容审核台', 'Content Review')}
         </h1>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          Content Relay 审核面：主题分类、跨源去重、风险标签、建议稿 diff 与人审发布状态。
+          {tx('Content Relay 审核面：主题分类、跨源去重、风险标签、建议稿 diff 与人审发布状态。', 'Content Relay review for topic classification, cross-source deduplication, risk labels, suggested diffs, and human publishing status.')}
         </p>
       </section>
 
@@ -30,16 +34,16 @@ export default function AdminContentPage() {
               </div>
               <div className="grid gap-3 text-sm">
                 <div className="panel-deep p-3">
-                  <strong>去重理由</strong>
+                  <strong>{tx('去重理由', 'Deduplication rationale')}</strong>
                   <p className="mt-2 leading-6" style={{ color: 'var(--muted)' }}>{item.duplicateReason}</p>
                 </div>
                 <div className="panel-deep p-3">
-                  <strong>Diff 摘要</strong>
+                  <strong>{tx('Diff 摘要', 'Diff summary')}</strong>
                   <p className="mt-2 leading-6" style={{ color: 'var(--muted)' }}>{item.diffSummary}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn btn-success btn-sm" type="button">批准发布</button>
-                  <button className="btn-outline btn-sm" type="button">退回修改</button>
+                  <button className="btn btn-success btn-sm" type="button">{tx('批准发布', 'Approve')}</button>
+                  <button className="btn-outline btn-sm" type="button">{tx('退回修改', 'Request changes')}</button>
                 </div>
               </div>
             </div>

@@ -2,26 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-const links = [
-  { href: '/admin', label: '📊 Dashboard', exact: true },
-  { href: '/admin/events', label: '📅 活动浏览器', exact: false },
-  { href: '/admin/reviews', label: '📸 活动回顾', exact: false },
-  { href: '/admin/ingestion', label: '🛰 采集运行', exact: false },
-  { href: '/admin/content', label: '📝 内容审核', exact: false },
-  { href: '/admin/proposals', label: '🤝 合作提案', exact: false },
-  { href: '/admin/outreach', label: '✉️ 外联审批', exact: false },
-];
+import { useLanguage } from '../i18n/LanguageProvider';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { tx } = useLanguage();
+  const links = [
+    { href: '/admin', label: '📊 Dashboard', exact: true },
+    { href: '/admin/events', label: `📅 ${tx('活动浏览器', 'Event browser')}`, exact: false },
+    { href: '/admin/reviews', label: `📸 ${tx('活动回顾', 'Event recaps')}`, exact: false },
+    { href: '/admin/ingestion', label: `🛰 ${tx('采集运行', 'Ingestion runs')}`, exact: false },
+    { href: '/admin/content', label: `📝 ${tx('内容审核', 'Content review')}`, exact: false },
+    { href: '/admin/proposals', label: `🤝 ${tx('合作提案', 'Proposals')}`, exact: false },
+    { href: '/admin/outreach', label: `✉️ ${tx('外联审批', 'Outreach review')}`, exact: false },
+  ];
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 gap-8 px-6 py-10">
       <aside className="hidden w-52 shrink-0 lg:block">
         <div className="sticky top-20 flex flex-col gap-1">
           <p className="mb-3 text-xs font-black uppercase tracking-widest" style={{ color: 'var(--warning)' }}>
-            管理端
+            {tx('管理端', 'Operations')}
           </p>
           {links.map(({ href, label, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);

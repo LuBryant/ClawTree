@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getAssistantClient, type AssistantCitation } from '../lib/llm-client';
 import { QUICK_ACTIONS } from '../lib/assistant-config';
+import { useLanguage } from '../i18n/LanguageProvider';
 
 interface Message {
   id: number;
@@ -10,23 +11,26 @@ interface Message {
   text: string;
   citations?: AssistantCitation[];
   knowledgeAsOf?: string;
-  mode?: 'rag_model' | 'faq_fallback' | 'policy_refusal';
+  mode?: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal';
   handoff?: { required: boolean; reason: string | null; url: string };
 }
 
 export default function ChatDialog({ onClose }: { onClose: () => void }) {
+  const { language, tx } = useLanguage();
   const [messages, setMessages] = useState<Message[]>(() => {
     const welcome: Message = {
       id: 1,
       sender: 'assistant',
-      text: '你好，我是大树财经的 AI 客服助手。\n\n我只根据已审核、带来源和有效期的知识回答；遇到未知、过期或需要确认的合作信息，会明确转人工。请选择你的身份，或直接提问。',
+      text: language === 'zh'
+        ? '你好，我是大树财经的 AI 客服助手。\n\n我只根据已审核、带来源和有效期的知识回答；遇到未知、过期或需要确认的合作信息，会明确转人工。请选择你的身份，或直接提问。'
+        : 'Hi, I’m TreeFinance’s AI support assistant.\n\nI answer only from reviewed, sourced, time-bounded knowledge. Unknown, stale, or partnership-specific questions are handed to a human. Choose your role or ask a question.',
     };
     return [welcome];
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [audience, setAudience] = useState<'teacher' | 'student'>('teacher');
-  const [serviceMode, setServiceMode] = useState<'idle' | 'rag_model' | 'faq_fallback' | 'policy_refusal'>('idle');
+  const [serviceMode, setServiceMode] = useState<'idle' | 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal'>('idle');
   const chatHistory = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: messages[0].text },
   ]);
@@ -52,9 +56,9 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
 
     try {
       const client = getAssistantClient();
-      const result = await client.streamChat(chatHistory.current, { audience });
+      const result = await client.streamChat(chatHistory.current, { audience, language });
 
-      const finalText = result.content || asstMsg.text || '（AI 未返回有效响应，请重试）';
+      const finalText = result.content || asstMsg.text || tx('（AI 未返回有效响应，请重试）', '(The AI returned no valid response. Please retry.)');
       asstMsg.text = finalText;
       setMessages((prev) =>
         prev.map((m) => (m.id === asstMsg.id ? {
@@ -69,7 +73,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
       setServiceMode(result.mode);
       chatHistory.current.push({ role: 'assistant', content: finalText });
     } catch {
-      asstMsg.text = '客服连接暂时不可用。你可以前往合作咨询页转人工；提交前会明确说明信息用途。';
+      asstMsg.text = tx('客服连接暂时不可用。你可以前往合作咨询页转人工；提交前会明确说明信息用途。', 'Support is temporarily unavailable. Visit the partnership page for human help; data use is explained before submission.');
       setMessages((prev) =>
         prev.map((m) => (m.id === asstMsg.id ? {
           ...m,
@@ -80,15 +84,22 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [audience, loading]);
+  }, [audience, language, loading, tx]);
 
   const serviceLabel = serviceMode === 'rag_model'
-    ? 'RAG + 模型组织'
+    ? tx('RAG + 模型组织', 'RAG + model synthesis')
+    : serviceMode === 'ai_model'
+      ? tx('AI 通用回答', 'General AI response')
     : serviceMode === 'faq_fallback'
-      ? '本地 FAQ 检索'
+      ? tx('本地 FAQ 检索', 'Local FAQ retrieval')
       : serviceMode === 'policy_refusal'
-        ? '安全边界回答'
-        : '等待首次检索';
+        ? tx('安全边界回答', 'Policy-safe response')
+        : tx('等待首次检索', 'Awaiting first query');
+
+  const englishQuickActions = audience === 'teacher'
+    ? ['What is TreeFinance?', 'What campus partnership models are available?', 'What does media support include?', 'Can a human confirm a partnership date?']
+    : ['What can ClawTree do for us?', 'Can a student group apply for a joint event?', 'How do I join the Genesis hackathon?', 'Is my personal data written onchain?'];
+  const quickActions = language === 'zh' ? QUICK_ACTIONS[audience] : englishQuickActions;
 
   return (
     <>
@@ -104,7 +115,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
             <div>
-              <h2 className="text-base font-bold text-emerald-300">大树财经 AI 客服</h2>
+              <h2 className="text-base font-bold text-emerald-300">{tx('大树财经 AI 客服', 'TreeFinance AI Support')}</h2>
               <p className="mt-0.5 text-[10px] text-zinc-500">Reviewed knowledge · Human-safe</p>
             </div>
             <button
@@ -120,11 +131,11 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-emerald-300">◆</span>
-                <span className="text-[11px] font-semibold text-zinc-300">审核知识库 · {serviceLabel}</span>
+                <span className="text-[11px] font-semibold text-zinc-300">{tx('审核知识库', 'Reviewed knowledge')} · {serviceLabel}</span>
               </div>
-              <span className="text-[10px] text-zinc-500">不代表人工确认</span>
+              <span className="text-[10px] text-zinc-500">{tx('不代表人工确认', 'Not human-confirmed')}</span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2" aria-label="选择咨询身份">
+            <div className="mt-3 grid grid-cols-2 gap-2" aria-label={tx('选择咨询身份', 'Choose your role')}>
               {(['teacher', 'student'] as const).map((role) => (
                 <button
                   type="button"
@@ -135,7 +146,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
                     : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
                   aria-pressed={audience === role}
                 >
-                  {role === 'teacher' ? '我是高校老师' : '我是学生 / 社团'}
+                  {role === 'teacher' ? tx('我是高校老师', 'I’m an educator') : tx('我是学生 / 社团', 'I’m a student / group')}
                 </button>
               ))}
             </div>
@@ -167,8 +178,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
                   {m.sender === 'assistant' && m.citations && m.citations.length > 0 && (
                     <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-3 py-2">
                       <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px]">
-                        <span className="font-bold text-emerald-300">引用 {m.citations.length} 条审核知识</span>
-                        <span className="text-zinc-500">信息日期 {m.knowledgeAsOf}</span>
+                        <span className="font-bold text-emerald-300">{tx('引用', 'Cites')} {m.citations.length} {tx('条审核知识', 'reviewed sources')}</span>
+                        <span className="text-zinc-500">{tx('信息日期', 'Knowledge as of')} {m.knowledgeAsOf}</span>
                       </div>
                       <div className="grid gap-1">
                         {m.citations.map((citation, index) => (
@@ -181,7 +192,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
                   )}
                   {m.sender === 'assistant' && m.handoff?.required && (
                     <a href={m.handoff.url} className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-center text-xs font-bold text-amber-200">
-                      转人工合作咨询 →
+                      {tx('转人工合作咨询', 'Ask a human about partnerships')} →
                     </a>
                   )}
                 </div>
@@ -193,7 +204,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
           {/* Quick actions — 始终显示 */}
           {!loading && (
             <div className="grid grid-cols-2 gap-2 px-5 pb-2">
-              {QUICK_ACTIONS[audience].map((action) => (
+              {quickActions.map((action) => (
                 <button
                   key={action}
                   onClick={() => send(action)}
@@ -212,7 +223,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !loading) send(input); }}
-              placeholder={audience === 'teacher' ? '咨询合作模式、资源边界…' : '咨询活动、报名与隐私…'}
+              placeholder={audience === 'teacher' ? tx('咨询合作模式、资源边界…', 'Ask about partnership models and boundaries…') : tx('咨询活动、报名与隐私…', 'Ask about events, registration, or privacy…')}
               className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-blue-500 transition"
               disabled={loading}
             />

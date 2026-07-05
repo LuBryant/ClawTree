@@ -3,19 +3,21 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ConnectWallet from './ConnectWallet';
-
-const links = [
-  { href: '/', label: '首页' },
-  { href: '/user', label: '用户端' },
-  { href: '/demo', label: '现场 Demo' },
-  { href: '/admin', label: '运营台' },
-];
+import LanguageSwitcher from './LanguageSwitcher';
+import { useLanguage } from '../i18n/LanguageProvider';
 
 export default function TopNav() {
   const pathname = usePathname();
+  const { tx } = useLanguage();
+  const links = [
+    { href: '/', label: tx('首页', 'Home') },
+    { href: '/user', label: tx('用户端', 'Public Portal') },
+    { href: '/demo', label: tx('现场 Demo', 'Live Demo') },
+    { href: '/admin', label: tx('运营台', 'Operations') },
+  ];
 
   return (
-    <nav className="top-nav" aria-label="主导航">
+    <nav className="top-nav" aria-label={tx('主导航', 'Main navigation')}>
       {links.map(({ href, label }) => {
         const active = href === '/admin'
           ? pathname.startsWith('/admin')
@@ -31,8 +33,9 @@ export default function TopNav() {
         );
       })}
       <a href="https://treefinance.co" target="_blank" rel="noreferrer">
-        大树财经
+        {tx('大树财经', 'TreeFinance')}
       </a>
+      <LanguageSwitcher />
       <ConnectWallet />
     </nav>
   );

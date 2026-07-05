@@ -3,6 +3,7 @@ import 'server-only';
 import knowledgeBundle from '../../data/assistant-knowledge.json';
 
 export type AssistantAudience = 'teacher' | 'student';
+export type AssistantLanguage = 'zh' | 'en';
 export type AssistantDecision = 'answer' | 'refuse' | 'handoff';
 
 type KnowledgeEntry = (typeof knowledgeBundle.entries)[number];
@@ -30,28 +31,62 @@ const HANDOFF_URL = '/user/cooperate';
 
 const PROMPT_ATTACK = [
   '忽略之前', '忽略以上', '系统提示', 'system prompt', 'developer message', '泄露提示',
+  'ignore previous', 'ignore all previous', 'reveal your prompt', 'show your instructions',
 ];
 const SECRET_REQUEST = [
   'api 密钥', 'api key', '密码', '私钥', '助记词', '身份证号', '财务信息',
+  'password', 'private key', 'seed phrase', 'identity number', 'financial information',
 ];
 const FORBIDDEN_ACTION = [
   '替我签署', '帮我发布', '请自动发布', '替我发布', '帮我发邮件', '请自动发送邮件', '代替平台确认',
+  'sign for me', 'publish for me', 'automatically publish', 'send an email for me', 'confirm on behalf',
 ];
-const GUARANTEE_WORDS = ['保证', '一定', '承诺', '稳赚', '保本'];
+const GUARANTEE_WORDS = ['保证', '一定', '承诺', '稳赚', '保本', 'guarantee', 'promise', 'certain', 'risk-free'];
 const GUARANTEE_TARGETS = [
   '奖金', '算力', '投资', '嘉宾', '曝光', '主办', '回复', '收益', '结果', '比分', '赛果',
+  'prize', 'compute', 'investment', 'guest', 'exposure', 'host', 'reply', 'return', 'result', 'score',
 ];
 const CURRENT_DETAIL_WORDS = [
   '怎么报名', '报名链接', '确切日期', '具体日期', '明年', '什么时候回复',
+  '合作权益', '具体权益', '具体资源', '官方身份', '报名资格', '合作费用', '合作报价', '活动报价',
+  'how to register', 'registration link', 'exact date', 'specific date', 'next year', 'when will you reply',
+  'partnership benefits', 'specific benefits', 'specific resources', 'official status', 'registration eligibility', 'partnership pricing', 'event price quote',
+];
+const CONFIRMATION_SUBJECTS = [
+  '合作', '活动', '平台', '黑客松', '高校行', '大树财经', 'clawtree', 'treefinance',
+  'partnership', 'collaboration', 'event', 'hackathon', 'campus tour',
+];
+const CONFIRMATION_DETAILS = [
+  '权益', '具体资源', '费用', '报价', '资格', '官方身份', '主办身份',
+  'benefit', 'resource commitment', 'fee', 'quote', 'eligibility', 'official status', 'host status',
+];
+const PLATFORM_OVERVIEW_INTENTS = [
+  '这是啥', '这是什么', '这是干嘛的', '这是干什么的', '你是啥', '你是什么',
+  '这个平台有啥用', '这个平台有什么用', '平台有啥用', '平台有什么用',
+  '能做什么', '能干嘛', '是干什么的', '是干嘛的', '有什么功能', '主要用途', '主要作用',
+  'what does this platform do', 'what does it do', 'what can this platform do',
+  'what is this for', 'what can clawtree do',
+];
+const GETTING_STARTED_INTENTS = [
+  '我要如何使用呢', '我要如何使用', '要如何使用呢', '如何使用呢', '如何使用',
+  '我要怎么使用', '我要怎么用', '怎么使用呢', '怎么使用', '怎么用呢', '怎么用',
+  '从哪里开始', '新手怎么开始', '使用方法',
+  'how do i use it', 'how do i use this', 'how should i use it', 'how to use clawtree',
+  'how do i get started', 'where do i start', 'getting started',
 ];
 
 function normalize(value: string) {
-  return value.toLowerCase().replace(/[\s，。！？、；：,.!?;:()（）/\\_-]+/g, '');
+  return value.toLowerCase().replace(/[\s，。！？、；：,.!?;:()（）/\\_'’"-]+/g, '');
 }
 
 function includesAny(text: string, values: string[]) {
   const normalized = normalize(text);
   return values.some((value) => normalized.includes(normalize(value)));
+}
+
+function matchesStandaloneIntent(query: string, intents: string[]) {
+  const normalizedQuery = normalize(query).replace(/(呢|啊|呀|吗)$/u, '');
+  return intents.some((intent) => normalizedQuery === normalize(intent).replace(/(呢|啊|呀|吗)$/u, ''));
 }
 
 function isCurrent(entry: KnowledgeEntry, today: string) {
@@ -83,6 +118,10 @@ function toCitation(entry: KnowledgeEntry): AssistantCitation {
   };
 }
 
+function entryAnswer(entry: KnowledgeEntry, language: AssistantLanguage) {
+  return language === 'en' ? entry.answerEn : entry.answer;
+}
+
 function uniqueEntries(entries: KnowledgeEntry[]) {
   return entries.filter((entry, index) => entries.findIndex((item) => item.id === entry.id) === index);
 }
@@ -101,66 +140,82 @@ function policyDecision(query: string) {
     return { decision: 'refuse' as const, ids: ['kb-privacy-boundary'], reason: 'human_approval_required' };
   }
   if (includesAny(query, GUARANTEE_WORDS) && includesAny(query, GUARANTEE_TARGETS)) {
-    const ids = includesAny(query, ['比分', '赛果', '收益', '稳赚'])
+    const ids = includesAny(query, ['比分', '赛果', '收益', '稳赚', 'score', 'return', 'risk-free'])
       ? ['kb-football-boundary']
-      : includesAny(query, ['奖金', '算力', '投资'])
+      : includesAny(query, ['奖金', '算力', '投资', 'prize', 'compute', 'investment'])
         ? ['kb-hackathon-support']
-        : includesAny(query, ['嘉宾'])
+        : includesAny(query, ['嘉宾', 'guest'])
           ? ['kb-space-support']
-          : includesAny(query, ['曝光'])
+          : includesAny(query, ['曝光', 'exposure'])
             ? ['kb-media-support']
-            : includesAny(query, ['回复'])
+            : includesAny(query, ['回复', 'reply'])
               ? ['kb-human-handoff']
               : ['kb-cooperation-models'];
     return { decision: 'refuse' as const, ids, reason: 'unapproved_guarantee' };
   }
   if (
-    (includesAny(query, ['预测']) && includesAny(query, ['比分', '赛果']))
-    || includesAny(query, ['预测比分', '押注', '下注', '博彩推荐', '博彩策略', '荐股'])
+    (includesAny(query, ['预测', 'predict']) && includesAny(query, ['比分', '赛果', 'score', 'result']))
+    || includesAny(query, ['预测比分', '押注', '下注', '博彩推荐', '博彩策略', '荐股', 'betting advice', 'betting strategy', 'stock tip'])
   ) {
     return { decision: 'refuse' as const, ids: ['kb-football-boundary'], reason: 'financial_or_betting_request' };
   }
+  if (includesAny(query, CONFIRMATION_SUBJECTS) && includesAny(query, CONFIRMATION_DETAILS)) {
+    return { decision: 'handoff' as const, ids: ['kb-human-handoff'], reason: 'specific_terms_require_confirmation' };
+  }
   if (includesAny(query, CURRENT_DETAIL_WORDS)) {
-    const ids = includesAny(query, ['报名'])
+    const ids = includesAny(query, ['报名', 'register', 'registration'])
       ? ['kb-hackathon-support', 'kb-human-handoff']
       : ['kb-human-handoff'];
     return { decision: 'handoff' as const, ids, reason: 'current_detail_requires_confirmation' };
   }
-  if (includesAny(query, ['转人工', '人工客服', '怎样联系', '如何联系', '确认合作日期'])) {
+  if (includesAny(query, ['转人工', '人工客服', '怎样联系', '如何联系', '确认合作日期', 'human support', 'contact a human', 'talk to a human', 'confirm partnership date'])) {
     return { decision: 'handoff' as const, ids: ['kb-human-handoff'], reason: 'user_requested_handoff' };
   }
   return null;
 }
 
-function refusalAnswer(entries: KnowledgeEntry[]) {
-  const boundary = entries[0]?.answer || '这个请求超出 AI 客服可确认的范围。';
-  return `抱歉，我不能按这个请求作出承诺或执行操作。${boundary}如需确认具体合作条件，请转人工处理。`;
+function refusalAnswer(entries: KnowledgeEntry[], language: AssistantLanguage) {
+  const boundary = entries[0]
+    ? entryAnswer(entries[0], language)
+    : language === 'en' ? 'This request is outside what AI support can confirm.' : '这个请求超出 AI 客服可确认的范围。';
+  return language === 'en'
+    ? `Sorry, I cannot make that promise or perform that action. ${boundary} Please use human support to confirm specific partnership terms.`
+    : `抱歉，我不能按这个请求作出承诺或执行操作。${boundary}如需确认具体合作条件，请转人工处理。`;
 }
 
-function handoffAnswer(entries: KnowledgeEntry[], reason: string) {
-  const known = entries.map((entry) => entry.answer).join('\n');
-  const prefix = reason === 'user_requested_handoff'
-    ? '可以，我为你提供人工合作咨询入口。'
-    : '这项信息具有时效性或当前知识库证据不足，我不能替平台确认。';
+function handoffAnswer(entries: KnowledgeEntry[], reason: string, language: AssistantLanguage) {
+  const known = entries.map((entry) => entryAnswer(entry, language)).join('\n');
+  const prefix = language === 'en'
+    ? reason === 'user_requested_handoff'
+      ? 'Yes—I can direct you to human partnership support.'
+      : 'This information is time-sensitive or not sufficiently supported by current evidence, so I cannot confirm it for the platform.'
+    : reason === 'user_requested_handoff'
+      ? '可以，我为你提供人工合作咨询入口。'
+      : '这项信息具有时效性或当前知识库证据不足，我不能替平台确认。';
   return `${prefix}${known ? `\n${known}` : ''}`;
 }
 
-function groundedAnswer(entries: KnowledgeEntry[]) {
-  return entries.map((entry) => entry.answer).join('\n\n');
+function groundedAnswer(entries: KnowledgeEntry[], language: AssistantLanguage) {
+  return entries.map((entry) => entryAnswer(entry, language)).join('\n\n');
 }
 
-function buildContext(entries: KnowledgeEntry[]) {
+function buildContext(entries: KnowledgeEntry[], language: AssistantLanguage) {
   return entries.map((entry, index) => [
     `[S${index + 1}] ${entry.title}`,
-    entry.answer,
-    `来源：${entry.source.label}（核验于 ${entry.source.checkedAt}）`,
-    `有效期：${entry.validFrom} 至 ${entry.validUntil}`,
+    entryAnswer(entry, language),
+    language === 'en'
+      ? `Source: ${entry.source.label} (checked ${entry.source.checkedAt})`
+      : `来源：${entry.source.label}（核验于 ${entry.source.checkedAt}）`,
+    language === 'en'
+      ? `Valid from ${entry.validFrom} to ${entry.validUntil}`
+      : `有效期：${entry.validFrom} 至 ${entry.validUntil}`,
   ].join('\n')).join('\n\n');
 }
 
 export function retrieveAssistantKnowledge(
   query: string,
   audience: AssistantAudience,
+  language: AssistantLanguage = 'zh',
   now = new Date(),
 ): AssistantRetrieval {
   const today = now.toISOString().slice(0, 10);
@@ -173,36 +228,61 @@ export function retrieveAssistantKnowledge(
     return {
       decision: policy.decision,
       answer: policy.decision === 'refuse'
-        ? refusalAnswer(entries)
-        : handoffAnswer(entries, policy.reason),
+        ? refusalAnswer(entries, language)
+        : handoffAnswer(entries, policy.reason, language),
       citations: entries.map(toCitation),
       knowledgeAsOf: knowledgeBundle.reviewedAt,
       handoffRequired: true,
       handoffReason: policy.reason,
-      context: buildContext(entries),
+      context: buildContext(entries, language),
     };
   }
 
-  const ranked = currentEntries
+  const intentEntries = includesAny(query, PLATFORM_OVERVIEW_INTENTS)
+    ? findByIds(['kb-platform-overview'], currentEntries)
+    : [];
+  const gettingStartedEntries = matchesStandaloneIntent(query, GETTING_STARTED_INTENTS)
+    ? findByIds(['kb-getting-started'], currentEntries)
+    : [];
+  const scoredEntries = currentEntries
     .map((entry) => ({ entry, score: scoreEntry(query, entry, audience) }))
     .filter((item) => item.score >= 4)
     .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
     .slice(0, MAX_RESULTS)
     .map((item) => item.entry);
+  const ranked = uniqueEntries([
+    ...intentEntries,
+    ...gettingStartedEntries,
+    ...scoredEntries,
+  ]).slice(0, MAX_RESULTS);
 
   if (ranked.length === 0) {
     const staleMatch = approvedEntries.some((entry) => !isCurrent(entry, today) && scoreEntry(query, entry, audience) >= 4);
+    if (!staleMatch) {
+      // unknown_question is intentionally allowed through to the general AI path.
+      return {
+        decision: 'answer',
+        answer: language === 'en'
+          ? 'I can help with general questions. For platform-specific facts that are not in the reviewed knowledge base, I will clearly label uncertainty instead of inventing details.'
+          : '我可以回答一般问题。对于审核知识库中没有的平台具体事实，我会明确说明不确定，而不会编造信息。',
+        citations: [],
+        knowledgeAsOf: knowledgeBundle.reviewedAt,
+        handoffRequired: false,
+        handoffReason: null,
+        context: '',
+      };
+    }
     const handoffEntries = findByIds(['kb-human-handoff'], currentEntries);
     return {
       decision: 'handoff',
-      answer: staleMatch
-        ? '相关知识条目已过期，我不能继续引用。请通过人工合作咨询确认最新信息。'
-        : '当前审核知识库没有足够信息回答这个问题。为了避免猜测，请通过人工合作咨询确认。',
+      answer: language === 'en'
+        ? 'The relevant knowledge has expired, so I cannot continue to cite it. Please use human partnership support to confirm the latest information.'
+        : '相关知识条目已过期，我不能继续引用。请通过人工合作咨询确认最新信息。',
       citations: handoffEntries.map(toCitation),
       knowledgeAsOf: knowledgeBundle.reviewedAt,
       handoffRequired: true,
-      handoffReason: staleMatch ? 'stale_knowledge' : 'unknown_question',
-      context: buildContext(handoffEntries),
+      handoffReason: 'stale_knowledge',
+      context: buildContext(handoffEntries, language),
     };
   }
 
@@ -212,23 +292,25 @@ export function retrieveAssistantKnowledge(
   if (hasConflict) {
     return {
       decision: 'handoff',
-      answer: '审核知识库存在冲突信息，我不能选择其中一个版本。请转人工确认。',
+      answer: language === 'en'
+        ? 'The reviewed knowledge base contains conflicting information, so I cannot choose one version. Please ask a human to confirm.'
+        : '审核知识库存在冲突信息，我不能选择其中一个版本。请转人工确认。',
       citations: ranked.map(toCitation),
       knowledgeAsOf: knowledgeBundle.reviewedAt,
       handoffRequired: true,
       handoffReason: 'conflicting_knowledge',
-      context: buildContext(ranked),
+      context: buildContext(ranked, language),
     };
   }
 
   return {
     decision: 'answer',
-    answer: groundedAnswer(ranked),
+    answer: groundedAnswer(ranked, language),
     citations: ranked.map(toCitation),
     knowledgeAsOf: knowledgeBundle.reviewedAt,
     handoffRequired: false,
     handoffReason: null,
-    context: buildContext(ranked),
+    context: buildContext(ranked, language),
   };
 }
 
@@ -237,6 +319,8 @@ export function answerPassesGuardrails(answer: string) {
   const forbiddenPatterns = [
     /保证.{0,10}(奖金|算力|投资|嘉宾|曝光|主办|回复|收益|结果)/,
     /(稳赚|保本|一定获奖|一定回复|一定出席)/,
+    /guarantee.{0,30}(prize|compute|investment|guest|exposure|host|reply|return|result)/,
+    /(riskfree|guaranteedreturn|certaintowin|definitelyreply)/,
   ];
   return !forbiddenPatterns.some((pattern) => pattern.test(normalized));
 }

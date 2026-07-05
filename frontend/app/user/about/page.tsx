@@ -1,20 +1,23 @@
+'use client';
+
 import { capabilityLibrary, publicRecaps } from '../../lib/public-data';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 export default function UserAboutPage() {
+  const { tx } = useLanguage();
   return (
     <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
       <section className="panel p-6">
         <span className="badge badge-success">About TreeFinance</span>
-        <h2 className="mt-5 text-3xl font-black tracking-tight">大树能提供什么？</h2>
+        <h2 className="mt-5 text-3xl font-black tracking-tight">{tx('大树能提供什么？', 'What can TreeFinance offer?')}</h2>
         <p className="mt-4 text-sm leading-7" style={{ color: 'var(--text-dim)' }}>
-          当前公开能力库只包含已审核、可引用、带有效期的能力条目。AI 客服和合作提案只能引用这些条目，
-          不能承诺未批准的奖金、嘉宾、曝光、投资或主办身份。
+          {tx('当前公开能力库只包含已审核、可引用、带有效期的能力条目。AI 客服和合作提案只能引用这些条目，不能承诺未批准的奖金、嘉宾、曝光、投资或主办身份。', 'The public capability library contains only reviewed, citable, time-bounded entries. AI support and proposals may cite only these entries and cannot promise unapproved prizes, guests, exposure, investment, or host status.')}
         </p>
         <div className="mt-6 grid gap-3">
           {publicRecaps.slice(0, 3).map((recap) => (
             <div key={recap.id} className="border border-[var(--line)] p-3">
               <strong className="block text-sm">{recap.title}</strong>
-              <span className="mt-1 block text-xs" style={{ color: 'var(--muted)' }}>来源样本 · {recap.publishedDate}</span>
+              <span className="mt-1 block text-xs" style={{ color: 'var(--muted)' }}>{tx('来源样本', 'Source sample')} · {recap.publishedDate}</span>
             </div>
           ))}
         </div>
@@ -29,7 +32,7 @@ export default function UserAboutPage() {
             <h3 className="mt-4 text-xl font-black">{capability.title}</h3>
             <p className="mt-3 text-sm leading-7" style={{ color: 'var(--text-dim)' }}>{capability.boundary}</p>
             <p className="mt-4 text-xs" style={{ color: 'var(--muted)' }}>
-              Owner: {capability.owner} · 引用：{capability.sourceIds.join(', ')}
+              Owner: {capability.owner} · {tx('引用', 'Citations')}: {capability.sourceIds.join(', ')}
             </p>
           </article>
         ))}

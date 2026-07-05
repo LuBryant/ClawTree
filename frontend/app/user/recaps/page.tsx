@@ -7,6 +7,7 @@ import {
   type EventReview,
   type TweetReview,
 } from '../../lib/api-client';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 const SOURCE_COLORS: Record<string, string> = {
   manual: 'var(--success)',
@@ -28,6 +29,7 @@ type MergedCard =
 const PS = 12;
 
 export default function UserRecapsPage() {
+  const { locale, tx } = useLanguage();
   const [allCards, setAllCards] = useState<MergedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,7 +40,7 @@ export default function UserRecapsPage() {
 
   const formatDate = (s: string | null) => {
     if (!s) return '';
-    return new Date(s).toLocaleDateString('zh-CN', {
+    return new Date(s).toLocaleDateString(locale, {
       year: 'numeric', month: '2-digit', day: '2-digit',
     });
   };
@@ -67,11 +69,11 @@ export default function UserRecapsPage() {
 
       setAllCards(merged);
     } catch {
-      setError('无法连接后端 API，请确保服务正在运行');
+      setError(tx('无法连接后端 API，请确保服务正在运行', 'Unable to reach the backend API. Please ensure the service is running.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -100,18 +102,18 @@ export default function UserRecapsPage() {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h2 className="text-3xl font-black tracking-tight">大树活动回顾</h2>
+        <h2 className="text-3xl font-black tracking-tight">{tx('大树活动回顾', 'TreeFinance Event Recaps')}</h2>
         <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-          来自 Twitter、手动整理等来源的往期活动回顾
-          {filtered.length > 0 && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{filtered.length}</span> 篇</span>}
+          {tx('来自 Twitter、手动整理等来源的往期活动回顾', 'Past event recaps from Twitter and editorial sources')}
+          {filtered.length > 0 && <span> — <span style={{ color: 'var(--success)', fontWeight: 950 }}>{filtered.length}</span> {tx('篇', 'recaps')}</span>}
         </p>
       </section>
 
       <section className="flex flex-wrap items-center gap-3">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-          placeholder="搜索回顾…" className="input-field w-full sm:w-64" />
-        <button className="btn btn-success btn-sm" onClick={doSearch}>搜索</button>
+          placeholder={tx('搜索回顾…', 'Search recaps…')} className="input-field w-full sm:w-64" />
+        <button className="btn btn-success btn-sm" onClick={doSearch}>{tx('搜索', 'Search')}</button>
       </section>
 
       {error && (
@@ -134,16 +136,16 @@ export default function UserRecapsPage() {
                   onToggle={() => toggleExpand(card.key)} formatDate={formatDate} />
               ),
             )}
-            {paged.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>暂无回顾内容</div>}
+            {paged.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>{tx('暂无回顾内容', 'No recaps found')}</div>}
           </section>
 
           {totalPages > 1 && (
             <section className="flex items-center justify-center gap-2 py-4">
               <button className="btn-outline btn-sm" disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)} style={{ opacity: page <= 1 ? 0.3 : 1 }}>← 上一页</button>
+                onClick={() => setPage((p) => p - 1)} style={{ opacity: page <= 1 ? 0.3 : 1 }}>← {tx('上一页', 'Previous')}</button>
               <span className="text-sm font-black" style={{ color: 'var(--muted)' }}>{page} / {totalPages}</span>
               <button className="btn-outline btn-sm" disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)} style={{ opacity: page >= totalPages ? 0.3 : 1 }}>下一页 →</button>
+                onClick={() => setPage((p) => p + 1)} style={{ opacity: page >= totalPages ? 0.3 : 1 }}>{tx('下一页', 'Next')} →</button>
             </section>
           )}
         </>
@@ -160,6 +162,7 @@ function ReviewCard({ review: r, expanded, onToggle, formatDate }: {
   onToggle: () => void;
   formatDate: (s: string | null) => string;
 }) {
+  const { language, tx } = useLanguage();
   const sc = SOURCE_COLORS[r.source_type] || 'var(--info)';
   const sb = SOURCE_BGS[r.source_type] || 'rgba(120,166,255,0.12)';
 
@@ -168,7 +171,7 @@ function ReviewCard({ review: r, expanded, onToggle, formatDate }: {
       style={{ border: '1px solid var(--line)', background: 'var(--panel)', boxShadow: '0 18px 60px rgba(0,0,0,0.22)', padding: '18px' }}>
       <div className="flex items-center justify-between mb-2.5">
         <span className="badge" style={{ borderColor: sc, background: sb, color: sc }}>
-          {SOURCE_LABEL[r.source_type]}
+          {language === 'zh' ? SOURCE_LABEL[r.source_type] : (r.source_type === 'manual' ? 'Editorial' : 'Twitter')}
         </span>
         <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
           {r.published_at ? formatDate(r.published_at) : formatDate(r.created_at)}
@@ -187,11 +190,11 @@ function ReviewCard({ review: r, expanded, onToggle, formatDate }: {
       )}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <button onClick={onToggle} className="text-xs font-bold transition hover:brightness-125" style={{ color: 'var(--info)' }}>
-          {expanded ? '▲ 收起' : '▼ 展开全文'}
+          {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
         {r.source_url && (
           <a href={r.source_url} target="_blank" rel="noopener noreferrer"
-            className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
+            className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>{tx('来源', 'Source')}</a>
         )}
       </div>
     </div>
@@ -206,6 +209,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
   onToggle: () => void;
   formatDate: (s: string | null) => string;
 }) {
+  const { tx } = useLanguage();
   let mediaUrls: string[] = [];
   try {
     mediaUrls = JSON.parse(t.media_urls);
@@ -221,7 +225,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
           </span>
           {t.is_sensitive && (
             <span className="badge" style={{ borderColor: 'var(--warning)', background: 'rgba(248,214,109,0.1)', color: 'var(--warning)' }}>
-              已润色
+              {tx('已润色', 'Edited')}
             </span>
           )}
         </div>
@@ -242,7 +246,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
         <div className={`grid gap-2 mb-2 ${mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {mediaUrls.map((url, i) => (
             <a key={i} href={t.twitter_url} target="_blank" rel="noopener noreferrer">
-              <Image src={url} alt={`图 ${i + 1}`} width={640} height={360} unoptimized
+              <Image src={url} alt={`${tx('图', 'Image')} ${i + 1}`} width={640} height={360} unoptimized
                 className="w-full object-cover" style={{ aspectRatio: '16/9', display: 'block' }} />
             </a>
           ))}
@@ -259,11 +263,11 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
 
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <button onClick={onToggle} className="text-xs font-bold transition hover:brightness-125" style={{ color: 'var(--info)' }}>
-          {expanded ? '▲ 收起' : '▼ 展开全文'}
+          {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
         <a href={t.twitter_url} target="_blank" rel="noopener noreferrer"
           className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>
-          🔗 查看原文
+          🔗 {tx('查看原文', 'View original')}
         </a>
       </div>
     </div>

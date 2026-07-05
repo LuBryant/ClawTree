@@ -26,7 +26,7 @@ function errorResponse(error: string, status: number) {
 
 function answerResponse(
   retrieval: AssistantRetrieval,
-  mode: 'rag_model' | 'faq_fallback' | 'policy_refusal',
+  mode: 'rag_model' | 'ai_model' | 'faq_fallback' | 'policy_refusal',
   answer = retrieval.answer,
 ) {
   return Response.json({
@@ -71,6 +71,14 @@ function providerBaseUrl() {
   return url;
 }
 
+function detectResponseLanguage(text: string, fallback: 'zh' | 'en'): 'zh' | 'en' {
+  const hanCount = text.match(/\p{Script=Han}/gu)?.length ?? 0;
+  const latinCount = text.match(/[A-Za-z]/g)?.length ?? 0;
+  if (hanCount > 0) return 'zh';
+  if (latinCount > 0) return 'en';
+  return fallback;
+}
+
 export async function POST(request: Request) {
   if (request.headers.get('content-type')?.split(';')[0].trim() !== 'application/json') {
     return errorResponse('unsupported_media_type', 415);
@@ -89,9 +97,11 @@ export async function POST(request: Request) {
   if (!messages) return errorResponse('invalid_messages', 400);
 
   const audience: AssistantAudience = bodyRecord?.audience === 'student' ? 'student' : 'teacher';
-  const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
-  if (!latestUserMessage) return errorResponse('invalid_messages', 400);
-  const retrieval = retrieveAssistantKnowledge(latestUserMessage.content, audience);
+  const preferredLanguage = bodyRecord?.language === 'en' ? 'en' : 'zh';
+  const latestUserMessage = messages.at(-1);
+  if (!latestUserMessage || latestUserMessage.role !== 'user') return errorResponse('invalid_messages', 400);
+  const language = detectResponseLanguage(latestUserMessage.content, preferredLanguage);
+  const retrieval = retrieveAssistantKnowledge(latestUserMessage.content, audience, language);
 
   if (retrieval.decision !== 'answer') {
     return answerResponse(retrieval, 'policy_refusal');
@@ -112,7 +122,8 @@ export async function POST(request: Request) {
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
         messages: [
           { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
-          { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, retrieval.context) },
+          ...messages.slice(0, -1).slice(-6),
+          { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, retrieval.context, language) },
         ],
         stream: false,
         temperature: 0.1,
@@ -131,7 +142,11 @@ export async function POST(request: Request) {
     if (typeof answer !== 'string' || !answer.trim() || !answerPassesGuardrails(answer)) {
       return answerResponse(retrieval, 'faq_fallback');
     }
-    return answerResponse(retrieval, 'rag_model', answer.trim());
+    return answerResponse(
+      retrieval,
+      retrieval.citations.length > 0 ? 'rag_model' : 'ai_model',
+      answer.trim(),
+    );
   } catch {
     clearTimeout(timeout);
     return answerResponse(retrieval, 'faq_fallback');

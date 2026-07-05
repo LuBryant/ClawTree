@@ -8,6 +8,7 @@ import {
   type EventReview, type ReviewsFilter,
   type TweetReview, type TweetReviewsFilter,
 } from '../../lib/api-client';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
 const MODE_TABS = [
   { key: 'manual', label: '✍️ 手动回顾' },
@@ -28,6 +29,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default function AdminReviewsPage() {
+  const { language, locale, tx } = useLanguage();
   // 模式切换
   const [mode, setMode] = useState<'manual' | 'tweets'>('tweets');
 
@@ -57,11 +59,11 @@ export default function AdminReviewsPage() {
       const d = await fetchReviews({ ...f, page: p });
       setReviews(d.results); setTotal(d.count);
     } catch {
-      setError('无法连接后端 API，请确保 python manage.py runserver 正在运行');
+      setError(tx('无法连接后端 API，请确保 python manage.py runserver 正在运行', 'Unable to reach the backend API. Make sure python manage.py runserver is running.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
   // 加载推文回顾
   const loadTweets = useCallback(async (f: TweetReviewsFilter, p: number) => {
@@ -70,11 +72,11 @@ export default function AdminReviewsPage() {
       const d = await fetchTweetReviews({ ...f, page: p });
       setTweetReviews(d.results); setTotal(d.count);
     } catch {
-      setError('无法连接后端 API，请确保 python manage.py runserver 正在运行');
+      setError(tx('无法连接后端 API，请确保 python manage.py runserver 正在运行', 'Unable to reach the backend API. Make sure python manage.py runserver is running.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -105,13 +107,13 @@ export default function AdminReviewsPage() {
   });
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确认删除这篇回顾？')) return;
+    if (!confirm(tx('确认删除这篇回顾？', 'Delete this recap?'))) return;
     try {
       await deleteReview(id);
       setReviews((p) => p.filter((r) => r.id !== id));
       setTotal((t) => t - 1);
     } catch {
-      alert('删除失败');
+      alert(tx('删除失败', 'Delete failed'));
     }
   };
 
@@ -132,7 +134,7 @@ export default function AdminReviewsPage() {
       setShowModal(false);
       setFormTitle(''); setFormContent(''); setFormUrl('');
     } catch {
-      alert('提交失败，请检查后端是否运行');
+      alert(tx('提交失败，请检查后端是否运行', 'Submission failed. Check that the backend is running.'));
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +151,7 @@ export default function AdminReviewsPage() {
 
   const formatDate = (s: string | null) => {
     if (!s) return '';
-    return new Date(s).toLocaleDateString('zh-CN', {
+    return new Date(s).toLocaleDateString(locale, {
       year: 'numeric', month: '2-digit', day: '2-digit',
     });
   };
@@ -159,20 +161,20 @@ export default function AdminReviewsPage() {
       {/* 页头 */}
       <section className="flex items-center justify-between">
         <div>
-          <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>活动回顾</h1>
+          <h1 className="font-normal leading-none tracking-tight" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.6rem)' }}>{tx('活动回顾', 'Event Recaps')}</h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
-            AI 分析 + 手动整理的往期活动回顾
-            {total > 0 && <span> — 共 <span style={{ color: 'var(--success)', fontWeight: 950 }}>{total}</span> 篇</span>}
+            {tx('AI 分析 + 手动整理的往期活动回顾', 'Past event recaps from AI analysis and editorial curation')}
+            {total > 0 && <span> — <span style={{ color: 'var(--success)', fontWeight: 950 }}>{total}</span> {tx('篇', 'recaps')}</span>}
           </p>
         </div>
-        {mode === 'manual' && <button className="btn btn-success" onClick={openModal}>✍️ 新增回顾</button>}
+        {mode === 'manual' && <button className="btn btn-success" onClick={openModal}>✍️ {tx('新增回顾', 'New recap')}</button>}
       </section>
 
       {/* 模式切换 + 搜索 */}
       <section className="flex flex-wrap items-center gap-3">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-          placeholder={mode === 'manual' ? '搜索回顾…' : '搜索推文…'} className="input-field w-full sm:w-64" />
-        <button className="btn btn-success btn-sm" onClick={doSearch}>搜索</button>
+          placeholder={mode === 'manual' ? tx('搜索回顾…', 'Search recaps…') : tx('搜索推文…', 'Search posts…')} className="input-field w-full sm:w-64" />
+        <button className="btn btn-success btn-sm" onClick={doSearch}>{tx('搜索', 'Search')}</button>
       </section>
 
       {/* 模式标签 */}
@@ -180,7 +182,7 @@ export default function AdminReviewsPage() {
         {MODE_TABS.map((t) => (
           <button key={t.key} onClick={() => switchMode(t.key as 'manual' | 'tweets')}
             className={`btn btn-sm ${mode === t.key ? 'btn-warning' : 'btn-outline'}`}>
-            {t.label}
+            {language === 'zh' ? t.label : (t.key === 'manual' ? '✍️ Editorial recaps' : '🐦 Post recaps')}
           </button>
         ))}
       </section>
@@ -204,7 +206,7 @@ export default function AdminReviewsPage() {
                 onToggle={() => toggleExpand(r.id)} onDelete={() => handleDelete(r.id)}
                 formatDate={formatDate} />
             ))}
-            {reviews.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>暂无回顾文章</div>}
+            {reviews.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>{tx('暂无回顾文章', 'No editorial recaps')}</div>}
           </section>
           {pages > 1 && <Pagination page={page} pages={pages} setPage={setPage} />}
         </>
@@ -218,7 +220,7 @@ export default function AdminReviewsPage() {
               <TweetCard key={t.id} tweet={t} expanded={expanded.has(t.id)}
                 onToggle={() => toggleExpand(t.id)} formatDate={formatDate} />
             ))}
-            {tweetReviews.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>暂无推文回顾</div>}
+            {tweetReviews.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>{tx('暂无推文回顾', 'No post recaps')}</div>}
           </section>
           {pages > 1 && <Pagination page={page} pages={pages} setPage={setPage} />}
         </>
@@ -230,30 +232,30 @@ export default function AdminReviewsPage() {
           <div className="mx-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             style={{ border: '1px solid rgba(22,242,179,0.2)', background: 'linear-gradient(135deg, rgba(22,242,179,0.06), rgba(120,166,255,0.04) 50%, rgba(248,214,109,0.06)), #081118', boxShadow: '0 24px 80px rgba(0,0,0,0.55)', padding: '24px' }}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-black uppercase tracking-wider">✍️ 新增回顾文章</h2>
+              <h2 className="text-xl font-black uppercase tracking-wider">✍️ {tx('新增回顾文章', 'New recap')}</h2>
               <button onClick={() => setShowModal(false)} className="text-xl leading-none" style={{ color: 'var(--muted)' }}>✕</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
-                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>标题 *</label>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>{tx('标题', 'Title')} *</label>
                 <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="回顾文章标题" className="input-field w-full" required />
+                  placeholder={tx('回顾文章标题', 'Recap title')} className="input-field w-full" required />
               </div>
               <div className="mb-3">
-                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>正文 *</label>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>{tx('正文', 'Body')} *</label>
                 <textarea value={formContent} onChange={(e) => setFormContent(e.target.value)}
-                  placeholder="正文内容（支持换行）..." rows={10}
+                  placeholder={tx('正文内容（支持换行）...', 'Recap body (line breaks supported)…')} rows={10}
                   className="input-field w-full resize-y mono text-xs leading-relaxed" required />
               </div>
               <div className="mb-4">
-                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>参考链接（可选）</label>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>{tx('参考链接（可选）', 'Reference URL (optional)')}</label>
                 <input type="url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)}
                   placeholder="https://..." className="input-field w-full" />
               </div>
               <div className="flex gap-3 justify-end">
-                <button type="button" className="btn-outline btn-sm" onClick={() => setShowModal(false)}>取消</button>
+                <button type="button" className="btn-outline btn-sm" onClick={() => setShowModal(false)}>{tx('取消', 'Cancel')}</button>
                 <button type="submit" className="btn btn-success btn-sm" disabled={submitting}>
-                  {submitting ? '提交中...' : '提交'}
+                  {submitting ? tx('提交中...', 'Submitting...') : tx('提交', 'Submit')}
                 </button>
               </div>
             </form>
@@ -267,11 +269,12 @@ export default function AdminReviewsPage() {
 /* ------------------------------------------------------------------ */
 
 function Pagination({ page, pages, setPage }: { page: number; pages: number; setPage: (f: (p: number) => number) => void }) {
+  const { tx } = useLanguage();
   return (
     <section className="flex items-center justify-center gap-2 py-4">
-      <button className="btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ opacity: page <= 1 ? 0.3 : 1 }}>← 上一页</button>
+      <button className="btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ opacity: page <= 1 ? 0.3 : 1 }}>← {tx('上一页', 'Previous')}</button>
       <span className="text-sm font-black" style={{ color: 'var(--muted)' }}>{page} / {pages}</span>
-      <button className="btn-outline btn-sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} style={{ opacity: page >= pages ? 0.3 : 1 }}>下一页 →</button>
+      <button className="btn-outline btn-sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)} style={{ opacity: page >= pages ? 0.3 : 1 }}>{tx('下一页', 'Next')} →</button>
     </section>
   );
 }
@@ -285,6 +288,7 @@ function ReviewCard({ review: r, expanded, onToggle, onDelete, formatDate }: {
   onDelete: () => void;
   formatDate: (s: string | null) => string;
 }) {
+  const { language, tx } = useLanguage();
   const sc = SOURCE_COLORS[r.source_type] || 'var(--info)';
   const sb = SOURCE_BGS[r.source_type] || 'rgba(120,166,255,0.12)';
 
@@ -293,7 +297,7 @@ function ReviewCard({ review: r, expanded, onToggle, onDelete, formatDate }: {
       style={{ border: '1px solid var(--line)', background: 'var(--panel)', boxShadow: '0 18px 60px rgba(0,0,0,0.22)', padding: '18px' }}>
       <div className="flex items-center justify-between mb-2.5">
         <span className="badge" style={{ borderColor: sc, background: sb, color: sc }}>
-          {SOURCE_LABEL[r.source_type]}
+          {language === 'zh' ? SOURCE_LABEL[r.source_type] : (r.source_type === 'manual' ? 'Editorial' : 'Twitter')}
         </span>
         <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
           {r.published_at ? formatDate(r.published_at) : formatDate(r.created_at)}
@@ -312,16 +316,16 @@ function ReviewCard({ review: r, expanded, onToggle, onDelete, formatDate }: {
       )}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <button onClick={onToggle} className="text-xs font-bold transition hover:brightness-125" style={{ color: 'var(--info)' }}>
-          {expanded ? '▲ 收起' : '▼ 展开全文'}
+          {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
         <div className="flex gap-2">
           {r.source_url && (
             <a href={r.source_url} target="_blank" rel="noopener noreferrer"
-              className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>来源</a>
+              className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>{tx('来源', 'Source')}</a>
           )}
           {r.source_type === 'manual' && (
             <button onClick={onDelete} className="btn btn-danger btn-sm whitespace-nowrap"
-              style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>🗑 删除</button>
+              style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>🗑 {tx('删除', 'Delete')}</button>
           )}
         </div>
       </div>
@@ -337,6 +341,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
   onToggle: () => void;
   formatDate: (s: string | null) => string;
 }) {
+  const { tx } = useLanguage();
   // 解析 media_urls JSON
   let mediaUrls: string[] = [];
   try {
@@ -354,7 +359,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
           </span>
           {t.is_sensitive && (
             <span className="badge" style={{ borderColor: 'var(--warning)', background: 'rgba(248,214,109,0.1)', color: 'var(--warning)' }}>
-              已润色
+              {tx('已润色', 'Edited')}
             </span>
           )}
         </div>
@@ -378,7 +383,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
         <div className={`grid gap-2 mb-2 ${mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {mediaUrls.map((url, i) => (
             <a key={i} href={t.twitter_url} target="_blank" rel="noopener noreferrer">
-              <Image src={url} alt={`图 ${i + 1}`} width={640} height={360} unoptimized
+              <Image src={url} alt={`${tx('图', 'Image')} ${i + 1}`} width={640} height={360} unoptimized
                 className="w-full object-cover" style={{ aspectRatio: '16/9', display: 'block' }} />
             </a>
           ))}
@@ -397,11 +402,11 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
       {/* 底部操作栏 */}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <button onClick={onToggle} className="text-xs font-bold transition hover:brightness-125" style={{ color: 'var(--info)' }}>
-          {expanded ? '▲ 收起' : '▼ 展开全文'}
+          {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
         <a href={t.twitter_url} target="_blank" rel="noopener noreferrer"
           className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>
-          🔗 查看原文
+          🔗 {tx('查看原文', 'View original')}
         </a>
       </div>
     </div>
