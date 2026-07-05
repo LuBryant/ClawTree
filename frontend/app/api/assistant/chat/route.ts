@@ -129,7 +129,8 @@ export async function POST(request: Request) {
     return answerResponse(retrieval, 'policy_refusal');
   }
 
-  const shouldSearchWeb = shouldUseAssistantWebSearch(latestUserMessage.content);
+  const hasKnownOfficialEvent = retrieval.citations.some((citation) => citation.id === 'kb-htx-genesis-hackathon');
+  const shouldSearchWeb = !hasKnownOfficialEvent && shouldUseAssistantWebSearch(latestUserMessage.content);
   const webSearch = shouldSearchWeb ? await searchAssistantWeb(latestUserMessage.content, language) : null;
   const webCitations = webSearch ? webSearchToCitations(webSearch) : [];
   const groundingContext = [

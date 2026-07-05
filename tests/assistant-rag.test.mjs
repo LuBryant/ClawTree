@@ -36,7 +36,7 @@ test('CS-1 reviewed knowledge entries have owner, source, and validity', () => {
   for (const entry of knowledge.entries) {
     assert.equal(entry.approved, true, entry.id);
     assert.ok(entry.owner, entry.id);
-    assert.match(entry.source.url, /^\//, entry.id);
+    assert.match(entry.source.url, /^(?:\/|https:\/\/)/, entry.id);
     assert.match(entry.source.checkedAt, /^\d{4}-\d{2}-\d{2}$/, entry.id);
     assert.ok(entry.validFrom <= entry.validUntil, entry.id);
     assert.ok(entry.keywords.length >= 4, entry.id);
@@ -146,18 +146,35 @@ test('CS-12 low-risk RAG misses use general AI while high-risk details stay gate
   assert.ok(evals.cases.some((item) => item.answerMode === 'ai_general' && item.citationIds.length === 0));
 });
 
-test('CS-13 public registration lookups use web search instead of immediate handoff', () => {
+test('CS-13 public registration lookups use official knowledge or web search instead of immediate handoff', () => {
   assert.match(routeSource, /shouldUseAssistantWebSearch/);
   assert.match(routeSource, /searchAssistantWeb/);
   assert.match(routeSource, /web_search_model/);
   assert.match(routeSource, /web_search_fallback/);
   assert.match(ragSource, /PUBLIC_REGISTRATION_CONTEXT/);
+  assert.match(ragSource, /kb-htx-genesis-hackathon/);
   const registrationCase = evals.cases.find((item) => item.id === 'qa-13');
   assert.ok(registrationCase);
   assert.equal(registrationCase.expectedDecision, 'answer');
-  assert.ok(registrationCase.citationIds.includes('kb-public-event-search'));
+  assert.ok(registrationCase.citationIds.includes('kb-htx-genesis-hackathon'));
   const flow = knowledge.entries.find((entry) => entry.id === 'kb-cooperation-flow');
   assert.ok(flow);
   assert.match(flow.answer, /6 步/);
   assert.match(flow.keywords.join(' '), /合作模式与活动流程/);
+});
+
+test('CS-14 public event overview questions prefer known official event knowledge', () => {
+  assert.match(ragSource, /PUBLIC_EVENT_OVERVIEW_INTENTS/);
+  assert.match(ragSource, /publicEventOverviewAnswer/);
+  assert.match(ragSource, /isPublicEventOverviewQuestion\(query\)/);
+  assert.match(ragSource, /HTX_GENESIS_EVENT_TERMS/);
+  assert.match(routeSource, /hasKnownOfficialEvent/);
+  const overviewCase = evals.cases.find((item) => item.id === 'qa-46');
+  assert.ok(overviewCase);
+  assert.equal(overviewCase.expectedDecision, 'answer');
+  assert.ok(overviewCase.citationIds.includes('kb-htx-genesis-hackathon'));
+  const htxGenesis = knowledge.entries.find((entry) => entry.id === 'kb-htx-genesis-hackathon');
+  assert.ok(htxGenesis);
+  assert.equal(htxGenesis.source.url, 'https://htxdao-1.gitbook.io/htx-genesis-hackathon');
+  assert.match(htxGenesis.answer, /HTX DAO × B\.AI/);
 });

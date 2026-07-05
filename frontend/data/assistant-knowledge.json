@@ -143,6 +143,20 @@
       "approved": true
     },
     {
+      "id": "kb-htx-genesis-hackathon",
+      "category": "event",
+      "title": "HTX Genesis Hackathon 官方赛事",
+      "answer": "Genesis 黑客松在本工作区中特指 HTX Genesis Hackathon，官方主题为“Genesis: Code the New Era｜创世纪：代码新纪元”。官方页面显示：赛事由 HTX DAO × B.AI 主办，OpenCSG、TinTinLand、OpenCity 联合承办；方向围绕 AI、Web3 与 AI×Web3 融合，赛道包括 AI 赛道、Web3 赛道和 Genesis 创世纪赛道。赛事免费报名、采用审核制，官方报名链接为 https://opencsg-china.feishu.cn/share/base/form/shrcnvjuubNm15hDU3lLsRMf8Jb ，报名截止时间为 2026 年 7 月 5 日。官方资料还列出 $20,000 总奖池、b.ai 算力支持和生态扶持资源；具体奖项、赛程、入围、奖项兑现和决赛安排以官方 GitBook 最新页面为准。",
+      "answerEn": "In this workspace, “Genesis Hackathon” refers to the official HTX Genesis Hackathon, themed “Genesis: Code the New Era.” The official GitBook says it is hosted by HTX DAO × B.AI and co-organized by OpenCSG, TinTinLand, and OpenCity. It focuses on AI, Web3, and AI × Web3, with AI, Web3, and Genesis tracks. Registration is free and review-based; the official registration form is https://opencsg-china.feishu.cn/share/base/form/shrcnvjuubNm15hDU3lLsRMf8Jb and the stated registration deadline is July 5, 2026. The official materials list a $20,000 prize pool, b.ai compute support, and ecosystem support; awards, schedule, selection, prize delivery, and final arrangements should follow the latest official GitBook pages.",
+      "keywords": ["htx genesis hackathon", "htx genesis", "genesis 黑客松", "Genesis 黑客松 是什么", "Genesis 黑客松是什么", "创世纪代码新纪元", "code the new era", "htx dao", "b.ai", "opencsg", "tintinland", "opencity", "报名截止", "feishu", "飞书报名"],
+      "audiences": ["teacher", "student"],
+      "owner": "TreeFinance Ops",
+      "source": { "label": "HTX Genesis Hackathon 官方 GitBook", "url": "https://htxdao-1.gitbook.io/htx-genesis-hackathon", "checkedAt": "2026-07-05" },
+      "validFrom": "2026-07-05",
+      "validUntil": "2026-12-31",
+      "approved": true
+    },
+    {
       "id": "kb-campus-case-guangzhou",
       "category": "case",
       "title": "广州高校行公开案例",

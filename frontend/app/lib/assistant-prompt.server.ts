@@ -27,14 +27,20 @@ Answering rules:
 export const ASSISTANT_SYSTEM_PROMPT = buildAssistantSystemPrompt();
 
 export function buildAssistantRagPrompt(query: string, context: string, language: 'zh' | 'en') {
+  const hasWebSearchContext = context.includes('PUBLIC WEB SEARCH RESULTS')
+    || context.includes('公开网页搜索结果');
   if (language === 'en') {
-    const groundingRule = context
-      ? 'Use only platform facts supported by the grounding context. If web search results are present, summarize likely public next steps, prefer official pages, and clearly say that eligibility, deadlines, prizes, compute, investment, organizers, and submission status must be verified on the official page or by a human.'
+    const groundingRule = context && hasWebSearchContext
+      ? 'Use only platform facts supported by the grounding context. Because web search results are present, summarize likely public next steps, prefer official pages, and clearly say that eligibility, deadlines, prizes, compute, investment, organizers, and submission status must be verified on the official page or by a human.'
+      : context
+        ? 'Use only platform facts supported by the grounding context. Do not add unrelated event-registration or official-page verification caveats unless the latest user question asks about event registration, official links, deadlines, prizes, compute, investment, organizer status, or submission status.'
       : 'No grounding context matched. Answer general questions normally. If the question asks for an unverified platform fact, state the uncertainty or ask one concise clarifying question; do not invent platform details.';
     return `RESPONSE LANGUAGE: English\n\nGROUNDING CONTEXT:\n${context || '(none)'}\n\nLATEST USER QUESTION:\n${query}\n\nAnswer in at most 220 English words. ${groundingRule} Do not output a separate source list.`;
   }
-  const groundingRule = context
-    ? '平台事实只能使用检索上下文支持的内容。如果包含网页搜索结果，请整理公开报名/核验步骤，优先官方页面，并明确说明资格、截止时间、奖金、算力、投资、主办方和提交状态必须以官方页面或人工确认为准。'
+  const groundingRule = context && hasWebSearchContext
+    ? '平台事实只能使用检索上下文支持的内容。因为本次包含网页搜索结果，请整理公开报名/核验步骤，优先官方页面，并明确说明资格、截止时间、奖金、算力、投资、主办方和提交状态必须以官方页面或人工确认为准。'
+    : context
+      ? '平台事实只能使用检索上下文支持的内容。除非用户正在询问活动报名、官方链接、截止时间、奖项、算力、投资、主办方或提交状态，否则不要追加无关的活动官网核验提醒。'
     : '当前没有匹配的检索上下文。一般问题可以正常回答；如果问题涉及未经审核的平台事实，请说明不确定或只追问一个简短的澄清问题，不得编造平台细节。';
   return `回答语言：简体中文\n\n检索上下文：\n${context || '（无）'}\n\n最新用户问题：\n${query}\n\n请用 420 字以内中文回答。${groundingRule}不要单独输出来源列表。`;
 }

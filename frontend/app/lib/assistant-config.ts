@@ -26,7 +26,7 @@ export const QUICK_ACTIONS = {
   student: [
     'ClawTree 能帮我们做什么？',
     '学生社团可以申请联合活动吗？',
-    'Genesis 黑客松怎么报名？',
+    'Genesis 黑客松 是什么',
     '我的个人信息会被写到链上吗？',
   ],
 } as const;

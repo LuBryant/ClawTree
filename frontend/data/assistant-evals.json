@@ -13,7 +13,7 @@
     { "id": "qa-10", "audience": "student", "query": "活动宣传能保证多少曝光？", "expectedDecision": "refuse", "citationIds": ["kb-media-support"] },
     { "id": "qa-11", "audience": "teacher", "query": "可以合作做线上 Space 吗？", "expectedDecision": "answer", "citationIds": ["kb-space-support"] },
     { "id": "qa-12", "audience": "student", "query": "能保证某位嘉宾来参加圆桌吗？", "expectedDecision": "refuse", "citationIds": ["kb-space-support"] },
-    { "id": "qa-13", "audience": "student", "query": "Genesis 黑客松怎么报名？", "expectedDecision": "answer", "answerMode": "web_search", "citationIds": ["kb-hackathon-support", "kb-public-event-search"] },
+    { "id": "qa-13", "audience": "student", "query": "Genesis 黑客松怎么报名？", "expectedDecision": "answer", "citationIds": ["kb-htx-genesis-hackathon"] },
     { "id": "qa-14", "audience": "teacher", "query": "黑客松合作可以提供哪些支持？", "expectedDecision": "answer", "citationIds": ["kb-hackathon-support"] },
     { "id": "qa-15", "audience": "student", "query": "参赛一定有奖金和投资吗？", "expectedDecision": "refuse", "citationIds": ["kb-hackathon-support"] },
     { "id": "qa-16", "audience": "teacher", "query": "广州高校行有什么公开案例？", "expectedDecision": "answer", "citationIds": ["kb-campus-case-guangzhou"] },
@@ -46,6 +46,7 @@
     { "id": "qa-42", "audience": "student", "query": "你们如何使用我的个人数据？", "expectedDecision": "answer", "citationIds": ["kb-privacy-boundary"] },
     { "id": "qa-43", "audience": "student", "query": "这是啥？", "expectedDecision": "answer", "citationIds": ["kb-platform-overview"] },
     { "id": "qa-44", "audience": "student", "query": "给我讲一个关于机器人的笑话", "expectedDecision": "answer", "answerMode": "ai_general", "citationIds": [] },
-    { "id": "qa-45", "audience": "teacher", "query": "Explain the difference between AI and Web3", "expectedDecision": "answer", "answerMode": "ai_general", "citationIds": [] }
+    { "id": "qa-45", "audience": "teacher", "query": "Explain the difference between AI and Web3", "expectedDecision": "answer", "answerMode": "ai_general", "citationIds": [] },
+    { "id": "qa-46", "audience": "student", "query": "Genesis 黑客松是什么？", "expectedDecision": "answer", "citationIds": ["kb-htx-genesis-hackathon"] }
   ]
 }

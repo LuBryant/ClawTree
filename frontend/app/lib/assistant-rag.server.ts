@@ -73,6 +73,9 @@ const PLATFORM_OVERVIEW_INTENTS = [
   'what does this platform do', 'what does it do', 'what can this platform do',
   'what is this for', 'what can clawtree do',
 ];
+const PLATFORM_OVERVIEW_SUBJECTS = [
+  'clawtree', '大树财经', 'treefinance', '平台', '这个平台', '你们', '你是', '这是', 'this platform',
+];
 const GETTING_STARTED_INTENTS = [
   '我要如何使用呢', '我要如何使用', '要如何使用呢', '如何使用呢', '如何使用',
   '我要怎么使用', '我要怎么用', '怎么使用呢', '怎么使用', '怎么用呢', '怎么用',
@@ -87,6 +90,13 @@ const PUBLIC_EVENT_LOOKUP_INTENTS = [
 const PUBLIC_EVENT_LOOKUP_SUBJECTS = [
   'genesis', '黑客松', 'hackathon', '公开活动', '活动', '比赛', '大赛', '赛事', 'event', 'competition',
 ];
+const PUBLIC_EVENT_OVERVIEW_INTENTS = [
+  '是什么', '什么是', '介绍一下', '讲讲', 'what is', "what's", 'tell me about',
+];
+const HTX_GENESIS_EVENT_TERMS = [
+  'genesis 黑客松', 'htx genesis', 'htx genesis hackathon', '创世纪代码新纪元',
+  'code the new era', 'htxdao genesis', 'htx dao genesis',
+];
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[\s，。！？、；：,.!?;:()（）/\\_'’"-]+/g, '');
@@ -100,6 +110,22 @@ function includesAny(text: string, values: string[]) {
 function matchesStandaloneIntent(query: string, intents: string[]) {
   const normalizedQuery = normalize(query).replace(/(呢|啊|呀|吗)$/u, '');
   return intents.some((intent) => normalizedQuery === normalize(intent).replace(/(呢|啊|呀|吗)$/u, ''));
+}
+
+function isPlatformOverviewQuestion(query: string) {
+  return matchesStandaloneIntent(query, PLATFORM_OVERVIEW_INTENTS)
+    || (includesAny(query, PLATFORM_OVERVIEW_SUBJECTS) && includesAny(query, PLATFORM_OVERVIEW_INTENTS));
+}
+
+function isPublicEventOverviewQuestion(query: string) {
+  return includesAny(query, PUBLIC_EVENT_OVERVIEW_INTENTS)
+    && includesAny(query, PUBLIC_EVENT_LOOKUP_SUBJECTS)
+    && !includesAny(query, PLATFORM_OVERVIEW_SUBJECTS);
+}
+
+function isHtxGenesisHackathonQuestion(query: string) {
+  return includesAny(query, HTX_GENESIS_EVENT_TERMS)
+    || (includesAny(query, ['genesis']) && includesAny(query, ['黑客松', 'hackathon']));
 }
 
 function isCurrent(entry: KnowledgeEntry, today: string) {
@@ -216,6 +242,18 @@ function groundedAnswer(entries: KnowledgeEntry[], language: AssistantLanguage) 
   return entries.map((entry) => entryAnswer(entry, language)).join('\n\n');
 }
 
+function publicEventOverviewAnswer(query: string, language: AssistantLanguage) {
+  const isGenesisHackathon = includesAny(query, ['genesis']) && includesAny(query, ['黑客松', 'hackathon']);
+  if (language === 'en') {
+    return isGenesisHackathon
+      ? 'Genesis Hackathon usually refers to a hackathon branded around “Genesis”: teams build and submit prototypes, demos, smart contracts, or apps within a defined theme and timeline, then go through review, demo, and possible awards or incubation. “Genesis” can be used by different organizers, so the exact host, tracks, eligibility, deadlines, prizes, compute, and investment terms depend on the specific official event page.'
+      : 'A hackathon is a time-bounded builder event where participants form teams, build a prototype or demo around a theme, submit it for judging, and may receive feedback, awards, ecosystem support, or incubation. Exact rules depend on the official event page.';
+  }
+  return isGenesisHackathon
+    ? 'Genesis 黑客松通常指以 “Genesis” 为活动名或主题的黑客松：参赛者围绕指定赛道，在限定时间内组队完成原型、Demo、智能合约或应用，并提交给评委评审，可能包含路演、奖励、生态支持或孵化机会。“Genesis” 可能被不同主办方使用，所以具体主办方、赛道、报名资格、截止时间、奖金、算力和投资条款，需要看对应活动的官方页面。'
+    : '黑客松是一种限时创新/开发活动：参与者围绕主题组队做原型或 Demo，按规则提交作品并接受评审，可能获得反馈、奖励、生态资源或后续孵化。具体规则要以对应活动官方页面为准。';
+}
+
 function buildContext(entries: KnowledgeEntry[], language: AssistantLanguage) {
   return entries.map((entry, index) => [
     `[S${index + 1}] ${entry.title}`,
@@ -255,7 +293,34 @@ export function retrieveAssistantKnowledge(
     };
   }
 
-  const intentEntries = includesAny(query, PLATFORM_OVERVIEW_INTENTS)
+  const htxGenesisEntries = isHtxGenesisHackathonQuestion(query)
+    ? findByIds(['kb-htx-genesis-hackathon'], currentEntries)
+    : [];
+  if (htxGenesisEntries.length > 0) {
+    return {
+      decision: 'answer',
+      answer: groundedAnswer(htxGenesisEntries, language),
+      citations: htxGenesisEntries.map(toCitation),
+      knowledgeAsOf: knowledgeBundle.reviewedAt,
+      handoffRequired: false,
+      handoffReason: null,
+      context: buildContext(htxGenesisEntries, language),
+    };
+  }
+
+  if (isPublicEventOverviewQuestion(query)) {
+    return {
+      decision: 'answer',
+      answer: publicEventOverviewAnswer(query, language),
+      citations: [],
+      knowledgeAsOf: knowledgeBundle.reviewedAt,
+      handoffRequired: false,
+      handoffReason: null,
+      context: '',
+    };
+  }
+
+  const intentEntries = isPlatformOverviewQuestion(query)
     ? findByIds(['kb-platform-overview'], currentEntries)
     : [];
   const gettingStartedEntries = matchesStandaloneIntent(query, GETTING_STARTED_INTENTS)
