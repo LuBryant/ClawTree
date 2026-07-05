@@ -5,9 +5,9 @@
     {
       "id": "kb-platform-overview",
       "category": "platform",
-      "title": "ClawTree 平台与 TreeFinance 示范工作区",
-      "answer": "ClawTree 是独立的 AI 合作增长网络，为媒体、高校、活动方和 Web3 生态把公开信号转成可信机会、伙伴匹配、人审行动与可验证成果。大树财经（TreeFinance）是 ClawTree 的首个示范客户，当前高校内容、能力库和外联身份都属于它的 Genesis Workspace。",
-      "answerEn": "ClawTree is an independent AI partnership intelligence network for media, campuses, event teams, and Web3 ecosystems. It turns public signals into trusted opportunities, partner matches, human-reviewed action, and verifiable outcomes. TreeFinance is ClawTree's genesis customer, and its campus content, capability library, and outreach identity belong to its own workspace.",
+      "title": "ClawTree 平台与 TreeFinance 演示案例",
+      "answer": "ClawTree 是独立的 AI 合作增长网络，为媒体、高校、活动方和 Web3 生态把公开信号转成可信机会、伙伴匹配、人审行动与可验证成果。本仓库用大树财经（TreeFinance）高校行作为参考演示案例：高校内容、能力库和外联身份只是为了展示平台能力，不代表平台本身、客户宣称或已接入工作区。",
+      "answerEn": "ClawTree is an independent AI partnership intelligence network for media, campuses, event teams, and Web3 ecosystems. It turns public signals into trusted opportunities, partner matches, human-reviewed action, and verifiable outcomes. This repository uses the TreeFinance campus tour as a reference demo case: its campus content, capability library, and outreach identity demonstrate platform capabilities, but do not represent the platform itself, a customer claim, or an onboarded workspace.",
       "keywords": ["大树财经", "treefinance", "clawtree", "平台", "这是啥", "这是什么", "是什么", "介绍", "能力", "有啥用", "有什么用", "能做什么", "能干嘛", "用途", "作用", "what's this", "what is this", "what is clawtree", "who are you", "what does it do", "what is this for", "about", "platform", "introduction"],
       "audiences": ["teacher", "student"],
       "owner": "ClawTree Product",

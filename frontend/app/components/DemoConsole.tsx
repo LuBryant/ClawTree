@@ -116,7 +116,7 @@ export default function DemoConsole() {
     <main className="shell demo-shell">
       <header className="demo-titlebar">
         <div>
-          <span className="console-kicker">CLAWTREE WORKSPACE / {data.workspace.nameEn.toUpperCase()} / GENESIS CUSTOMER</span>
+          <span className="console-kicker">CLAWTREE PLATFORM / {data.workspace.nameEn.toUpperCase()} CAMPUS TOUR / DEMO CASE</span>
           <h1>{tx('全球足球赛事', 'Global Football')} <em>×</em> {tx('广州高校行', 'Guangzhou Campus Tour')}</h1>
           <p className="demo-deck">{tx('把一次热点，变成一堂课、一场 Agent 挑战、五次传播和一份可验证影响力资产。', 'Turn one global moment into a class, an Agent challenge, five media beats, and a verifiable impact asset.')}</p>
         </div>

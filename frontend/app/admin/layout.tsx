@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="mb-1 text-xs font-black uppercase tracking-widest" style={{ color: 'var(--warning)' }}>{tx('当前工作区', 'Active workspace')}</p>
           <div className="mb-5 border border-[var(--line)] p-3">
             <strong className="block text-sm">{tx(DEMO_WORKSPACE.name, DEMO_WORKSPACE.nameEn)}</strong>
-            <span className="mt-1 block text-[10px] uppercase tracking-wider" style={{ color: 'var(--success)' }}>Genesis customer · {DEMO_WORKSPACE.initials}</span>
+            <span className="mt-1 block text-[10px] uppercase tracking-wider" style={{ color: 'var(--success)' }}>Demo case · {DEMO_WORKSPACE.initials}</span>
           </div>
           {links.map(({ href, label, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);

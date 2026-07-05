@@ -20,7 +20,7 @@ const DEFAULT_TEMPLATE = `尊敬的 {高校名称} 老师：
 
 我们注意到贵校即将举办「{活动标题}」，活动内容与当前工作区关注的 AI/Web3 高校生态高度契合。
 
-${DEMO_WORKSPACE.name}是 ClawTree 的 Genesis 客户，也是 Web3+AI 领域的媒体与活动品牌。我们希望能与贵校探讨以下合作方向：
+${DEMO_WORKSPACE.name}高校行是本次 ClawTree 演示案例中的媒体与活动品牌场景，聚焦 Web3+AI 领域。我们希望能与贵校探讨以下合作方向：
 
 1. 媒体支持与活动复盘
 2. AI/Web3 主题公开课或圆桌联动
@@ -36,7 +36,7 @@ const DEFAULT_TEMPLATE_EN = `Dear {University} team,
 
 I’m {Your name} from ${DEMO_WORKSPACE.nameEn}. We noticed your upcoming event, “{Event title},” and see a strong fit with the campus AI/Web3 ecosystem covered by this workspace.
 
-${DEMO_WORKSPACE.nameEn} is ClawTree’s genesis customer and a Web3 + AI media and events brand building a global campus program. We would love to explore media support and recaps, AI/Web3 classes or roundtables, and a human-reviewed joint event.
+${DEMO_WORKSPACE.nameEn} campus tour is the media/events scenario used in this ClawTree demo case, focused on Web3 + AI and a global campus program. We would love to explore media support and recaps, AI/Web3 classes or roundtables, and a human-reviewed joint event.
 
 This is a simulated draft. It must be reviewed per campus in /admin/outreach. Do not send directly or via BCC.
 

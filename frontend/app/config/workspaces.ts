@@ -16,7 +16,7 @@ export type WorkspaceProfile = {
   name: string;
   nameEn: string;
   initials: string;
-  status: 'genesis' | 'sandbox';
+  status: 'demo' | 'sandbox';
   industries: string[];
   mission: string;
   missionEn: string;
@@ -43,7 +43,7 @@ export const WORKSPACES: Record<string, WorkspaceProfile> = {
     name: '大树财经',
     nameEn: 'TreeFinance',
     initials: 'TF',
-    status: 'genesis',
+    status: 'demo',
     industries: ['MEDIA', 'WEB3', 'CAMPUS'],
     mission: '连接 AI、Web3、财经媒体与高校创新生态。',
     missionEn: 'Connect AI, Web3, financial media, and campus innovation.',

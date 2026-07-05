@@ -19,7 +19,7 @@ from .models import (
 class WorkspaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Workspace
-        fields = ['id', 'slug', 'name', 'name_en', 'industries', 'is_genesis', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'slug', 'name', 'name_en', 'industries', 'is_reference_case', 'is_active', 'created_at', 'updated_at']
         read_only_fields = fields
 
 

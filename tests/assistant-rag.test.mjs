@@ -109,7 +109,7 @@ test('CS-9 hybrid RAG + AI supports English intent and conversation context', ()
   const overview = knowledge.entries.find((entry) => entry.id === 'kb-platform-overview');
   assert.ok(overview.keywords.includes("what's this"));
   assert.ok(overview.answerEn.startsWith('ClawTree'));
-  assert.match(overview.answerEn, /TreeFinance is ClawTree's genesis customer/);
+  assert.match(overview.answerEn, /TreeFinance campus tour as a reference demo case/);
   assert.match(routeSource, /detectResponseLanguage\(latestUserMessage\.content, preferredLanguage\)/);
   assert.match(routeSource, /\\p\{Script=Han\}/);
   assert.match(routeSource, /messages\.slice\(0, -1\)\.slice\(-6\)/);

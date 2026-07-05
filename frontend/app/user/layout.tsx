@@ -14,7 +14,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
           <p className="eyebrow">PUBLIC PORTAL / {DEMO_WORKSPACE.slug.toUpperCase()} / APPROVED ONLY</p>
           <h1 className="mt-2 text-2xl font-black tracking-tight md:text-4xl">{tx(DEMO_WORKSPACE.publicPortalTitle, DEMO_WORKSPACE.publicPortalTitleEn)}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-7" style={{ color: 'var(--muted)' }}>
-            {tx('这是 ClawTree 上的大树财经示范工作区。给高校老师、学生和合作方展示经审核内容；联系邮箱、内部评分、风险原文、模型 prompt 和回复始终留在工作区内。', 'This is the TreeFinance genesis workspace on ClawTree. It exposes reviewed content to educators, students, and partners while contacts, internal scores, raw risk text, prompts, and replies stay private.')}
+            {tx('这里用大树财经高校行作为 ClawTree 的演示案例，展示一个媒体活动品牌如何把公开内容和高校机会变成可审核的合作流程；联系邮箱、内部评分、风险原文、模型 prompt 和回复始终留在受控后台。', 'This page uses TreeFinance campus tour as a ClawTree demo case, showing how a media/events brand can turn public content and campus opportunities into a reviewable partnership workflow while contacts, internal scores, raw risk text, prompts, and replies stay in the controlled backend.')}
           </p>
         </div>
         <Link href="/admin" className="btn-outline whitespace-nowrap">{tx('切到运营端', 'Open Operations')} →</Link>

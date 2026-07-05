@@ -23,8 +23,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
       id: 1,
       sender: 'assistant',
       text: language === 'zh'
-        ? `你好，我是 ClawTree 工作区 Copilot，当前服务示范客户「${DEMO_WORKSPACE.name}」。\n\n平台事实会依据已审核、带来源和有效期的知识回答；公开活动报名/官网类问题可先帮你搜索并整理核验步骤。需要人工确认的合作信息，我会明确转人工。`
-        : `Hi, I’m the ClawTree workspace copilot for genesis customer ${DEMO_WORKSPACE.nameEn}.\n\nPlatform facts come from reviewed, sourced, time-bounded knowledge. For public event registration or official-site questions, I can look up web results and organize verification steps. Partnership-specific confirmations go to a human.`,
+        ? `你好，我是 ClawTree 案例 Copilot，当前用「${DEMO_WORKSPACE.name}高校行」作为演示案例。\n\n平台事实会依据已审核、带来源和有效期的知识回答；公开活动报名/官网类问题可先帮你搜索并整理核验步骤。需要人工确认的合作信息，我会明确转人工。`
+        : `Hi, I’m the ClawTree case copilot for the ${DEMO_WORKSPACE.nameEn} campus tour demo case.\n\nPlatform facts come from reviewed, sourced, time-bounded knowledge. For public event registration or official-site questions, I can look up web results and organize verification steps. Partnership-specific confirmations go to a human.`,
     };
     return [welcome];
   });
@@ -120,8 +120,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
             <div>
-              <h2 className="text-base font-bold text-emerald-300">{tx('ClawTree 工作区 Copilot', 'ClawTree Workspace Copilot')}</h2>
-              <p className="mt-0.5 text-[10px] text-zinc-500">{DEMO_WORKSPACE.nameEn} · Genesis customer · Human-safe</p>
+              <h2 className="text-base font-bold text-emerald-300">{tx('ClawTree 案例 Copilot', 'ClawTree Case Copilot')}</h2>
+              <p className="mt-0.5 text-[10px] text-zinc-500">{DEMO_WORKSPACE.nameEn} campus tour · Demo case · Human-safe</p>
             </div>
             <button
               onClick={onClose}

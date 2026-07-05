@@ -9,7 +9,7 @@ class Workspace(models.Model):
     name = models.CharField(max_length=160, verbose_name='工作区名称')
     name_en = models.CharField(max_length=160, blank=True, default='', verbose_name='英文名称')
     industries = models.JSONField(default=list, blank=True, verbose_name='行业标签')
-    is_genesis = models.BooleanField(default=False, verbose_name='是否示范客户')
+    is_reference_case = models.BooleanField(default=False, verbose_name='是否参考演示案例')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')

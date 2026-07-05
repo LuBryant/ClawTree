@@ -34,7 +34,7 @@ export default function AdminDashboard() {
           Dashboard
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
-          {tx(`${DEMO_WORKSPACE.name} · ClawTree 示范工作区运营台`, `${DEMO_WORKSPACE.nameEn} · ClawTree Genesis Workspace Operations`)}
+          {tx(`${DEMO_WORKSPACE.name}高校行 · ClawTree 演示案例运营台`, `${DEMO_WORKSPACE.nameEn} campus tour · ClawTree Demo Case Operations`)}
         </p>
       </section>
 

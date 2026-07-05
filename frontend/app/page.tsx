@@ -25,7 +25,7 @@ export default function Home() {
         </p>
         <div className="hero-actions">
           <Link href="/demo" className="primary-cta">{tx('开始 3 分钟 Demo', 'Start the 3-minute demo')} <span>→</span></Link>
-          <span className="secondary-cta">{tx(`${DEMO_WORKSPACE.name} · 首个示范客户`, `${DEMO_WORKSPACE.nameEn} · Genesis customer`)}</span>
+          <span className="secondary-cta">{tx(`${DEMO_WORKSPACE.name} · 世界杯 ⨉ 广州高校行 · 演示案例`, `${DEMO_WORKSPACE.nameEn} · World Cup ⨉ Guangzhou campus tour · Demo case`)}</span>
         </div>
         <div className="hero-proof">
           <div><strong>70%+</strong><span>{tx('目标外联准备时间节省', 'less outreach prep time')}</span></div>
@@ -37,7 +37,7 @@ export default function Home() {
       <section className="shell section-block">
         <div className="section-heading">
           <span>ONE ENGINE / MANY WORKSPACES</span>
-          <h2>{tx('ClawTree 是平台，大树财经是首个真实工作区', 'ClawTree is the platform. TreeFinance is its first real workspace.')}</h2>
+          <h2>{tx('ClawTree 是平台，这里用大树财经高校行作为演示案例', 'ClawTree is the platform. TreeFinance campus tour is used here as a demo case.')}</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {Object.values(WORKSPACES).map((workspace) => (
@@ -50,14 +50,14 @@ export default function Home() {
                     <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{workspace.industries.join(' · ')}</p>
                   </div>
                 </div>
-                <span className={workspace.status === 'genesis' ? 'badge badge-success' : 'badge'}>
-                  {workspace.status === 'genesis' ? tx('GENESIS 客户', 'GENESIS CUSTOMER') : tx('扩展示例', 'EXPANSION SANDBOX')}
+                <span className={workspace.status === 'demo' ? 'badge badge-success' : 'badge'}>
+                  {workspace.status === 'demo' ? tx('演示案例', 'DEMO CASE') : tx('扩展示例', 'EXPANSION SANDBOX')}
                 </span>
               </div>
               <p className="mt-5 text-sm leading-7" style={{ color: 'var(--text-dim)' }}>{tx(workspace.mission, workspace.missionEn)}</p>
-              <p className="mt-4 text-xs font-bold" style={{ color: workspace.status === 'genesis' ? 'var(--success)' : 'var(--muted)' }}>
-                {workspace.status === 'genesis'
-                  ? tx(`${workspace.capabilities.length} 项已审核能力 · 当前 Demo 数据`, `${workspace.capabilities.length} reviewed capabilities · live demo data`)
+              <p className="mt-4 text-xs font-bold" style={{ color: workspace.status === 'demo' ? 'var(--success)' : 'var(--muted)' }}>
+                {workspace.status === 'demo'
+                  ? tx(`${workspace.capabilities.length} 项已审核能力 · 演示案例数据`, `${workspace.capabilities.length} reviewed capabilities · demo case data`)
                   : tx('证明同一引擎可服务其他组织；不使用虚构业务数据', 'Proves engine portability without presenting fictional operating data')}
               </p>
             </article>
@@ -81,7 +81,7 @@ export default function Home() {
 
       <section className="shell audience-strip">
         <div><span>{PLATFORM_PROFILE.category.toUpperCase()}</span><strong>{tx('一套引擎，承载多个组织的合作工作区', 'One engine for many organizations and partnership workspaces')}</strong></div>
-        <div><span>GENESIS CASE · TREEFINANCE</span><strong>{tx('把高校行做成可复制、可验证的增长产品', 'Turn campus tours into a repeatable, verifiable growth product')}</strong></div>
+        <div><span>DEMO CASE · TREEFINANCE CAMPUS TOUR</span><strong>{tx('用高校行场景展示可复制、可验证的增长产品', 'Use campus tour scenarios to show a repeatable, verifiable growth product')}</strong></div>
         <Link href="/demo">{tx('进入 Demo Console', 'Open Demo Console')} →</Link>
       </section>
     </main>

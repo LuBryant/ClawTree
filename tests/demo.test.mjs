@@ -7,7 +7,7 @@ const data = JSON.parse(
 );
 
 test('demo fixture has traceable signals and no fake-real contacts', () => {
-  assert.equal(data.workspace.role, 'genesis_customer');
+  assert.equal(data.workspace.role, 'reference_case');
   assert.equal(data.workspace.id, 'ws-treefinance');
   assert.ok(data.signals.length >= 4);
   for (const signal of data.signals) {
