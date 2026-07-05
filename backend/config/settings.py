@@ -20,7 +20,7 @@ if not SECRET_KEY:
     else:
         raise ImproperlyConfigured('DJANGO_SECRET_KEY is required when DJANGO_DEBUG is false')
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,43.128.131.76,10.8.0.13').split(',')
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,43.128.131.76,10.8.0.13,leaf666.xyz,www.leaf666.xyz').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -50,7 +50,9 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'http://43.128.131.76'
+    'http://43.128.131.76',
+    'http://leaf666.xyz',
+    'http://www.leaf666.xyz',
 ]
 CORS_ALLOW_CREDENTIALS = True
 
