@@ -9,9 +9,9 @@ import { LanguageProvider } from './i18n/LanguageProvider';
 import BrandLink from './components/BrandLink';
 
 export const metadata: Metadata = {
-  title: 'ClawTree · AI Media & Event Growth OS｜AI 媒体活动增长操作系统',
+  title: 'ClawTree · AI Partnership Intelligence Network｜AI 合作增长网络',
   description:
-    'Turn campus and trend signals into reviewable campaigns, partner matches, personalized outreach, and verifiable proof. 把高校与热点信号转成可审核的选题、合作名单、个性化外联和可验证执行凭证。',
+    'Turn public signals into trusted partnerships with sourced intelligence, human-reviewed action, and verifiable proof. 把公共信号转成可信机会、人审行动与可验证合作成果。',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

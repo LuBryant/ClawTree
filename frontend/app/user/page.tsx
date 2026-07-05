@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { publicRecaps, publicSignals } from '../lib/public-data';
 import { fetchEvents, type UniversityEvent } from '../lib/api-client';
 import { useLanguage } from '../i18n/LanguageProvider';
+import { DEMO_WORKSPACE } from '../config/workspaces';
 
 export default function UserHomePage() {
   const heroSignal = publicSignals[0];
@@ -25,13 +26,13 @@ export default function UserHomePage() {
         <article className="panel p-6">
           <span className="badge badge-success">{tx('15 秒理解', 'Understand in 15 seconds')}</span>
           <h2 className="mt-5 text-3xl font-black leading-tight tracking-tight md:text-5xl">
-            {tx('不用翻 X，也能看见大树财经的高校内容与合作入口。', 'See TreeFinance campus content and partnership opportunities—without digging through X.')}
+            {tx(`不用翻 X，也能看见${DEMO_WORKSPACE.name}的高校内容与合作入口。`, `See ${DEMO_WORKSPACE.nameEn} campus content and partnership opportunities—without digging through X.`)}
           </h2>
           <p className="mt-5 max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'var(--text-dim)' }}>
             {tx('ClawTree 把公开来源、发布时间、抓取时间、AI 摘要和编辑说明放在同一个页面里。老师看的是可信回顾和活动机会；运营端再把这些信号变成可审批的逐校提案。', 'ClawTree brings public sources, timestamps, AI summaries, and editorial notes together. Educators see trusted recaps and events; operators turn those signals into reviewable, campus-specific proposals.')}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/user/recaps" className="btn btn-success">{tx('看大树回顾', 'View recaps')}</Link>
+            <Link href="/user/recaps" className="btn btn-success">{tx('查看客户回顾', 'View workspace recaps')}</Link>
             <Link href="/user/events" className="btn-outline">{tx('找近期活动', 'Find events')}</Link>
             <Link href="/user/cooperate" className="btn-outline">{tx('申请合作', 'Partner with us')}</Link>
           </div>

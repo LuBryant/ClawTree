@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useLanguage } from './i18n/LanguageProvider';
+import { DEMO_WORKSPACE, PLATFORM_PROFILE, WORKSPACES } from './config/workspaces';
 
 export default function Home() {
   const { tx } = useLanguage();
@@ -14,22 +15,53 @@ export default function Home() {
   return (
     <main>
       <section className="hero shell">
-        <div className="eyebrow"><span className="live-dot" /> AI × Web3 × MEDIA GROWTH</div>
-        <h1>{tx('把热点和高校信号，', 'Turn trends and campus signals')}<br /><em>{tx('变成真实合作。', 'into real partnerships.')}</em></h1>
+        <div className="eyebrow"><span className="live-dot" /> AI PARTNERSHIP INTELLIGENCE NETWORK</div>
+        <h1>{tx('把公共信号，', 'Turn public signals')}<br /><em>{tx('变成可信合作。', 'into trusted partnerships.')}</em></h1>
         <p className="hero-copy">
           {tx(
-            'ClawTree 是大树财经的 AI 媒体活动增长操作系统。15 分钟完成信号核验、选题策划、目标匹配与个性化外联，并留下可审计的执行证据。',
-            'ClawTree is TreeFinance\'s AI-powered media and event growth OS. In 15 minutes, verify signals, shape a campaign, match partners, draft personalized outreach, and retain an auditable trail.',
+            'ClawTree 为媒体、高校、活动方与 Web3 生态提供 AI 合作增长基础设施。15 分钟完成信号核验、机会设计、伙伴匹配与人审外联，并留下可审计的执行证据。',
+            'ClawTree gives media, campuses, event teams, and Web3 ecosystems an AI-native partnership layer. In 15 minutes, verify signals, shape opportunities, match partners, review outreach, and retain an auditable trail.',
           )}
         </p>
         <div className="hero-actions">
           <Link href="/demo" className="primary-cta">{tx('开始 3 分钟 Demo', 'Start the 3-minute demo')} <span>→</span></Link>
-          <span className="secondary-cta">{tx('世界杯 × 广州高校行', 'Global Football × Guangzhou Campus Tour')}</span>
+          <span className="secondary-cta">{tx(`${DEMO_WORKSPACE.name} · 首个示范客户`, `${DEMO_WORKSPACE.nameEn} · Genesis customer`)}</span>
         </div>
         <div className="hero-proof">
           <div><strong>70%+</strong><span>{tx('目标外联准备时间节省', 'less outreach prep time')}</span></div>
           <div><strong>15 min</strong><span>{tx('从可信信号到可审草稿', 'from trusted signal to reviewable draft')}</span></div>
           <div><strong>0 PII</strong><span>{tx('联系人与邮件内容不上链', 'contacts and email content kept offchain')}</span></div>
+        </div>
+      </section>
+
+      <section className="shell section-block">
+        <div className="section-heading">
+          <span>ONE ENGINE / MANY WORKSPACES</span>
+          <h2>{tx('ClawTree 是平台，大树财经是首个真实工作区', 'ClawTree is the platform. TreeFinance is its first real workspace.')}</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {Object.values(WORKSPACES).map((workspace) => (
+            <article className="panel p-6" key={workspace.id} style={{ opacity: workspace.status === 'sandbox' ? 0.72 : 1 }}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="brand-mark">{workspace.initials}</span>
+                  <div>
+                    <h3 className="text-xl font-black">{tx(workspace.name, workspace.nameEn)}</h3>
+                    <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>{workspace.industries.join(' · ')}</p>
+                  </div>
+                </div>
+                <span className={workspace.status === 'genesis' ? 'badge badge-success' : 'badge'}>
+                  {workspace.status === 'genesis' ? tx('GENESIS 客户', 'GENESIS CUSTOMER') : tx('扩展示例', 'EXPANSION SANDBOX')}
+                </span>
+              </div>
+              <p className="mt-5 text-sm leading-7" style={{ color: 'var(--text-dim)' }}>{tx(workspace.mission, workspace.missionEn)}</p>
+              <p className="mt-4 text-xs font-bold" style={{ color: workspace.status === 'genesis' ? 'var(--success)' : 'var(--muted)' }}>
+                {workspace.status === 'genesis'
+                  ? tx(`${workspace.capabilities.length} 项已审核能力 · 当前 Demo 数据`, `${workspace.capabilities.length} reviewed capabilities · live demo data`)
+                  : tx('证明同一引擎可服务其他组织；不使用虚构业务数据', 'Proves engine portability without presenting fictional operating data')}
+              </p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -48,8 +80,8 @@ export default function Home() {
       </section>
 
       <section className="shell audience-strip">
-        <div><span>FOR TREEFINANCE</span><strong>{tx('把高校行做成可复制的增长产品', 'Turn campus tours into a repeatable growth product')}</strong></div>
-        <div><span>FOR SPONSORS</span><strong>{tx('看见从预算到高校合作的证据链', 'See the evidence trail from budget to campus partnership')}</strong></div>
+        <div><span>{PLATFORM_PROFILE.category.toUpperCase()}</span><strong>{tx('一套引擎，承载多个组织的合作工作区', 'One engine for many organizations and partnership workspaces')}</strong></div>
+        <div><span>GENESIS CASE · TREEFINANCE</span><strong>{tx('把高校行做成可复制、可验证的增长产品', 'Turn campus tours into a repeatable, verifiable growth product')}</strong></div>
         <Link href="/demo">{tx('进入 Demo Console', 'Open Demo Console')} →</Link>
       </section>
     </main>

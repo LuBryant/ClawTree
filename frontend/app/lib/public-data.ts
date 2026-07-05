@@ -1,5 +1,6 @@
 import demo from '../../data/demo.json';
 import golden from '../../data/golden-gate.json';
+import { DEMO_WORKSPACE } from '../config/workspaces';
 
 type GoldenContentItem = (typeof golden.contentItems)[number];
 type GoldenEvent = (typeof golden.campusEvents)[number];
@@ -94,35 +95,7 @@ export const publicEvents = golden.campusEvents
     publicNote: '公开端不展示联系邮箱、联系页证据、内部评分或未核验原文。',
   }));
 
-export const capabilityLibrary = [
-  {
-    id: 'cap-media',
-    title: '媒体支持与活动复盘',
-    sourceIds: ['tf-profile-positioning', 'tf-nuist-recap'],
-    owner: 'TreeFinance Content',
-    validUntil: '2026-09-30',
-    approved: true,
-    boundary: '只承诺已批准的内容资源，不保证曝光量。',
-  },
-  {
-    id: 'cap-space',
-    title: 'X Space / 圆桌联动',
-    sourceIds: ['tf-ai-data-ama'],
-    owner: 'TreeFinance Ops',
-    validUntil: '2026-08-31',
-    approved: true,
-    boundary: '嘉宾、时间和主题需单独人工确认。',
-  },
-  {
-    id: 'cap-hackathon',
-    title: 'AI×Web3 黑客松与项目招募',
-    sourceIds: ['tf-htx-waic'],
-    owner: 'TreeFinance Ecosystem',
-    validUntil: '2026-07-31',
-    approved: true,
-    boundary: '不承诺未批准奖金、投资或主办身份。',
-  },
-];
+export const capabilityLibrary = DEMO_WORKSPACE.capabilities;
 
 export const ingestionRuns = [
   {

@@ -7,6 +7,8 @@ const data = JSON.parse(
 );
 
 test('demo fixture has traceable signals and no fake-real contacts', () => {
+  assert.equal(data.workspace.role, 'genesis_customer');
+  assert.equal(data.workspace.id, 'ws-treefinance');
   assert.ok(data.signals.length >= 4);
   for (const signal of data.signals) {
     assert.match(signal.url, /^https:\/\//);
@@ -70,7 +72,7 @@ test('outreach state machine cannot skip human approval', () => {
 });
 
 test('proof public payload allowlist excludes private fields', () => {
-  const allowed = ['payloadVersion', 'campaignId', 'draftId', 'signalIds', 'approvalStatus'];
+  const allowed = ['payloadVersion', 'workspaceId', 'campaignId', 'draftId', 'signalIds', 'approvalStatus'];
   const forbidden = ['email', 'contact', 'body', 'reply', 'name', 'prompt'];
   for (const field of forbidden) assert.equal(allowed.includes(field), false);
 });

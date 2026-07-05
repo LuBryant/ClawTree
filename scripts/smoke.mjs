@@ -102,14 +102,14 @@ try {
   assertPublicPayload(await json('/api/user/events'), 'user events');
   assertPublicPayload(await json('/api/user/recaps'), 'user recaps');
   const post = (body) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const draft = await json('/api/outreach/draft', post({ campaignId: demo.campaign.id, targetId: demo.targets[0].id }));
+  const draft = await json('/api/outreach/draft', post({ workspaceId: demo.workspace.id, campaignId: demo.campaign.id, targetId: demo.targets[0].id }));
   assert.equal(draft.status, 'draft');
   assert.equal(draft.externalSideEffect, false);
   const approval = await json('/api/outreach/approve', post({ draftId: draft.id, approvedBy: 'Smoke Test' }));
   assert.equal(approval.status, 'simulated_sent');
   assert.equal(approval.externalSideEffect, false);
-  const proofA = await json('/api/proofs/anchor', post({ campaignId: demo.campaign.id, draftId: draft.id }));
-  const proofB = await json('/api/proofs/anchor', post({ campaignId: demo.campaign.id, draftId: draft.id }));
+  const proofA = await json('/api/proofs/anchor', post({ workspaceId: demo.workspace.id, campaignId: demo.campaign.id, draftId: draft.id }));
+  const proofB = await json('/api/proofs/anchor', post({ workspaceId: demo.workspace.id, campaignId: demo.campaign.id, draftId: draft.id }));
   assert.equal(proofA.payloadHash, proofB.payloadHash);
   assert.equal(proofA.isMock, true);
   for (const privateField of ['email', 'contact', 'body', 'reply', 'name', 'prompt']) {

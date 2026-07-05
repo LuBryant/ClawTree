@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { getAssistantClient, type AssistantCitation } from '../lib/llm-client';
 import { QUICK_ACTIONS } from '../lib/assistant-config';
 import { useLanguage } from '../i18n/LanguageProvider';
+import { DEMO_WORKSPACE } from '../config/workspaces';
 
 interface Message {
   id: number;
@@ -22,8 +23,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
       id: 1,
       sender: 'assistant',
       text: language === 'zh'
-        ? '你好，我是大树财经的 AI 客服助手。\n\n我只根据已审核、带来源和有效期的知识回答；遇到未知、过期或需要确认的合作信息，会明确转人工。请选择你的身份，或直接提问。'
-        : 'Hi, I’m TreeFinance’s AI support assistant.\n\nI answer only from reviewed, sourced, time-bounded knowledge. Unknown, stale, or partnership-specific questions are handed to a human. Choose your role or ask a question.',
+        ? `你好，我是 ClawTree 工作区 Copilot，当前服务示范客户「${DEMO_WORKSPACE.name}」。\n\n我只根据该工作区已审核、带来源和有效期的知识回答；遇到未知、过期或需要确认的合作信息，会明确转人工。`
+        : `Hi, I’m the ClawTree workspace copilot for genesis customer ${DEMO_WORKSPACE.nameEn}.\n\nI answer only from this workspace’s reviewed, sourced, time-bounded knowledge. Unknown, stale, or partnership-specific questions are handed to a human.`,
     };
     return [welcome];
   });
@@ -56,7 +57,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
 
     try {
       const client = getAssistantClient();
-      const result = await client.streamChat(chatHistory.current, { audience, language });
+      const result = await client.streamChat(chatHistory.current, { audience, language, workspaceSlug: DEMO_WORKSPACE.slug });
 
       const finalText = result.content || asstMsg.text || tx('（AI 未返回有效响应，请重试）', '(The AI returned no valid response. Please retry.)');
       asstMsg.text = finalText;
@@ -97,7 +98,7 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
         : tx('等待首次检索', 'Awaiting first query');
 
   const englishQuickActions = audience === 'teacher'
-    ? ['What is TreeFinance?', 'What campus partnership models are available?', 'What does media support include?', 'Can a human confirm a partnership date?']
+    ? ['What is ClawTree, and how does TreeFinance use it?', 'What campus partnership models are available?', 'What does media support include?', 'Can a human confirm a partnership date?']
     : ['What can ClawTree do for us?', 'Can a student group apply for a joint event?', 'How do I join the Genesis hackathon?', 'Is my personal data written onchain?'];
   const quickActions = language === 'zh' ? QUICK_ACTIONS[audience] : englishQuickActions;
 
@@ -115,8 +116,8 @@ export default function ChatDialog({ onClose }: { onClose: () => void }) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
             <div>
-              <h2 className="text-base font-bold text-emerald-300">{tx('大树财经 AI 客服', 'TreeFinance AI Support')}</h2>
-              <p className="mt-0.5 text-[10px] text-zinc-500">Reviewed knowledge · Human-safe</p>
+              <h2 className="text-base font-bold text-emerald-300">{tx('ClawTree 工作区 Copilot', 'ClawTree Workspace Copilot')}</h2>
+              <p className="mt-0.5 text-[10px] text-zinc-500">{DEMO_WORKSPACE.nameEn} · Genesis customer · Human-safe</p>
             </div>
             <button
               onClick={onClose}

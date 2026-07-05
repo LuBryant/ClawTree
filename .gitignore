@@ -46,3 +46,7 @@ db.sqlite3/
 migrations/
 migrations
 /migrations
+
+# Django schema migrations are application source and must be versioned.
+!backend/home/migrations/
+!backend/home/migrations/*.py

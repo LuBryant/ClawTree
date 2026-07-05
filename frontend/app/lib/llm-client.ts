@@ -27,6 +27,7 @@ class AssistantClient {
     options?: {
       audience?: 'teacher' | 'student';
       language?: 'zh' | 'en';
+      workspaceSlug?: string;
       onChunk?: (text: string) => void;
     },
   ): Promise<StreamResult> {
@@ -34,6 +35,7 @@ class AssistantClient {
       messages,
       audience: options?.audience || 'teacher',
       language: options?.language || 'zh',
+      workspaceSlug: options?.workspaceSlug || 'treefinance',
     };
 
     const controller = new AbortController();

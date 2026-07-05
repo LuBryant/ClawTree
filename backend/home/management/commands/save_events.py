@@ -15,7 +15,7 @@ from datetime import date, datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from home.models import IngestionRun, SourceConnector, UniversityEvent
+from home.models import IngestionRun, SourceConnector, UniversityEvent, Workspace
 
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -56,11 +56,13 @@ class Command(BaseCommand):
         parser.add_argument('json_file', type=str, help='OpenClaw 输出的 JSON 文件路径')
         parser.add_argument('--dry-run', action='store_true', help='仅预览不入库')
         parser.add_argument('--owner', default='Campus Opportunity Radar', help='写入 IngestionRun 的负责人')
+        parser.add_argument('--workspace', default='treefinance', help='ClawTree 工作区 slug')
 
     def handle(self, *args, **options):
         filepath = options['json_file']
         dry_run = options['dry_run']
         started = time.monotonic()
+        workspace = Workspace.objects.get(slug=options['workspace'], is_active=True)
 
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -79,6 +81,7 @@ class Command(BaseCommand):
 
         if not dry_run:
             connector, _ = SourceConnector.objects.get_or_create(
+                workspace=workspace,
                 name='OpenClaw Campus Events',
                 platform='campus',
                 defaults={
@@ -140,6 +143,7 @@ class Command(BaseCommand):
                 continue
 
             _, created = UniversityEvent.objects.update_or_create(
+                workspace=workspace,
                 source_url=source_url,
                 defaults={
                     'title': title,

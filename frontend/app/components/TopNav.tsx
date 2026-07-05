@@ -32,9 +32,6 @@ export default function TopNav() {
           </Link>
         );
       })}
-      <a href="https://treefinance.co" target="_blank" rel="noreferrer">
-        {tx('大树财经', 'TreeFinance')}
-      </a>
       <LanguageSwitcher />
       <ConnectWallet />
     </nav>

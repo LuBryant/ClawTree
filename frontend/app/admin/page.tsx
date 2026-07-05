@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { fetchEventStats, type EventStats } from '../lib/api-client';
 import { useLanguage } from '../i18n/LanguageProvider';
+import { DEMO_WORKSPACE } from '../config/workspaces';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<EventStats | null>(null);
@@ -33,7 +34,7 @@ export default function AdminDashboard() {
           Dashboard
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
-          {tx('大树财经团队 · 高校 AI/Web3 活动运营控制台', 'TreeFinance · Campus AI/Web3 Operations Console')}
+          {tx(`${DEMO_WORKSPACE.name} · ClawTree 示范工作区运营台`, `${DEMO_WORKSPACE.nameEn} · ClawTree Genesis Workspace Operations`)}
         </p>
       </section>
 

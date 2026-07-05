@@ -28,12 +28,13 @@ type ThemePackage = {
 };
 type DemoData = {
   meta: { mode: string; notice: string };
+  workspace: { id: string; slug: string; name: string; nameEn: string; role: string };
   signals: Signal[]; targets: Target[]; campaign: Campaign; themePackage: ThemePackage;
   reply: { intent: string; confidence: number; summary: string; nextAction: string; isMock: boolean };
   funnel: Record<string, number>;
 };
 type Draft = {
-  id: string; status: string; targetId: string; subject: string; body: string;
+  id: string; workspaceId: string; status: string; targetId: string; subject: string; body: string;
   personalization: string[]; citationIds: string[];
   guardrailChecks: Record<string, boolean>; externalSideEffect: boolean;
 };
@@ -77,7 +78,7 @@ export default function DemoConsole() {
     setBusy('draft'); setError(''); setSent(false); setProof(null);
     try {
       const result = await api<Draft>('/api/outreach/draft', {
-        method: 'POST', body: JSON.stringify({ campaignId: data.campaign.id, targetId: selectedTarget }),
+        method: 'POST', body: JSON.stringify({ workspaceId: data.workspace.id, campaignId: data.campaign.id, targetId: selectedTarget }),
       });
       setDraft(result);
     } catch (reason) { setError(reason instanceof Error ? reason.message : tx('生成失败', 'Generation failed')); }
@@ -89,7 +90,7 @@ export default function DemoConsole() {
     setBusy('approve'); setError('');
     try {
       const result = await api<{ status: string }>('/api/outreach/approve', {
-        method: 'POST', body: JSON.stringify({ draftId: draft.id, approvedBy: 'TreeFinance Demo Operator' }),
+        method: 'POST', body: JSON.stringify({ draftId: draft.id, approvedBy: `${data?.workspace.nameEn || 'Demo'} Operator` }),
       });
       setSent(result.status === 'simulated_sent');
       setDraft({ ...draft, status: result.status });
@@ -102,7 +103,7 @@ export default function DemoConsole() {
     setBusy('proof'); setError('');
     try {
       setProof(await api<Proof>('/api/proofs/anchor', {
-        method: 'POST', body: JSON.stringify({ campaignId: data.campaign.id, draftId: draft.id }),
+        method: 'POST', body: JSON.stringify({ workspaceId: data.workspace.id, campaignId: data.campaign.id, draftId: draft.id }),
       }));
     } catch (reason) { setError(reason instanceof Error ? reason.message : tx('凭证生成失败', 'Proof generation failed')); }
     finally { setBusy(''); }
@@ -115,7 +116,7 @@ export default function DemoConsole() {
     <main className="shell demo-shell">
       <header className="demo-titlebar">
         <div>
-          <span className="console-kicker">WORLD FOOTBALL 2026 / GUANGZHOU CAMPUS LAB</span>
+          <span className="console-kicker">CLAWTREE WORKSPACE / {data.workspace.nameEn.toUpperCase()} / GENESIS CUSTOMER</span>
           <h1>{tx('全球足球赛事', 'Global Football')} <em>×</em> {tx('广州高校行', 'Guangzhou Campus Tour')}</h1>
           <p className="demo-deck">{tx('把一次热点，变成一堂课、一场 Agent 挑战、五次传播和一份可验证影响力资产。', 'Turn one global moment into a class, an Agent challenge, five media beats, and a verifiable impact asset.')}</p>
         </div>

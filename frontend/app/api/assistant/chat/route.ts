@@ -1,7 +1,8 @@
 import {
-  ASSISTANT_SYSTEM_PROMPT,
+  buildAssistantSystemPrompt,
   buildAssistantRagPrompt,
 } from '../../../lib/assistant-prompt.server';
+import { getWorkspace } from '../../../config/workspaces';
 import {
   answerPassesGuardrails,
   assistantHandoffUrl,
@@ -98,6 +99,8 @@ export async function POST(request: Request) {
 
   const audience: AssistantAudience = bodyRecord?.audience === 'student' ? 'student' : 'teacher';
   const preferredLanguage = bodyRecord?.language === 'en' ? 'en' : 'zh';
+  const workspace = getWorkspace(typeof bodyRecord?.workspaceSlug === 'string' ? bodyRecord.workspaceSlug : undefined);
+  if (!workspace) return errorResponse('workspace_not_found', 404);
   const latestUserMessage = messages.at(-1);
   if (!latestUserMessage || latestUserMessage.role !== 'user') return errorResponse('invalid_messages', 400);
   const language = detectResponseLanguage(latestUserMessage.content, preferredLanguage);
@@ -121,7 +124,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
         messages: [
-          { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+          { role: 'system', content: buildAssistantSystemPrompt(workspace) },
           ...messages.slice(0, -1).slice(-6),
           { role: 'user', content: buildAssistantRagPrompt(latestUserMessage.content, retrieval.context, language) },
         ],

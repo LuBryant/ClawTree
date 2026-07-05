@@ -12,6 +12,8 @@ from .api_views import (
     AdminIngestionRunViewSet,
     AdminContentReviewViewSet,
     PipelineViewSet,
+    WorkspaceViewSet,
+    WorkspaceCapabilityViewSet,
 )
 
 router = DefaultRouter()
@@ -24,6 +26,8 @@ router.register(r'outreach', OutreachDraftViewSet, basename='outreach')
 router.register(r'admin/source-connectors', AdminSourceConnectorViewSet, basename='admin-source-connector')
 router.register(r'admin/ingestion-runs', AdminIngestionRunViewSet, basename='admin-ingestion-run')
 router.register(r'admin/content-reviews', AdminContentReviewViewSet, basename='admin-content-review')
+router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
+router.register(r'workspace-capabilities', WorkspaceCapabilityViewSet, basename='workspace-capability')
 
 urlpatterns = [
     path('user/feed/', PublicFeedView.as_view(), name='user-feed'),

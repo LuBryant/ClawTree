@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLanguage } from '../i18n/LanguageProvider';
+import { DEMO_WORKSPACE } from '../config/workspaces';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,9 +22,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="mx-auto flex w-full max-w-7xl flex-1 gap-8 px-6 py-10">
       <aside className="hidden w-52 shrink-0 lg:block">
         <div className="sticky top-20 flex flex-col gap-1">
-          <p className="mb-3 text-xs font-black uppercase tracking-widest" style={{ color: 'var(--warning)' }}>
-            {tx('管理端', 'Operations')}
-          </p>
+          <p className="mb-1 text-xs font-black uppercase tracking-widest" style={{ color: 'var(--warning)' }}>{tx('当前工作区', 'Active workspace')}</p>
+          <div className="mb-5 border border-[var(--line)] p-3">
+            <strong className="block text-sm">{tx(DEMO_WORKSPACE.name, DEMO_WORKSPACE.nameEn)}</strong>
+            <span className="mt-1 block text-[10px] uppercase tracking-wider" style={{ color: 'var(--success)' }}>Genesis customer · {DEMO_WORKSPACE.initials}</span>
+          </div>
           {links.map(({ href, label, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);
             return (

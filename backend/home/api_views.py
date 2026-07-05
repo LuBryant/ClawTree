@@ -8,6 +8,7 @@ from datetime import datetime
 
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -16,6 +17,9 @@ from rest_framework.response import Response
 from openai import OpenAI
 
 from .models import (
+    Workspace,
+    BrandProfile,
+    Capability,
     UniversityEvent,
     EventReview,
     TweetReview,
@@ -25,7 +29,11 @@ from .models import (
     EditorialReview,
 )
 from .serializers import (
+    WorkspaceSerializer,
+    BrandProfileSerializer,
+    CapabilitySerializer,
     UniversityEventSerializer,
+    AdminUniversityEventSerializer,
     EventReviewSerializer,
     TweetReviewSerializer,
     OutreachDraftSerializer,
@@ -52,17 +60,45 @@ def _init_llm():
     return None, None
 
 
+DEFAULT_WORKSPACE_SLUG = 'treefinance'
+
+
+def _workspace_slug(request):
+    return (
+        request.headers.get('X-ClawTree-Workspace')
+        or request.query_params.get('workspace')
+        or (request.data.get('workspace_slug') if hasattr(request.data, 'get') else None)
+        or DEFAULT_WORKSPACE_SLUG
+    )
+
+
+def _active_workspace(request):
+    return get_object_or_404(Workspace, slug=_workspace_slug(request), is_active=True)
+
+
+class WorkspaceScopedQuerysetMixin:
+    workspace_filter = 'workspace__slug'
+
+    def get_workspace(self):
+        return _active_workspace(self.request)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(**{self.workspace_filter: _workspace_slug(self.request)})
+
+
 EMAIL_SYSTEM_PROMPT = (
-    '你是一个专业的媒体商务邮件撰写人。请根据活动信息和大树财经的高校行合作模式，'
-    '撰写一封个性化合作邀请邮件。风格专业、真诚、简洁。'
+    '你是 ClawTree 工作区的专业合作邮件撰写 Agent。只能使用当前工作区提供的已审核品牌档案和能力证据，'
+    '撰写个性化合作邀请邮件。风格专业、真诚、简洁；不得替工作区承诺未审核资源。'
 )
 
-EMAIL_PROMPT_TEMPLATE = """请为以下高校活动撰写一封大树财经的合作邀请邮件。
+EMAIL_PROMPT_TEMPLATE = """请为以下高校活动撰写一封 {brand_name} 的合作邀请邮件。
 
-大树财经背景：
-- Web3+AI 领域的媒体与活动品牌，正推动"全球高校行"计划
-- 已成功与清华、浙大、复旦、上海交大等 30+ 高校链协合作
-- 提供：媒体支持、活动复盘报道、AI/Web3 主题公开课、圆桌联动、嘉宾资源
+当前工作区：
+- 名称：{brand_name}
+- 使命：{mission}
+- 已审核能力：{capabilities}
+- 约束：只能引用上述能力；具体资源、嘉宾、时间和权益仍需人工确认
 
 活动信息：
 - 高校：{university}
@@ -75,7 +111,7 @@ EMAIL_PROMPT_TEMPLATE = """请为以下高校活动撰写一封大树财经的�
 1. 称呼对方为"{university} 老师"（如无法确定具体联系人）
 2. 提及对该校活动的了解和欣赏
 3. 提出 2-3 个具体合作方向，结合该活动的特点
-4. 署名"大树财经高校行团队"
+4. 署名"{signature}"
 5. 语气真诚、有温度，不要过度营销
 
 请只返回邮件正文（纯文本），不要包含其他解释。"""
@@ -101,6 +137,28 @@ def _audit_id(request, prefix):
     return f'{prefix}:{key}' if key else f'{prefix}:{timezone.now().strftime("%Y%m%d%H%M%S")}'
 
 
+class WorkspaceViewSet(viewsets.ReadOnlyModelViewSet):
+    """Public workspace directory; private operational data is never serialized here."""
+
+    queryset = Workspace.objects.filter(is_active=True).prefetch_related('capabilities')
+    serializer_class = WorkspaceSerializer
+    lookup_field = 'slug'
+    search_fields = ['name', 'name_en', 'slug']
+
+
+class WorkspaceCapabilityViewSet(viewsets.ReadOnlyModelViewSet):
+    """Reviewed public capabilities for one active workspace."""
+
+    serializer_class = CapabilitySerializer
+
+    def get_queryset(self):
+        return Capability.objects.select_related('workspace').filter(
+            workspace__slug=_workspace_slug(self.request),
+            workspace__is_active=True,
+            approved=True,
+        )
+
+
 class PublicFeedView(APIView):
     """API-2: compact public feed envelope for /user.
 
@@ -111,6 +169,7 @@ class PublicFeedView(APIView):
     def get(self, request):
         recaps = EditorialReview.objects.select_related('content_item').filter(
             status='published',
+            content_item__workspace__slug=_workspace_slug(request),
         ).order_by('-published_at', '-updated_at')[:6]
         return Response({
             'externalSideEffect': False,
@@ -118,19 +177,23 @@ class PublicFeedView(APIView):
         })
 
 
-class PublicContentRecapViewSet(viewsets.ReadOnlyModelViewSet):
+class PublicContentRecapViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """Published Content Relay recaps for teachers and students."""
 
     serializer_class = PublicContentRecapSerializer
     search_fields = ['suggested_title', 'suggested_text', 'content_item__publisher']
     ordering_fields = ['published_at', 'updated_at', 'content_item__published_at']
     ordering = ['-published_at', '-updated_at']
+    workspace_filter = 'content_item__workspace__slug'
 
     def get_queryset(self):
-        return EditorialReview.objects.select_related('content_item').filter(status='published')
+        return EditorialReview.objects.select_related('content_item', 'content_item__workspace').filter(
+            status='published',
+            content_item__workspace__slug=_workspace_slug(self.request),
+        )
 
 
-class AdminSourceConnectorViewSet(viewsets.ReadOnlyModelViewSet):
+class AdminSourceConnectorViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """Admin-visible source connector config without secret values."""
 
     queryset = SourceConnector.objects.all()
@@ -139,15 +202,16 @@ class AdminSourceConnectorViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['platform', 'name', 'updated_at']
 
 
-class AdminIngestionRunViewSet(viewsets.ReadOnlyModelViewSet):
+class AdminIngestionRunViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """Admin ingestion run audit log: cursors, counts, costs, retries, errors."""
 
     queryset = IngestionRun.objects.select_related('connector').all()
     serializer_class = IngestionRunSerializer
     ordering_fields = ['created_at', 'started_at', 'finished_at', 'new_count', 'failed_count']
+    workspace_filter = 'connector__workspace__slug'
 
 
-class AdminContentReviewViewSet(viewsets.ModelViewSet):
+class AdminContentReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ModelViewSet):
     """API-3: admin review/publish queue for Content Relay."""
 
     queryset = EditorialReview.objects.select_related('content_item').all()
@@ -155,6 +219,7 @@ class AdminContentReviewViewSet(viewsets.ModelViewSet):
     search_fields = ['suggested_title', 'suggested_text', 'content_item__raw_text', 'content_item__source_url']
     ordering_fields = ['updated_at', 'published_at', 'reviewed_at', 'content_item__published_at']
     ordering = ['-updated_at']
+    workspace_filter = 'content_item__workspace__slug'
 
     def _transition(self, request, next_status, updates=None):
         review = self.get_object()
@@ -200,16 +265,16 @@ class AdminContentReviewViewSet(viewsets.ModelViewSet):
         return self._transition(request, 'rejected', {'rejection_reason': reason})
 
 
-class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
+class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """高校 AI/Web3 活动 API（只读）"""
     queryset = UniversityEvent.objects.all()
-    serializer_class = UniversityEventSerializer
+    serializer_class = AdminUniversityEventSerializer
     filterset_class = UniversityEventFilter
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """活动统计摘要"""
-        qs = UniversityEvent.objects
+        qs = self.get_queryset()
         return Response({
             'total': qs.count(),
             'by_category': {
@@ -245,7 +310,7 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        events = UniversityEvent.objects.filter(id__in=event_ids)
+        events = self.get_queryset().filter(id__in=event_ids).select_related('workspace', 'workspace__brand_profile')
         if not events:
             return Response(
                 {'error': '未找到匹配的活动'},
@@ -254,7 +319,14 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
 
         results = []
         for ev in events:
+            profile = getattr(ev.workspace, 'brand_profile', None)
+            capabilities = ev.workspace.capabilities.filter(approved=True).order_by('code')
+            capability_text = '；'.join(item.title for item in capabilities) or '暂无已审核能力，必须转人工确认'
             prompt = EMAIL_PROMPT_TEMPLATE.format(
+                brand_name=ev.workspace.name,
+                mission=profile.mission if profile else '',
+                capabilities=capability_text,
+                signature=profile.outreach_signature if profile else ev.workspace.name,
                 university=ev.university,
                 title=ev.title,
                 date=str(ev.event_date) if ev.event_date else '待定',
@@ -285,6 +357,7 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
 
             # 存入外联草稿表
             OutreachDraft.objects.create(
+                workspace=ev.workspace,
                 university_event=ev,
                 email_body=body,
                 recipient_email=ev.contact_email or '',
@@ -296,7 +369,7 @@ class UniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'results': results})
 
 
-class PublicUniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
+class PublicUniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """API-2: public event list; no contact fields and no draft-generation action."""
 
     queryset = UniversityEvent.objects.all()
@@ -306,7 +379,7 @@ class PublicUniversityEventViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['event_date', 'created_at']
 
 
-class OutreachDraftViewSet(viewsets.ModelViewSet):
+class OutreachDraftViewSet(WorkspaceScopedQuerysetMixin, viewsets.ModelViewSet):
     """外联审批草稿 API"""
     queryset = OutreachDraft.objects.all()
     serializer_class = OutreachDraftSerializer
@@ -329,7 +402,7 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
 
         # 发送邮件
         try:
-            subject = draft.subject or f'合作邀请｜大树财经高校行 — {draft.university_event.title}'
+            subject = draft.subject or f'合作邀请｜{draft.workspace.name} — {draft.university_event.title}'
             recipient = draft.recipient_email or draft.university_event.contact_email
             if recipient:
                 send_mail(
@@ -370,14 +443,14 @@ class OutreachDraftViewSet(viewsets.ModelViewSet):
         })
 
 
-class EventReviewViewSet(viewsets.ModelViewSet):
+class EventReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ModelViewSet):
     """活动回顾 API — 支持 CRUD"""
     queryset = EventReview.objects.all()
     serializer_class = EventReviewSerializer
     filterset_class = EventReviewFilter
 
 
-class TweetReviewViewSet(viewsets.ReadOnlyModelViewSet):
+class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """推文回顾 API（只读）"""
     queryset = TweetReview.objects.filter(is_review_worthy=True)
     serializer_class = TweetReviewSerializer
@@ -396,10 +469,11 @@ class PipelineViewSet(viewsets.ViewSet):
 
     def list(self, request):
         """获取流水线状态和最新运行记录"""
-        configs = PipelineConfig.objects.all()
+        workspace = _active_workspace(request)
+        configs = PipelineConfig.objects.filter(workspace=workspace)
         steps = []
         for c in configs:
-            last_run = PipelineRun.objects.filter(step=c.step).first()
+            last_run = PipelineRun.objects.filter(workspace=workspace, step=c.step).first()
             steps.append({
                 'step': c.step,
                 'step_label': c.get_step_display(),
@@ -412,7 +486,7 @@ class PipelineViewSet(viewsets.ViewSet):
         all_steps = [s[0] for s in PipelineRun.STEP_CHOICES]
         for step in all_steps:
             if step not in existing:
-                last_run = PipelineRun.objects.filter(step=step).first()
+                last_run = PipelineRun.objects.filter(workspace=workspace, step=step).first()
                 steps.append({
                     'step': step,
                     'step_label': dict(PipelineRun.STEP_CHOICES)[step],
@@ -429,7 +503,9 @@ class PipelineViewSet(viewsets.ViewSet):
         step = request.data.get('step')
         if step not in dict(PipelineRun.STEP_CHOICES):
             return Response({'error': 'invalid step'}, status=400)
+        workspace = _active_workspace(request)
         config, _ = PipelineConfig.objects.update_or_create(
+            workspace=workspace,
             step=step,
             defaults={
                 'enabled': request.data.get('enabled', False),
@@ -445,7 +521,8 @@ class PipelineViewSet(viewsets.ViewSet):
         step = request.data.get('step')
         if step not in dict(PipelineRun.STEP_CHOICES):
             return Response({'error': 'invalid step'}, status=400)
-        PipelineRun.objects.filter(step=step, status='running').update(stop_requested=True)
+        workspace = _active_workspace(request)
+        PipelineRun.objects.filter(workspace=workspace, step=step, status='running').update(stop_requested=True)
         return Response({'status': 'stop_requested'})
 
     @action(detail=False, methods=['post'])
@@ -454,17 +531,18 @@ class PipelineViewSet(viewsets.ViewSet):
         step = request.data.get('step')
         if step not in dict(PipelineRun.STEP_CHOICES):
             return Response({'error': 'invalid step'}, status=400)
+        workspace = _active_workspace(request)
 
         # 如果已有运行中的任务，先停止
-        PipelineRun.objects.filter(step=step, status='running').update(
+        PipelineRun.objects.filter(workspace=workspace, step=step, status='running').update(
             stop_requested=True, status='stopped', finished_at=datetime.now(),
         )
 
         # 获取配置的上限
-        config = PipelineConfig.objects.filter(step=step).first()
+        config = PipelineConfig.objects.filter(workspace=workspace, step=step).first()
         max_count = config.max_count if config else 10
 
-        run = PipelineRun.objects.create(step=step, status='running', started_at=datetime.now(),
+        run = PipelineRun.objects.create(workspace=workspace, step=step, status='running', started_at=datetime.now(),
                                           collected=max_count)  # 目标数
         try:
             if step == 'collect_events':
@@ -543,6 +621,7 @@ class PipelineViewSet(viewsets.ViewSet):
                             continue
 
                         _, created = UniversityEvent.objects.update_or_create(
+                            workspace=run.workspace,
                             source_url=source_url,
                             defaults={
                                 'title': title, 'university': university,
@@ -642,7 +721,7 @@ class PipelineViewSet(viewsets.ViewSet):
                 published_at = _parse_twitter_date(tweet.get('createdAt'))
 
                 # 已存在则跳过
-                if TweetReview.objects.filter(tweet_id=tweet_id).exists():
+                if TweetReview.objects.filter(workspace=run.workspace, tweet_id=tweet_id).exists():
                     skipped += 1
                     continue
 
@@ -685,6 +764,7 @@ class PipelineViewSet(viewsets.ViewSet):
                         pass
 
                 TweetReview.objects.update_or_create(
+                    workspace=run.workspace,
                     tweet_id=tweet_id,
                     defaults={
                         'text': text,
@@ -718,7 +798,7 @@ class PipelineViewSet(viewsets.ViewSet):
         """Step 3: 对未外联活动 AI 生成邮件，达到上限停止"""
         t0 = time.time()
         try:
-            events = UniversityEvent.objects.filter(is_contacted=False)[:max_count * 2]
+            events = UniversityEvent.objects.filter(workspace=run.workspace, is_contacted=False)[:max_count * 2]
             if not events.exists():
                 run.status = 'succeeded'
                 run.error_message = 'no events to outreach'
@@ -733,12 +813,13 @@ class PipelineViewSet(viewsets.ViewSet):
                     if self._should_stop(run):
                         run.status = 'stopped'
                         break
-                    if OutreachDraft.objects.filter(university_event=ev).exists():
+                    if OutreachDraft.objects.filter(workspace=run.workspace, university_event=ev).exists():
                         run.skipped += 1
                         continue
                     try:
                         email_body = self._generate_single_email(llm_client, llm_model, ev)
                         OutreachDraft.objects.create(
+                            workspace=run.workspace,
                             university_event=ev,
                             subject='collab: ' + ev.title[:80],
                             email_body=email_body,
@@ -763,7 +844,7 @@ class PipelineViewSet(viewsets.ViewSet):
         """Step 4: 自动审批并发送，达到上限停止"""
         t0 = time.time()
         try:
-            drafts = OutreachDraft.objects.filter(status__in=['draft', 'awaiting_approval'])[:max_count * 2]
+            drafts = OutreachDraft.objects.filter(workspace=run.workspace, status__in=['draft', 'awaiting_approval'])[:max_count * 2]
             run.collected = drafts.count()
             for draft in drafts:
                 if run.added >= max_count:

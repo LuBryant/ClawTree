@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageProvider';
+import { DEMO_WORKSPACE } from '../../config/workspaces';
 
 export default function UserCooperatePage() {
   const [consented, setConsented] = useState(false);
@@ -26,7 +27,7 @@ export default function UserCooperatePage() {
             <option>{tx('嘉宾 / Space 联动', 'Guest / X Space collaboration')}</option>
             <option>{tx('联合活动 / 黑客松', 'Joint event / hackathon')}</option>
           </select>
-          <textarea className="input-field min-h-32" placeholder={tx('请简述活动主题、时间窗口和希望大树支持的部分', 'Describe your theme, timeframe, and the support you need')} />
+          <textarea className="input-field min-h-32" placeholder={tx(`请简述活动主题、时间窗口和希望${DEMO_WORKSPACE.name}支持的部分`, `Describe your theme, timeframe, and the support you need from ${DEMO_WORKSPACE.nameEn}`)} />
           <label className="flex items-start gap-3 text-sm leading-6" style={{ color: 'var(--muted)' }}>
             <input
               type="checkbox"

@@ -4,6 +4,13 @@
     "mode": "mock",
     "notice": "非赛事官方项目，不使用赛事标识或受限图片；公开来源用于匹配演示，高校联系人、回复与执行结果均为 MOCK。"
   },
+  "workspace": {
+    "id": "ws-treefinance",
+    "slug": "treefinance",
+    "name": "大树财经",
+    "nameEn": "TreeFinance",
+    "role": "genesis_customer"
+  },
   "signals": [
     {
       "id": "sig-guangzhou-campus",

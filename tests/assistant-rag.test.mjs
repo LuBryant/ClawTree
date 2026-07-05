@@ -108,12 +108,13 @@ test('CS-8 no-key path returns reviewed FAQ instead of unavailable status', () =
 test('CS-9 hybrid RAG + AI supports English intent and conversation context', () => {
   const overview = knowledge.entries.find((entry) => entry.id === 'kb-platform-overview');
   assert.ok(overview.keywords.includes("what's this"));
-  assert.ok(overview.answerEn.startsWith('TreeFinance'));
+  assert.ok(overview.answerEn.startsWith('ClawTree'));
+  assert.match(overview.answerEn, /TreeFinance is ClawTree's genesis customer/);
   assert.match(routeSource, /detectResponseLanguage\(latestUserMessage\.content, preferredLanguage\)/);
   assert.match(routeSource, /\\p\{Script=Han\}/);
   assert.match(routeSource, /messages\.slice\(0, -1\)\.slice\(-6\)/);
   assert.match(routeSource, /buildAssistantRagPrompt\(latestUserMessage\.content, retrieval\.context, language\)/);
-  assert.match(chatSource, /streamChat\(chatHistory\.current, \{ audience, language \}\)/);
+  assert.match(chatSource, /streamChat\(chatHistory\.current, \{ audience, language, workspaceSlug: DEMO_WORKSPACE\.slug \}\)/);
 });
 
 test('CS-10 colloquial platform questions are pinned to reviewed overview knowledge', () => {

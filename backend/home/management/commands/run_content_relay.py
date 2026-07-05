@@ -1,5 +1,5 @@
 """
-TreeFinance Content Relay — deterministic fixture/X adapter.
+ClawTree Workspace Content Relay — deterministic fixture/X adapter.
 
 This command turns the offline golden content set into the same auditable
 pipeline used by a live X connector:
@@ -27,7 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from home.models import ContentItem, EditorialReview, IngestionRun, SourceConnector
+from home.models import ContentItem, EditorialReview, IngestionRun, SourceConnector, Workspace
 
 
 TAXONOMY = {
@@ -121,7 +121,7 @@ def _diff_summary(item):
 
 
 class Command(BaseCommand):
-    help = 'Run TreeFinance Content Relay from a deterministic fixture without external network calls.'
+    help = 'Run one ClawTree workspace Content Relay from a deterministic fixture without external network calls.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -139,6 +139,7 @@ class Command(BaseCommand):
         parser.add_argument('--owner', default='Content Relay', help='Connector owner recorded for audit.')
         parser.add_argument('--scheduled-at', default='', help='Optional scheduler timestamp recorded as heartbeat.')
         parser.add_argument('--max-retries', type=int, default=1, help='Retry failed item imports before marking the run failed.')
+        parser.add_argument('--workspace', default='treefinance', help='ClawTree workspace slug.')
 
     def handle(self, *args, **options):
         started = time.monotonic()
@@ -153,8 +154,10 @@ class Command(BaseCommand):
         meta = fixture.get('meta', {})
         cursor_after = meta.get('version') or timezone.now().isoformat()
         dry_run = options['dry_run']
+        workspace = Workspace.objects.get(slug=options['workspace'], is_active=True)
 
         report = {
+            'workspace': workspace.slug,
             'connector': 'TreeFinance X',
             'fixture': str(fixture_path),
             'cursorAfter': cursor_after,
@@ -181,6 +184,7 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             connector, _ = SourceConnector.objects.get_or_create(
+                workspace=workspace,
                 name='TreeFinance X',
                 platform='x',
                 defaults={
@@ -212,7 +216,7 @@ class Command(BaseCommand):
                         continue
 
                     digest = _content_hash(source_url, title)
-                    if ContentItem.objects.filter(content_hash=digest).exists():
+                    if ContentItem.objects.filter(workspace=workspace, content_hash=digest).exists():
                         report['duplicates'] += 1
                         continue
 
@@ -222,6 +226,7 @@ class Command(BaseCommand):
                     published_at = _parse_dt(item.get('publishedAt'))
                     fetched_at = _parse_dt(item.get('fetchedAt')) or timezone.now()
                     content = ContentItem.objects.create(
+                        workspace=workspace,
                         connector=connector,
                         ingestion_run=run,
                         source_platform='x' if 'x.com/' in source_url else 'website',

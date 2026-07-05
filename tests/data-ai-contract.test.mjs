@@ -58,7 +58,10 @@ test('DATA-1~4 content relay models and migration are present', () => {
   assert.match(modelsSource, /daily_budget_cents/);
   assert.match(modelsSource, /cursor_before/);
   assert.match(modelsSource, /raw_text = models\.TextField\(verbose_name='不可变原文'\)/);
-  assert.match(modelsSource, /content_hash = models\.CharField\(max_length=128, unique=True/);
+  assert.match(modelsSource, /class Workspace\(models\.Model\):/);
+  assert.match(modelsSource, /class BrandProfile\(models\.Model\):/);
+  assert.match(modelsSource, /class Capability\(models\.Model\):/);
+  assert.match(modelsSource, /UniqueConstraint\(fields=\['workspace', 'content_hash'\]/);
 });
 
 test('DATA-4 editorial state machine is fail-closed', () => {
@@ -84,7 +87,7 @@ test('DATA-5 legacy EventReview and TweetReview expose compatibility snapshots',
 
 test('backend serializers use explicit allowlists for public boundary fields', () => {
   assert.doesNotMatch(serializersSource, /fields = '__all__'/);
-  const universitySerializer = serializersSource.match(/class UniversityEventSerializer[\s\S]*?class EventReviewSerializer/)?.[0] || '';
+  const universitySerializer = serializersSource.match(/class UniversityEventSerializer[\s\S]*?class AdminUniversityEventSerializer/)?.[0] || '';
   assert.doesNotMatch(universitySerializer, /contact_email|contact_phone|raw_data/);
   const sourceConnectorSerializer = serializersSource.match(/class SourceConnectorSerializer[\s\S]*?class IngestionRunSerializer/)?.[0] || '';
   assert.doesNotMatch(sourceConnectorSerializer, /secret_ref/);
@@ -98,8 +101,8 @@ test('backend serializers use explicit allowlists for public boundary fields', (
 
 test('API-1/API-2 public Content Relay API is approved-only and side-effect free', () => {
   assert.match(apiViewsSource, /class PublicFeedView\(APIView\):/);
-  assert.match(apiViewsSource, /class PublicContentRecapViewSet\(viewsets\.ReadOnlyModelViewSet\):/);
-  assert.match(apiViewsSource, /filter\(status='published'\)/);
+  assert.match(apiViewsSource, /class PublicContentRecapViewSet\(WorkspaceScopedQuerysetMixin, viewsets\.ReadOnlyModelViewSet\):/);
+  assert.match(apiViewsSource, /status='published',[\s\S]*content_item__workspace__slug/);
   assert.match(apiViewsSource, /externalSideEffect': False/);
   assert.match(urlsSource, /path\('user\/feed\/'/);
   assert.match(urlsSource, /router\.register\(r'user\/recaps', PublicContentRecapViewSet/);
@@ -108,8 +111,8 @@ test('API-1/API-2 public Content Relay API is approved-only and side-effect free
 });
 
 test('API-3 admin ingestion/review/publish API keeps audit and fail-closed controls', () => {
-  assert.match(apiViewsSource, /class AdminIngestionRunViewSet\(viewsets\.ReadOnlyModelViewSet\):/);
-  assert.match(apiViewsSource, /class AdminContentReviewViewSet\(viewsets\.ModelViewSet\):/);
+  assert.match(apiViewsSource, /class AdminIngestionRunViewSet\(WorkspaceScopedQuerysetMixin, viewsets\.ReadOnlyModelViewSet\):/);
+  assert.match(apiViewsSource, /class AdminContentReviewViewSet\(WorkspaceScopedQuerysetMixin, viewsets\.ModelViewSet\):/);
   assert.match(apiViewsSource, /def approve\(self, request, pk=None\):/);
   assert.match(apiViewsSource, /def publish\(self, request, pk=None\):/);
   assert.match(apiViewsSource, /def reject\(self, request, pk=None\):/);
@@ -133,7 +136,7 @@ test('CR-1~13 Content Relay has a no-key fixture adapter with idempotent run aud
   assert.match(contentRelayCommand, /golden-gate\.json/);
   assert.match(contentRelayCommand, /SourceConnector\.objects\.get_or_create/);
   assert.match(contentRelayCommand, /IngestionRun\.objects\.create/);
-  assert.match(contentRelayCommand, /ContentItem\.objects\.filter\(content_hash=digest\)\.exists\(\)/);
+  assert.match(contentRelayCommand, /ContentItem\.objects\.filter\(workspace=workspace, content_hash=digest\)\.exists\(\)/);
   assert.match(contentRelayCommand, /EditorialReview\.objects\.create/);
   assert.match(contentRelayCommand, /--fixture-reviewed/);
   assert.match(contentRelayCommand, /--scheduled-at/);

@@ -4,12 +4,13 @@ import demo from '../../../../data/demo.json';
 
 /** 仅包含公开可上链字段，不包含邮箱/正文/联系人 */
 const PRIVACY_FIELDS = [
-  'payloadVersion', 'draftId', 'universityName', 'eventTitle',
+  'payloadVersion', 'workspaceId', 'draftId', 'universityName', 'eventTitle',
   'approvedBy', 'approvedAt', 'approvalStatus',
 ];
 
 interface ProofPayload {
   payloadVersion: string;
+  workspaceId: string;
   draftId: string;
   universityName?: string;
   eventTitle?: string;
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
   let input: {
     // 旧版 Demo 参数
     campaignId?: string;
+    workspaceId?: string;
     draftId?: string;
     // 新版外联审批参数
     universityName?: string;
@@ -40,7 +42,9 @@ export async function POST(request: NextRequest) {
   }
 
   // 判断模式：Demo 模式 vs 外联审批模式
-  const isDemoMode = input.campaignId === demo.campaign.id && input.draftId?.startsWith('draft-');
+  const isDemoMode = input.campaignId === demo.campaign.id
+    && (!input.workspaceId || input.workspaceId === demo.workspace.id)
+    && input.draftId?.startsWith('draft-');
   const isOutreachMode = !!(input.draftId && input.universityName);
 
   if (!isDemoMode && !isOutreachMode) {
@@ -55,6 +59,7 @@ export async function POST(request: NextRequest) {
   if (isDemoMode) {
     publicPayload = {
       payloadVersion: 'clawtree-proof-v1',
+      workspaceId: demo.workspace.id,
       draftId: input.draftId!,
       campaignId: demo.campaign.id,
       signalIds: [...demo.campaign.signalIds].sort(),
@@ -63,6 +68,7 @@ export async function POST(request: NextRequest) {
   } else {
     publicPayload = {
       payloadVersion: 'clawtree-proof-v1',
+      workspaceId: input.workspaceId || demo.workspace.id,
       draftId: input.draftId!,
       universityName: input.universityName,
       eventTitle: input.eventTitle,

@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from .models import (
     UniversityEvent,
+    Workspace,
+    BrandProfile,
+    Capability,
     EventReview,
     TweetReview,
     SourceConnector,
@@ -13,11 +16,37 @@ from .models import (
 )
 
 
+class WorkspaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Workspace
+        fields = ['id', 'slug', 'name', 'name_en', 'industries', 'is_genesis', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = fields
+
+
+class BrandProfileSerializer(serializers.ModelSerializer):
+    workspace_slug = serializers.CharField(source='workspace.slug', read_only=True)
+
+    class Meta:
+        model = BrandProfile
+        fields = ['workspace_slug', 'mission', 'mission_en', 'outreach_signature', 'outreach_signature_en', 'guardrails', 'updated_at']
+        read_only_fields = fields
+
+
+class CapabilitySerializer(serializers.ModelSerializer):
+    workspace_slug = serializers.CharField(source='workspace.slug', read_only=True)
+
+    class Meta:
+        model = Capability
+        fields = ['id', 'workspace_slug', 'code', 'title', 'title_en', 'source_ids', 'owner', 'valid_until', 'approved', 'boundary', 'boundary_en']
+        read_only_fields = fields
+
+
 class UniversityEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = UniversityEvent
         fields = [
             'id',
+            'workspace',
             'title',
             'university',
             'event_date',
@@ -26,11 +55,6 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'description',
             'source_url',
             'source_name',
-            'contact_email',
-            'contact_ai_email',
-            'contact_phone',
-            'contact_wechat',
-            'contact_qq',
             'category',
             'event_type',
             'registration_url',
@@ -39,11 +63,26 @@ class UniversityEventSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
 
+class AdminUniversityEventSerializer(UniversityEventSerializer):
+    class Meta(UniversityEventSerializer.Meta):
+        fields = [
+            *UniversityEventSerializer.Meta.fields,
+            'contact_email',
+            'contact_ai_email',
+            'contact_phone',
+            'contact_wechat',
+            'contact_qq',
+            'is_contacted',
+            'score',
+        ]
+
+
 class EventReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventReview
         fields = [
             'id',
+            'workspace',
             'title',
             'content',
             'summary',
@@ -61,6 +100,7 @@ class TweetReviewSerializer(serializers.ModelSerializer):
         model = TweetReview
         fields = [
             'id',
+            'workspace',
             'tweet_id',
             'text',
             'text_processed',
@@ -80,6 +120,7 @@ class SourceConnectorSerializer(serializers.ModelSerializer):
         model = SourceConnector
         fields = [
             'id',
+            'workspace',
             'name',
             'platform',
             'account_or_site',
@@ -96,10 +137,13 @@ class SourceConnectorSerializer(serializers.ModelSerializer):
 
 
 class IngestionRunSerializer(serializers.ModelSerializer):
+    workspace_slug = serializers.CharField(source='connector.workspace.slug', read_only=True)
+
     class Meta:
         model = IngestionRun
         fields = [
             'id',
+            'workspace_slug',
             'connector',
             'status',
             'scheduled_at',
@@ -126,6 +170,7 @@ class ContentItemSerializer(serializers.ModelSerializer):
         model = ContentItem
         fields = [
             'id',
+            'workspace',
             'connector',
             'ingestion_run',
             'source_platform',
@@ -186,11 +231,13 @@ class PublicContentRecapSerializer(serializers.ModelSerializer):
     cluster_key = serializers.CharField(source='content_item.cluster_key', read_only=True)
     media_license_status = serializers.CharField(source='content_item.media_license_status', read_only=True)
     legal_media_urls = serializers.SerializerMethodField()
+    workspace_slug = serializers.CharField(source='content_item.workspace.slug', read_only=True)
 
     class Meta:
         model = EditorialReview
         fields = [
             'id',
+            'workspace_slug',
             'status',
             'title',
             'summary',
@@ -281,6 +328,7 @@ class OutreachDraftSerializer(serializers.ModelSerializer):
         model = OutreachDraft
         fields = [
             'id',
+            'workspace',
             'university_event',
             'university_name',
             'event_title',
@@ -307,7 +355,7 @@ class PipelineRunSerializer(serializers.ModelSerializer):
     class Meta:
         model = PipelineRun
         fields = [
-            'id', 'step', 'step_label', 'status', 'status_label', 'stop_requested',
+            'id', 'workspace', 'step', 'step_label', 'status', 'status_label', 'stop_requested',
             'collected', 'added', 'skipped', 'failed', 'duration_ms',
             'error_message', 'started_at', 'finished_at', 'created_at',
         ]
@@ -319,4 +367,4 @@ class PipelineConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PipelineConfig
-        fields = ['id', 'step', 'step_label', 'enabled', 'schedule_time', 'max_count', 'updated_at']
+        fields = ['id', 'workspace', 'step', 'step_label', 'enabled', 'schedule_time', 'max_count', 'updated_at']
