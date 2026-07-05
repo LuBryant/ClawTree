@@ -1,0 +1,184 @@
+{
+  "events": [
+    {
+      "school": "天津大学",
+      "activity_name": "2026智能创新黑客松大赛",
+      "date": "2026-05-24",
+      "type": "黑客松",
+      "description": "天津大学宣怀学院联合人工智能学院主办，主题为'Hack the Future | 重构未来'，设AI+空间硬件、AI+文旅、AI+康养三个特别单元。42小时极限开发，高校学子占比超八成。",
+      "source_url": "https://news.tju.edu.cn/info/1005/600189.htm",
+      "contact": {
+        "official_email": "xuanhuai@tju.edu.cn",
+        "ai_dept_email": "ai@tju.edu.cn",
+        "phone": "13820900304",
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.92,
+      "location": "天津"
+    },
+    {
+      "school": "重庆理工大学",
+      "activity_name": "抖音AI创变者计划黑客松联赛·重庆站",
+      "date": "2026-04-26",
+      "type": "黑客松",
+      "description": "字节跳动抖音AI创变者计划高校站，主题'创变不设限，人人都能玩AI'，设互动空间赛道，字节跳动导师现场指导与评审。",
+      "source_url": "https://www.cqut.edu.cn/info/1263/70092.htm",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.88,
+      "location": "重庆"
+    },
+    {
+      "school": "中山大学",
+      "activity_name": "抖音AI创变者计划黑客松联赛·广州站",
+      "date": "2026-06-06",
+      "type": "黑客松",
+      "description": "由中山大学岭南学院、人工智能研究院承办，三十多所高校近百名学子参与，围绕内容创新、互动体验和AI应用展开两天极限开发。",
+      "source_url": "https://lingnan.sysu.edu.cn/article/3697",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.9,
+      "location": "广州"
+    },
+    {
+      "school": "魔搭社区/多所高校",
+      "activity_name": "AI Hackathon Tour 2026 高校联赛",
+      "date": "2026-03-01",
+      "type": "黑客松",
+      "description": "魔搭社区与Datawhale联合发起，横跨北京大学、复旦大学、哈尔滨工业大学等11所顶尖高校，历时100余天，包括AI Coding冬令营、各校线下黑客松。",
+      "source_url": "https://modelscope.cn/events/179/summary",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.85,
+      "location": "全国11所高校"
+    },
+    {
+      "school": "清华大学",
+      "activity_name": "清华Outlier黑客松",
+      "date": "2026-03-15",
+      "type": "黑客松",
+      "description": "AttraX社区发起，主题为'快乐、叛逆、自由'，使用开源Agent框架'龙虾'，25支团队36小时完成产品原型，300多人报名。",
+      "source_url": "https://www.edu.cn/rd/gao_xiao_cheng_guo/gao_xiao_zi_xun/202603/t20260323_2723722.shtml",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.9,
+      "location": "北京"
+    },
+    {
+      "school": "宁波诺丁汉大学",
+      "activity_name": "UNNC 30H AI Hackathon",
+      "date": "2026-04-03",
+      "type": "黑客松",
+      "description": "理工学院计算机系与计算机爱好者协会主办，30小时AI黑客松，逾百名学生参与，提交26个可运行项目，首创引入Multi-Agent评测系统。",
+      "source_url": "https://www.nottingham.edu.cn/cn/university-life/news/article.aspx?id=a80aaa0e-0d11-4298-9275-d8256b2778cc&language=zh",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": "cs@nottingham.edu.cn",
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.88,
+      "location": "宁波"
+    },
+    {
+      "school": "AdventureX",
+      "activity_name": "AdventureX 2026 中国最大黑客松",
+      "date": "2026-07-22",
+      "type": "黑客松",
+      "description": "72小时极限开发，800+青年创客参与，免费报名，奖金池超15万美元，强调技术向善与创意落地，80%为26岁以下大学生。",
+      "source_url": "https://adventure-x.org/",
+      "contact": {
+        "official_email": "hello@adventure-x.org",
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.9,
+      "location": "杭州"
+    },
+    {
+      "school": "南开大学",
+      "activity_name": "中国高校计算机大赛·AIGC创新赛",
+      "date": "2026-07-06",
+      "type": "竞赛",
+      "description": "南开大学与vivo联合承办，以vivo自研大模型矩阵为底座，分应用赛道和内容创作方向，推动AIGC应用创新。应用赛道复赛作品提交截止约7月6日。",
+      "source_url": "https://aigc.vivo.com.cn/",
+      "contact": {
+        "official_email": null,
+        "ai_dept_email": null,
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.85,
+      "location": "全国"
+    },
+    {
+      "school": "中国科学院大学",
+      "activity_name": "2026中国自动化与人工智能科普大会",
+      "date": "2026-01-31",
+      "type": "讲座",
+      "description": "中国自动化学会主办，中国科学院大学人工智能学院等协办，主题'承六十五载初心，科教协同育时代新才'，600余位代表参会，包含院士主旨报告和多个专题会议。",
+      "source_url": "https://ai.ucas.ac.cn/index.php/zh-cn/kxyj/xsdt/7635-2026",
+      "contact": {
+        "official_email": "cas@ucas.ac.cn",
+        "ai_dept_email": "ai@ucas.ac.cn",
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.92,
+      "location": "北京"
+    },
+    {
+      "school": "杭州电子科技大学",
+      "activity_name": "2026国际区块链和Web3.0技术创新与应用交流大会",
+      "date": "2026-11-06",
+      "type": "研讨会",
+      "description": "杭州电子科技大学与中国电子学会主办，聚焦区块链与Web3.0技术创新、应用，包括AI赋能区块链、DeFi、DAO、智能合约等方向。论文投稿截止7月31日。",
+      "source_url": "https://www.cie.org.cn/list_43/15865.html",
+      "contact": {
+        "official_email": "caosheng@uestc.edu.cn",
+        "ai_dept_email": "chengguanjie@zju.edu.cn",
+        "phone": null,
+        "wechat": null,
+        "qq": null
+      },
+      "confidence": 0.9,
+      "location": "杭州"
+    }
+  ],
+  "meta": {
+    "query_time": "2026-07-05T11:00:19+08:00",
+    "total_found": 10,
+    "search_keywords": [
+      "中国高校 AI 活动 2026",
+      "985 211 大学 人工智能 黑客松 2026",
+      "Web3 区块链 高校 讲座 2026",
+      "中国大学 生成式AI 大模型 竞赛 2026"
+    ]
+  }
+}
