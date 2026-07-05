@@ -45,6 +45,49 @@ function summaryFor(item: GoldenContentItem) {
   return '该公开来源已纳入黄金集，可用于内容分类、合规审核、合作提案引用和后续人工发布。';
 }
 
+function takeawayFor(item: GoldenContentItem) {
+  const map: Record<string, string> = {
+    'tf-campus-launch': '把一次品牌官宣转化为可追踪的校园增长漏斗：信号发现、内容复盘、合作提案与后续证明可以串成闭环。',
+    'tf-nuist-recap': '这是“媒体内容接力”的标准样本：不复制未授权全文，只保留摘要、来源、审核状态和可复用合作经验。',
+    'tf-guangzhou-campus': '广州站是当前 Demo 的主线入口，可直接连接高校匹配、AI/Web3 议题设计、外联审批和链上存证。',
+    'tf-ai-data-ama': 'AI 数据资产话题天然适合高校公开课：从热点讨论沉淀为数据确权、模型训练边界和内容授权教育模块。',
+    'tf-htx-waic': '黑客松/WAIC 支持案例说明大树财经可以为创新项目提供媒体、生态和高校场景，但不承诺名次或投资结果。',
+    'tf-worldcup-market': '体育热点只作为事件驱动信息素养样本，用 AI 训练信号核验与赛后复盘，不做博彩、荐股或赛果预测。',
+    'tf-rwa-entertainment': '文娱 RWA 讨论可转化为“内容资产化与版权边界”课程，适合连接媒体、法务、Web3 和创作者经济。',
+    'tf-aurellix-partner': '生态合作内容可沉淀成能力库，帮助系统判断哪些高校合作场景适合引入海外、媒体或产业伙伴。',
+  };
+  return map[item.id] || '该内容可作为公开来源证据，支撑后续的分类、提案、审核和发布流程。';
+}
+
+function useCaseFor(item: GoldenContentItem) {
+  if (item.id.includes('guangzhou')) return '广州高校行主线 Demo / 逐校合作提案';
+  if (item.id.includes('ama') || item.id.includes('data')) return 'AI 数据资产公开课 / X Space 二次传播';
+  if (item.id.includes('htx') || item.id.includes('waic')) return '黑客松媒体支持 / 创新项目招募';
+  if (item.id.includes('worldcup')) return '事件驱动财经素养 / 风险表达校准';
+  if (item.id.includes('rwa')) return 'RWA 内容资产教育 / 合规边界讨论';
+  if (item.id.includes('partner')) return '生态伙伴能力库 / 联合活动资源匹配';
+  return '高校行品牌回顾 / 内容接力样本';
+}
+
+function boundaryFor(item: GoldenContentItem) {
+  if (item.expected.risk === 'high') {
+    return '高风险主题：仅展示教育化摘要；禁止博彩、荐股、收益承诺、赛果预测和结果保证。';
+  }
+  if (item.expected.risk === 'medium') {
+    return '中风险主题：可用于合作提案和教育内容，但曝光、资源、嘉宾、奖项和商业结果必须人工确认。';
+  }
+  return '低风险主题：可作为公开事实摘要展示；仍保留来源链接、抓取时间和编辑确认状态。';
+}
+
+function highlightsFor(item: GoldenContentItem) {
+  const tags = labelsOf(item);
+  return [
+    `公开来源：${item.sourceUrl.includes('x.com') ? 'X / Twitter' : '媒体或公开网页'}`,
+    `内容标签：${tags.slice(0, 3).join(' · ') || 'recap'}`,
+    `审核动作：${item.expected.action.replaceAll('_', ' ')}`,
+  ];
+}
+
 export const publicSignals = demo.signals.map((signal) => ({
   ...signal,
   publishedDate: formatDate(signal.publishedAt),
@@ -64,6 +107,10 @@ export const publicRecaps = golden.contentItems
     publishedDate: formatDate(item.publishedAt),
     fetchedDate: formatDate(item.fetchedAt),
     summary: summaryFor(item),
+    takeaway: takeawayFor(item),
+    useCase: useCaseFor(item),
+    boundary: boundaryFor(item),
+    highlights: highlightsFor(item),
     tags: labelsOf(item),
     riskLevel: item.expected.risk,
     editorialStatus: 'approved_fixture',
