@@ -123,6 +123,17 @@ export function TronWalletProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('message', handler);
   }, [connect]);
 
+  // 页面加载时自动重连（刷新后恢复钱包状态）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const tw = window.tronWeb;
+    if (tw?.ready && tw.defaultAddress?.base58) {
+      connect();
+    }
+    // 只跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <TronWalletContext.Provider value={{ ...state, error, connect, disconnect }}>
       {children}
