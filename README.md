@@ -1,3 +1,5 @@
+<div align="center">
+
 # ClawTree
 
 ### Evidence-grounded AI agents for trusted ecosystem partnerships
@@ -12,6 +14,8 @@
 [![Hackathon](https://img.shields.io/badge/HTX_Genesis-AI_%C3%97_Web3-16F2B3)](#htx-ecosystem-integration)
 
 **🌍 [GB English](#english) · [简体中文](#chinese)**
+
+</div>
 
 ---
 
