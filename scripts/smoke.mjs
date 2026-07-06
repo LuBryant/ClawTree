@@ -91,10 +91,14 @@ try {
     const result = await json('/api/assistant/chat', assistantPost(evalCase.query, evalCase.audience));
     assert.equal(result.decision, evalCase.expectedDecision, evalCase.id);
     assert.equal(result.externalSideEffect, false, evalCase.id);
-    assert.ok(
-      result.citations.some((citation) => evalCase.citationIds.includes(citation.id)),
-      `${evalCase.id} missing expected citation`,
-    );
+    if (evalCase.citationIds.length > 0) {
+      assert.ok(
+        result.citations.some((citation) => evalCase.citationIds.includes(citation.id)),
+        `${evalCase.id} missing expected citation`,
+      );
+    } else {
+      assert.equal(result.citations.length, 0, `${evalCase.id} returned an unexpected citation`);
+    }
   }
   const demo = await json('/api/demo');
   assert.ok(demo.signals.length >= 4);
