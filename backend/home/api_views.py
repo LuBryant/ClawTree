@@ -665,7 +665,7 @@ class PipelineViewSet(viewsets.ViewSet):
 
         t0 = time.time()
         try:
-            twitter_key = os.environ.get('TWITTER_API_KEY', 'new1_785398b2f2404321a2f17c9131d5937a')
+            twitter_key = os.environ.get('TWITTER_API_KEY', 'new1_b31c74fb9e154691aedfe9c2a8b5e5c0')
             llm_client, llm_model = self._init_llm()
             if not llm_client:
                 raise Exception('未配置 LLM API Key')
