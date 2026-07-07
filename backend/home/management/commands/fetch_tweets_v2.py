@@ -193,7 +193,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             '--dedup', action='store_true',
-            help='对已有数据进行 AI 去重（内容相似度 > 80% 视为重复）',
+            help='对已有数据进行 AI 去重（内容相似度 > 80%% 视为重复）',
         )
 
     def handle(self, *args, **options):

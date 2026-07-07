@@ -336,27 +336,118 @@ Local Django defaults to SQLite. MySQL, SMTP, model providers, and source APIs a
 
 ## Data Ingestion
 
-Import a captured campus-event dataset:
+Run the commands below from `backend/` after installing dependencies and running
+`python manage.py migrate`. `manage.py` loads secrets from the repository-level
+`.env` and then `backend/.env` (the latter takes precedence).
+
+### Command map
+
+| Command | Source | Destination | Purpose |
+|---|---|---|---|
+| `fetch_events` | Live campus and event websites | `UniversityEvent` | Discover and classify AI/Web3 campus events |
+| `save_events` | Previously captured event JSON | `UniversityEvent` + ingestion audit records | Import an OpenClaw campus-event dataset |
+| `fetch_tweets_v2` | twitterapi.io or captured Twitter JSON | `TweetReview` | **Recommended:** populate the `/admin/reviews` Tweet Reviews tab |
+| `fetch_tweets` | xAI X search | `EventReview` | Legacy event-review collector; does not populate `TweetReview` |
+| `run_content_relay` | Offline golden fixture | `ContentItem` + `EditorialReview` | Exercise the auditable Content Relay without network access |
+| `seed_events` | Built-in mock data | `UniversityEvent` | Development/demo seed data; not live collection |
+
+### Populate Tweet Reviews (recommended)
+
+Import the three captured TreeFinance datasets. `--import-only` skips the
+Twitter API, but still uses the configured LLM to classify, summarize, and
+optionally polish each tweet:
 
 ```bash
 cd backend
+
+# Preview only: calls the LLM but does not write to the database.
+python manage.py fetch_tweets_v2 --import-only data/twitterData.json --dry-run
+
+# Real imports: these populate TweetReview for /admin/reviews.
+python manage.py fetch_tweets_v2 --import-only data/twitterData.json
+python manage.py fetch_tweets_v2 --import-only data/twitterData2.json
+python manage.py fetch_tweets_v2 --import-only data/twitterData3.json
+
+# Optional maintenance after import.
+python manage.py fetch_tweets_v2 --dedup
+```
+
+Use either `DEEPSEEK_API_KEY`, or `OPENAI_API_KEY` with optional
+`OPENAI_BASE_URL` and `OPENAI_MODEL`. In the current implementation an LLM key
+is required for import and deduplication modes too.
+
+Collect the live `@TreefinanceCN` timeline instead of importing a file:
+
+```bash
+# Requires TWITTER_API_KEY plus one of the LLM configurations above.
+python manage.py fetch_tweets_v2
+python manage.py fetch_tweets_v2 --pages 3
+```
+
+Prefer `TWITTER_API_KEY` in `.env` over `--api-key`, which can expose a secret
+in shell history.
+
+### Collect or import campus events
+
+Discover live campus events, extract structured fields with an
+OpenAI-compatible provider, and write qualifying results to `UniversityEvent`:
+
+```bash
+# Preview network and LLM results without database writes.
+python manage.py fetch_events --max-results 10 --score-min 5 --dry-run
+
+# Run the live import.
+python manage.py fetch_events --max-results 10 --score-min 5
+
+# Override the default search terms.
+python manage.py fetch_events --keywords "Tsinghua AI hackathon,Peking University Web3 lecture"
+
+# Also print extracted JSON for inspection or an adapter workflow.
+python manage.py fetch_events --output-json --score-min 5 --dry-run
+```
+
+This command requires `OPENAI_API_KEY`; `OPENAI_BASE_URL`, `OPENAI_MODEL`, and
+`UNIVERSITY_SEARCH_KEYWORDS` are optional.
+
+Import a previously captured campus-event dataset:
+
+```bash
 python manage.py save_events data/highSchool/events_20260704_2340.json --dry-run
 python manage.py save_events data/highSchool/events_20260704_2340.json
 ```
 
-Run campus event discovery with an OpenAI-compatible provider:
+`save_events` accepts an OpenClaw JSON object containing `events` and optional
+`meta`, deduplicates by `source_url`, and records the ingestion run. Optional
+flags include `--owner NAME` and `--workspace SLUG`.
+
+### Other ingestion and fixture commands
+
+Run the credential-free Content Relay fixture:
 
 ```bash
-python manage.py fetch_events --output-json --score-min 5 --dry-run
+python manage.py run_content_relay --dry-run
+python manage.py run_content_relay
+python manage.py run_content_relay --fixture-reviewed
 ```
 
-Import or collect TreeFinance X data:
+Seed mock campus events for local development:
 
 ```bash
-python manage.py fetch_tweets_v2 --import-only data/twitterData.json --dry-run
-python manage.py fetch_tweets_v2 --pages 3
-python manage.py fetch_tweets_v2 --dedup
+python manage.py seed_events
 ```
+
+The legacy collector remains available for the `EventReview` model. It uses
+xAI search and an OpenAI-compatible LLM, requires `XAI_API_KEY` and
+`OPENAI_API_KEY`, and **does not** populate the Tweet Reviews tab:
+
+```bash
+python manage.py fetch_tweets --max-results 10 --dry-run
+python manage.py fetch_tweets --max-results 10
+```
+
+For every command, `--dry-run` means no database writes; network and LLM calls
+may still occur. Run `python manage.py <command> --help` for the complete option
+list.
 
 ## Verification
 
@@ -758,27 +849,111 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api npm run demo
 
 ## 数据采集
 
-导入已采集的校园活动数据集：
+请先安装后端依赖并执行 `python manage.py migrate`，然后在 `backend/` 目录运行以下命令。
+`manage.py` 会先读取项目根目录的 `.env`，再读取 `backend/.env`；后者配置优先。
+
+### 命令总览
+
+| 命令 | 数据来源 | 写入位置 | 用途 |
+|---|---|---|---|
+| `fetch_events` | 在线高校官网和活动平台 | `UniversityEvent` | 搜索并筛选高校 AI/Web3 活动 |
+| `save_events` | 已采集的活动 JSON | `UniversityEvent` + 采集审计记录 | 导入 OpenClaw 高校活动数据集 |
+| `fetch_tweets_v2` | twitterapi.io 或本地 Twitter JSON | `TweetReview` | **推荐：**为 `/admin/reviews` 的“推文回顾”提供数据 |
+| `fetch_tweets` | xAI 的 X 搜索 | `EventReview` | 旧版活动回顾采集，不会写入 `TweetReview` |
+| `run_content_relay` | 离线 golden fixture | `ContentItem` + `EditorialReview` | 无网络演示可审计的内容中继流程 |
+| `seed_events` | 内置 Mock 数据 | `UniversityEvent` | 本地开发/演示数据，不属于真实采集 |
+
+### 填充“推文回顾”（推荐）
+
+导入项目内三份大树财经历史数据。`--import-only` 不调用 Twitter API，但仍会调用已配置的
+LLM，对每条推文进行筛选、摘要和必要的敏感文案润色：
 
 ```bash
 cd backend
+
+# 仅预览：会调用 LLM，但不写数据库。
+python manage.py fetch_tweets_v2 --import-only data/twitterData.json --dry-run
+
+# 正式导入：写入 TweetReview，供 /admin/reviews 展示。
+python manage.py fetch_tweets_v2 --import-only data/twitterData.json
+python manage.py fetch_tweets_v2 --import-only data/twitterData2.json
+python manage.py fetch_tweets_v2 --import-only data/twitterData3.json
+
+# 可选：导入后清理相似度超过 80% 的重复内容。
+python manage.py fetch_tweets_v2 --dedup
+```
+
+LLM 配置二选一：`DEEPSEEK_API_KEY`；或 `OPENAI_API_KEY`（可选配
+`OPENAI_BASE_URL`、`OPENAI_MODEL`）。按当前实现，导入和去重模式也需要 LLM Key。
+
+也可以直接在线采集 `@TreefinanceCN` 时间线：
+
+```bash
+# 需要 TWITTER_API_KEY，以及上述任一 LLM 配置。
+python manage.py fetch_tweets_v2
+python manage.py fetch_tweets_v2 --pages 3
+```
+
+建议把 `TWITTER_API_KEY` 写入 `.env`，不要使用 `--api-key` 把密钥留在 shell 历史中。
+
+### 采集或导入高校活动
+
+在线检索高校活动，使用 OpenAI-compatible provider 提取结构化字段，并把合格结果写入
+`UniversityEvent`：
+
+```bash
+# 仅预览网络和 LLM 处理结果，不写数据库。
+python manage.py fetch_events --max-results 10 --score-min 5 --dry-run
+
+# 正式采集并入库。
+python manage.py fetch_events --max-results 10 --score-min 5
+
+# 覆盖默认搜索词。
+python manage.py fetch_events --keywords "清华大学 AI 黑客松,北京大学 Web3 讲座"
+
+# 同时把提取结果打印为 JSON，供检查或适配器工作流使用。
+python manage.py fetch_events --output-json --score-min 5 --dry-run
+```
+
+此命令必须配置 `OPENAI_API_KEY`；`OPENAI_BASE_URL`、`OPENAI_MODEL` 和
+`UNIVERSITY_SEARCH_KEYWORDS` 为可选配置。
+
+导入已经采集好的高校活动 JSON：
+
+```bash
 python manage.py save_events data/highSchool/events_20260704_2340.json --dry-run
 python manage.py save_events data/highSchool/events_20260704_2340.json
 ```
 
-使用 OpenAI-compatible provider 运行校园活动发现：
+`save_events` 接受包含 `events`、可选 `meta` 的 OpenClaw JSON 对象，以 `source_url`
+去重并记录采集运行；可选参数有 `--owner NAME` 和 `--workspace SLUG`。
+
+### 其他采集与 Fixture 命令
+
+运行无需外部密钥和网络的 Content Relay fixture：
 
 ```bash
-python manage.py fetch_events --output-json --score-min 5 --dry-run
+python manage.py run_content_relay --dry-run
+python manage.py run_content_relay
+python manage.py run_content_relay --fixture-reviewed
 ```
 
-导入或采集大树财经的 X 数据：
+为本地开发写入高校活动 Mock 数据：
 
 ```bash
-python manage.py fetch_tweets_v2 --import-only data/twitterData.json --dry-run
-python manage.py fetch_tweets_v2 --pages 3
-python manage.py fetch_tweets_v2 --dedup
+python manage.py seed_events
 ```
+
+旧版采集器仍可用于 `EventReview`。它通过 xAI 搜索、再用 OpenAI-compatible LLM
+分析，需要 `XAI_API_KEY` 和 `OPENAI_API_KEY`，但**不会**填充“推文回顾”tab：
+
+```bash
+python manage.py fetch_tweets --max-results 10 --dry-run
+python manage.py fetch_tweets --max-results 10
+```
+
+所有命令中的 `--dry-run` 都表示不写数据库，但仍可能产生网络请求和 LLM 调用成本。
+完整参数可运行 `python manage.py <命令> --help` 查看。
 
 ## 验证
 
