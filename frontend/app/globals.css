@@ -73,6 +73,7 @@ code, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
 .btn-success { background: var(--success); color: #08100f; }
 .btn-warning { background: var(--warning); color: #08100f; }
 .btn-danger  { background: var(--danger);  color: #fff; }
+.btn-ai      { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; }
 .btn-sm { min-height: 36px; padding: 0 14px; font-size: 0.78rem; }
 
 .btn-outline {

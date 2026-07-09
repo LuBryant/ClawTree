@@ -54,6 +54,8 @@ export default function AdminEventsPage() {
 
   const [filter, setFilter] = useState<EventsFilter>({ category: '', event_type: '', ordering: '-created_at' });
   const [search, setSearch] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiReasoning, setAiReasoning] = useState('');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [template, setTemplate] = useState(() => language === 'zh' ? DEFAULT_TEMPLATE : DEFAULT_TEMPLATE_EN);
@@ -72,6 +74,31 @@ export default function AdminEventsPage() {
   useEffect(() => { setSelected(new Set()); }, [page, filter]);
 
   const doSearch = () => { setFilter((f) => ({ ...f, search })); setPage(1); };
+
+  const onAiFilter = async () => {
+    const q = search.trim();
+    if (!q) return;
+    setAiLoading(true); setAiReasoning('');
+    try {
+      const res = await fetch('/api/events/ai-filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      });
+      const data = await res.json();
+      if (res.ok && data.filter) {
+        setFilter((f) => ({ ...f, ...data.filter }));
+        setPage(1);
+        setAiReasoning(data.reasoning || '');
+      } else {
+        setAiReasoning(data.message || tx('AI 解析失败，请稍后重试', 'AI parsing failed, please try again later'));
+      }
+    } catch {
+      setAiReasoning(tx('AI 服务不可用，请稍后重试', 'AI service unavailable, please try again later'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const toggle = (id: number) => setSelected((p) => {
     const n = new Set(p);
     if (n.has(id)) n.delete(id); else n.add(id);
@@ -132,6 +159,9 @@ export default function AdminEventsPage() {
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doSearch()}
           placeholder={tx('搜索标题、高校…', 'Search titles or universities…')} className="input-field w-full sm:w-64" />
           <button className="btn btn-success btn-sm" onClick={doSearch}>{tx('搜索', 'Search')}</button>
+          <button className="btn btn-ai btn-sm" onClick={onAiFilter} disabled={aiLoading}>
+            {aiLoading ? tx('🤖 AI 解析中…', '🤖 AI parsing…') : tx('🤖 AI 识别', '🤖 AI Filter')}
+          </button>
         <select value={filter.category || ''} onChange={(e) => { setFilter((f) => ({ ...f, category: e.target.value })); setPage(1); }} className="select-field">
           {CATEGORIES.map((c) => (<option key={c} value={c}>{c === '' ? tx('全部分类', 'All categories') : CAT_LABEL[c]}</option>))}
         </select>
@@ -145,6 +175,12 @@ export default function AdminEventsPage() {
           <option value="-event_date">{tx('活动日期', 'Event date')} ↓</option>
         </select>
       </section>
+
+      {aiReasoning && (
+        <section style={{ border: '1px solid rgba(167,139,250,0.38)', background: 'rgba(167,139,250,0.06)', padding: '10px 16px' }}>
+          <p className="text-sm font-bold" style={{ color: '#a78bfa' }}>🤖 {aiReasoning}</p>
+        </section>
+      )}
 
       {/* 批量操作栏 */}
       {selected.size > 0 && (
