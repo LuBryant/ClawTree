@@ -275,6 +275,8 @@ export interface TweetReview {
   text_processed: string;
   media_urls: string;       // JSON 字符串数组，如 '["url1","url2"]'
   twitter_url: string;
+  space_url: string;
+  space_summary: string;
   summary: string;
   is_review_worthy: boolean;
   is_sensitive: boolean;
@@ -304,4 +306,17 @@ export function fetchTweetReviews(filter?: TweetReviewsFilter): Promise<TweetRev
     page: filter?.page,
     ordering: filter?.ordering || '-published_at',
   });
+}
+
+/** 生成 Space 语音节目总结 */
+export interface SpaceSummaryResult {
+  space_url: string;
+  space_summary: string;
+  cached: boolean;
+}
+
+export function generateSpaceSummary(tweetReviewId: number, force?: boolean): Promise<SpaceSummaryResult> {
+  return requestWithBody<SpaceSummaryResult>(
+    `/tweet-reviews/${tweetReviewId}/generate_space_summary/`, 'POST', { force },
+  );
 }

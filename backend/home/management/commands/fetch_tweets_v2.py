@@ -171,6 +171,24 @@ def _get_tweet_text(tweet):
     return tweet.get('text', '')
 
 
+def _extract_space_url(tweet):
+    """从推文的 entities.urls 中提取 X Space 链接。
+
+    返回第一个匹配的 Space URL，没有则返回空字符串。
+    """
+    entities = tweet.get('entities', {})
+    urls = entities.get('urls', [])
+    for u in urls:
+        expanded = u.get('expanded_url', '')
+        if '/i/spaces/' in expanded:
+            return expanded
+    # 也检查转推的 entities
+    rt = tweet.get('retweeted_tweet')
+    if rt:
+        return _extract_space_url(rt)
+    return ''
+
+
 class Command(BaseCommand):
     help = '从 Twitter API 采集 @TreefinanceCN 推文，DeepSeek AI 分析后入库'
 
@@ -262,6 +280,7 @@ class Command(BaseCommand):
             text = _get_tweet_text(tweet)
             twitter_url = tweet.get('twitterUrl', tweet.get('url', ''))
             media_urls = _extract_media_urls(tweet)
+            space_url = _extract_space_url(tweet)
             published_at = _parse_twitter_date(tweet.get('createdAt'))
 
             self.stdout.write(f'  [{i+1}/{len(all_tweets)}] {text[:60]}...')
@@ -310,6 +329,7 @@ class Command(BaseCommand):
                             'text_processed': text_processed or '',
                             'media_urls': json.dumps(media_urls, ensure_ascii=False),
                             'twitter_url': twitter_url,
+                            'space_url': space_url,
                             'summary': summary,
                             'is_review_worthy': True,
                             'is_sensitive': is_sensitive,
@@ -646,6 +666,7 @@ class Command(BaseCommand):
             text = _get_tweet_text(tweet)
             twitter_url = tweet.get('twitterUrl', tweet.get('url', ''))
             media_urls = _extract_media_urls(tweet)
+            space_url = _extract_space_url(tweet)
             published_at = _parse_twitter_date(tweet.get('createdAt'))
 
             self.stdout.write(f'  [{i+1}/{len(tweets)}] {text[:60]}...')
@@ -693,6 +714,7 @@ class Command(BaseCommand):
                             'text_processed': text_processed or '',
                             'media_urls': json.dumps(media_urls, ensure_ascii=False),
                             'twitter_url': twitter_url,
+                            'space_url': space_url,
                             'summary': summary,
                             'is_review_worthy': True,
                             'is_sensitive': is_sensitive,

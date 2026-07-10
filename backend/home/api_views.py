@@ -462,6 +462,136 @@ class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelVie
     serializer_class = TweetReviewSerializer
     filterset_class = TweetReviewFilter
 
+    @action(detail=True, methods=['post'])
+    def generate_space_summary(self, request, pk=None):
+        """抓取 X Space 页面信息并 AI 生成语音节目总结"""
+        tweet_review = self.get_object()
+        space_url = tweet_review.space_url
+
+        if not space_url:
+            return Response(
+                {'error': '该推文没有关联的 Space 语音链接'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 如果已有总结，检查是否强制重新生成
+        force = request.data.get('force', False)
+        if tweet_review.space_summary and not force:
+            return Response({
+                'space_url': space_url,
+                'space_summary': tweet_review.space_summary,
+                'cached': True,
+            })
+
+        llm_client, llm_model = _init_llm()
+        if not llm_client:
+            return Response(
+                {'error': 'LLM 未配置（请设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY）'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Step 1: 尝试从 twitterapi.io 获取 Space 数据
+        space_data = self._fetch_space_info(space_url)
+
+        # Step 2: 构建 AI 提示词
+        tweet_text = tweet_review.text_processed or tweet_review.text
+        ai_summary = tweet_review.summary or ''
+
+        system_prompt = (
+            '你是 ClawTree 的语音内容分析专家。请根据提供的 X Space 语音节目信息和关联推文，'
+            '生成一份结构化的节目总结。用中文输出，风格专业清晰。'
+        )
+
+        space_info_text = ''
+        if space_data:
+            space_info_text = (
+                f'节目标题: {space_data.get("title", "未知")}\n'
+                f'主持人: {space_data.get("host", "未知")}\n'
+                f'参与者数量: {space_data.get("participant_count", "未知")}\n'
+                f'状态: {space_data.get("state", "未知")}\n'
+                f'计划开始时间: {space_data.get("scheduled_start", "未知")}\n'
+            )
+
+        prompt = f"""请为以下 X Space 语音节目生成一份总结。
+
+=== 关联推文内容 ===
+{tweet_text[:1500]}
+
+=== 推文 AI 摘要 ===
+{ai_summary}
+
+=== Space 节目信息 ===
+{space_info_text or '未能获取到 Space 详细数据，请根据推文内容推断。'}
+
+=== Space 链接 ===
+{space_url}
+
+请生成一份结构化的总结，包含：
+1. 🎙️ **节目概述** — 一句话概括这场 Space 的主题和定位
+2. 📋 **核心议题** — 根据推文和 Space 信息，列出 2-4 个可能的讨论要点
+3. 👥 **参与方** — 提到的主办方、嘉宾或合作方
+4. 📌 **关键看点** — 值得关注的内容亮点
+
+使用 Markdown 格式，200-400 字。只返回总结内容，不要其他解释。"""
+
+        try:
+            msg = llm_client.chat.completions.create(
+                model=llm_model,
+                max_tokens=800,
+                temperature=0.7,
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': prompt},
+                ],
+            )
+            summary = msg.choices[0].message.content.strip()
+        except Exception as e:
+            return Response(
+                {'error': f'AI 生成失败: {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # 保存总结
+        tweet_review.space_summary = summary
+        tweet_review.save(update_fields=['space_summary'])
+
+        return Response({
+            'space_url': space_url,
+            'space_summary': summary,
+            'cached': False,
+        })
+
+    def _fetch_space_info(self, space_url):
+        """尝试通过 twitterapi.io 获取 Space 信息"""
+        import re
+        twitter_key = os.environ.get('TWITTER_API_KEY', '')
+        if not twitter_key:
+            return None
+
+        # 从 URL 中提取 space_id
+        match = re.search(r'/i/spaces/([a-zA-Z0-9]+)', space_url)
+        if not match:
+            return None
+
+        space_id = match.group(1)
+
+        try:
+            resp = requests.get(
+                'https://api.twitterapi.io/twitter/spaces',
+                params={'spaceIds': space_id},
+                headers={'X-API-Key': twitter_key},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            spaces = data.get('data', {}).get('spaces', data.get('spaces', []))
+            if spaces:
+                return spaces[0] if isinstance(spaces, list) else spaces
+        except Exception:
+            pass
+
+        return None
+
 
 # =============================================================================
 # 自动化流水线 API
@@ -666,7 +796,7 @@ class PipelineViewSet(viewsets.ViewSet):
         """Step 2: 直接调 twitterapi.io 采集推文 + AI 筛选过滤 + 入库"""
         from datetime import datetime as dt
         from home.management.commands.fetch_tweets_v2 import (
-            _parse_twitter_date, _extract_media_urls, _get_tweet_text,
+            _parse_twitter_date, _extract_media_urls, _get_tweet_text, _extract_space_url,
         )
 
         t0 = time.time()
@@ -724,6 +854,7 @@ class PipelineViewSet(viewsets.ViewSet):
                 text = _get_tweet_text(tweet)
                 twitter_url = tweet.get('twitterUrl', tweet.get('url', ''))
                 media_urls = _extract_media_urls(tweet)
+                space_url = _extract_space_url(tweet)
                 published_at = _parse_twitter_date(tweet.get('createdAt'))
 
                 # 已存在则跳过
@@ -777,6 +908,7 @@ class PipelineViewSet(viewsets.ViewSet):
                         'text_processed': text_processed or '',
                         'media_urls': json.dumps(media_urls, ensure_ascii=False),
                         'twitter_url': twitter_url,
+                        'space_url': space_url,
                         'summary': analysis.get('summary', '')[:200],
                         'is_review_worthy': True,
                         'is_sensitive': analysis.get('is_sensitive', False),
