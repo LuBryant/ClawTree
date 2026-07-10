@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import {
   fetchReviews, createReview, deleteReview,
-  fetchTweetReviews, generateSpaceSummary,
+  fetchTweetReviews,
   type EventReview, type ReviewsFilter,
   type TweetReview, type TweetReviewsFilter,
 } from '../../lib/api-client';
@@ -342,8 +342,6 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
   formatDate: (s: string | null) => string;
 }) {
   const { tx } = useLanguage();
-  const [spaceLoading, setSpaceLoading] = useState(false);
-  const [spaceSummary, setSpaceSummary] = useState(t.space_summary || '');
   const [showSpaceSummary, setShowSpaceSummary] = useState(false);
   // 解析 media_urls JSON
   let mediaUrls: string[] = [];
@@ -352,29 +350,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
   } catch { mediaUrls = []; }
 
   const hasSpace = !!t.space_url;
-
-  const handleSpaceSummary = async () => {
-    if (showSpaceSummary) {
-      setShowSpaceSummary(false);
-      return;
-    }
-    // 如果已有总结，直接展示
-    if (spaceSummary) {
-      setShowSpaceSummary(true);
-      return;
-    }
-    // 生成总结
-    setSpaceLoading(true);
-    try {
-      const result = await generateSpaceSummary(t.id);
-      setSpaceSummary(result.space_summary);
-      setShowSpaceSummary(true);
-    } catch {
-      alert(tx('生成 Space 总结失败，请稍后重试', 'Failed to generate Space summary. Please try again.'));
-    } finally {
-      setSpaceLoading(false);
-    }
-  };
+  const hasSpaceSummary = !!t.space_summary;
 
   return (
     <div className="event-card"
@@ -433,7 +409,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
       )}
 
       {/* Space 总结展示 */}
-      {showSpaceSummary && spaceSummary && (
+      {showSpaceSummary && t.space_summary && (
         <div className="mt-2 pt-3" style={{ borderTop: '1px solid rgba(22,242,179,0.25)' }}>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--success)' }}>
@@ -441,7 +417,7 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
             </span>
           </div>
           <div className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-dim)' }}
-            dangerouslySetInnerHTML={{ __html: spaceSummary.replace(/\n/g, '<br/>') }} />
+            dangerouslySetInnerHTML={{ __html: t.space_summary.replace(/\n/g, '<br/>') }} />
         </div>
       )}
 
@@ -451,14 +427,17 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
           {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
         <div className="flex gap-2">
-          {hasSpace && (
-            <button onClick={handleSpaceSummary} disabled={spaceLoading}
+          {hasSpace && hasSpaceSummary && (
+            <button onClick={() => setShowSpaceSummary(!showSpaceSummary)}
               className="btn-outline btn-sm whitespace-nowrap"
-              style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem', color: spaceSummary ? 'var(--success)' : 'var(--warning)', borderColor: spaceSummary ? 'rgba(22,242,179,0.4)' : 'rgba(248,214,109,0.4)' }}>
-              {spaceLoading ? tx('⏳ 生成中...', '⏳ Generating...')
-                : showSpaceSummary ? tx('🎙️ 收起总结', '🎙️ Hide summary')
-                : tx('🎙️ 查看总结', '🎙️ View summary')}
+              style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem', color: showSpaceSummary ? 'var(--text-dim)' : 'var(--success)', borderColor: 'rgba(22,242,179,0.4)' }}>
+              {showSpaceSummary ? tx('🎙️ 收起总结', '🎙️ Hide summary') : tx('🎙️ 查看总结', '🎙️ View summary')}
             </button>
+          )}
+          {hasSpace && !hasSpaceSummary && (
+            <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>
+              {tx('🎙️ 总结待生成', '🎙️ Summary pending')}
+            </span>
           )}
           <a href={t.twitter_url} target="_blank" rel="noopener noreferrer"
             className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>
