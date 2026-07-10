@@ -1,0 +1,12 @@
+{
+  "version": "2026-07-11.obs-v1",
+  "tasks": [
+    {"task":"classify","connector":"TreeFinance X","successRate":0.97,"p95LatencyMs":840,"costMicrousd":18400,"cacheHitRate":0.42},
+    {"task":"match","connector":"Campus Radar","successRate":0.94,"p95LatencyMs":1120,"costMicrousd":22600,"cacheHitRate":0.31},
+    {"task":"proposal","connector":"Proposal Agent","successRate":0.91,"p95LatencyMs":1380,"costMicrousd":31700,"cacheHitRate":0.28}
+  ],
+  "budget": {"limitMicrousd":150000,"spentMicrousd":72700,"fallbackOnly":false},
+  "alerts": [
+    {"severity":"warning","summary":"Fixture: Campus Radar 连续无新增告警已进入人工检查。"}
+  ]
+}

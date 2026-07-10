@@ -1,0 +1,267 @@
+{
+  "datasetVersion": "2026-07-11.agent-eval-v1",
+  "schemaVersion": "2026-07-11.ai-schema-v3-unknown",
+  "evaluatedAsOf": "2026-07-11",
+  "totalCases": 30,
+  "taskCaseCounts": {
+    "classify": 6,
+    "dedup": 5,
+    "compliance": 5,
+    "match": 4,
+    "proposal": 4,
+    "reply": 6
+  },
+  "metrics": {
+    "classification": {
+      "caseCount": 6,
+      "microF1": 1,
+      "macroF1": 1,
+      "exactMatchAccuracy": 1,
+      "perLabel": {
+        "ai": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "campus": {
+          "truePositive": 3,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 3,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "cooperation": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "finance-literacy": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "recap": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "rwa": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "sports": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "unknown": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "web3": {
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 4,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        }
+      }
+    },
+    "dedup": {
+      "caseCount": 5,
+      "truePositive": 2,
+      "falsePositive": 0,
+      "falseNegative": 0,
+      "trueNegative": 3,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "accuracy": 1
+    },
+    "compliance": {
+      "caseCount": 5,
+      "accuracy": 1,
+      "macroF1": 1,
+      "perLabel": {
+        "high": {
+          "truePositive": 3,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 2,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "low": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 4,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "unknown": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 4,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        }
+      },
+      "highRiskRecall": 1
+    },
+    "match": {
+      "caseCount": 4,
+      "acceptanceAccuracy": 1,
+      "scoreMeanAbsoluteError": 2
+    },
+    "proposal": {
+      "caseCount": 4,
+      "acceptanceAccuracy": 1,
+      "acceptancePrecision": 1,
+      "acceptanceRecall": 1,
+      "acceptanceF1": 1,
+      "acceptedRate": 0.5,
+      "guardrailPassRate": 1
+    },
+    "reply": {
+      "caseCount": 6,
+      "accuracy": 1,
+      "macroF1": 1,
+      "perLabel": {
+        "decline": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "ooo": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "positive": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "question": {
+          "truePositive": 1,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 5,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        },
+        "unknown": {
+          "truePositive": 2,
+          "falsePositive": 0,
+          "falseNegative": 0,
+          "trueNegative": 4,
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "accuracy": 1
+        }
+      }
+    },
+    "citations": {
+      "requiredClaimCount": 49,
+      "citedRequiredClaimCount": 49,
+      "claimCoverage": 1,
+      "sourceValidity": 1,
+      "passingCaseRate": 1
+    },
+    "lowConfidence": {
+      "caseCount": 7,
+      "reviewRecall": 1,
+      "unknownDispositionRecall": 1
+    }
+  },
+  "thresholds": {
+    "classificationMicroF1": 0.9,
+    "dedupPrecision": 0.9,
+    "dedupRecall": 0.9,
+    "citationCoverage": 1,
+    "proposalAcceptanceAccuracy": 0.9,
+    "proposalGuardrailPassRate": 1,
+    "lowConfidenceReviewRecall": 1,
+    "lowConfidenceUnknownDispositionRecall": 1
+  },
+  "checks": {
+    "classificationMicroF1": true,
+    "dedupPrecision": true,
+    "dedupRecall": true,
+    "citationCoverage": true,
+    "proposalAcceptanceAccuracy": true,
+    "proposalGuardrailPassRate": true,
+    "lowConfidenceReviewRecall": true,
+    "lowConfidenceUnknownDispositionRecall": true
+  },
+  "passed": true
+}

@@ -7,6 +7,10 @@ import {
   normalizeAgentRequestSources,
   validateCitationCoverage,
 } from './agent-safety.mjs';
+import {
+  createAgentCacheIdentity,
+  globalAgentResultCache,
+} from './agent-result-cache.mjs';
 
 export type AgentTask = 'classify' | 'dedup' | 'compliance' | 'match' | 'proposal' | 'reply';
 
@@ -26,7 +30,26 @@ export interface AgentRequest {
 
 export interface AgentProvider {
   readonly name: string;
+  readonly modelVersion: string;
   generateJson(request: AgentRequest): Promise<Record<string, unknown>>;
+}
+
+export interface AgentExecutionTrace {
+  inputContentHash: string;
+  cacheKey: string;
+  schemaVersion: string;
+  modelVersion: string;
+  cacheHit: boolean;
+  incrementalInputTokens: number | null;
+  incrementalOutputTokens: number | null;
+  incrementalCostMicrousd: number | null;
+  latencyMs: number;
+  outcome: 'known' | 'unknown';
+}
+
+export interface AgentExecution {
+  result: Record<string, unknown>;
+  trace: AgentExecutionTrace;
 }
 
 type JsonSchema = {
@@ -44,6 +67,7 @@ type JsonSchema = {
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const ALLOWED_PROVIDER_HOSTS = new Set(['api.deepseek.com']);
+const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
 function sourceIdsOf(request: AgentRequest) {
   return request.input.sourceIds && request.input.sourceIds.length > 0
@@ -139,6 +163,7 @@ export function validateAgentResult(request: AgentRequest, value: unknown) {
 
 export class DeterministicFallbackProvider implements AgentProvider {
   readonly name = 'deterministic-fallback';
+  readonly modelVersion = 'deterministic-rules-v3';
 
   async generateJson(request: AgentRequest): Promise<Record<string, unknown>> {
     const text = textOf(request);
@@ -157,6 +182,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
       if (includesAny(text, ['rwa'])) labels.add('rwa');
       if (labels.size === 0) labels.add('irrelevant');
       return {
+        decisionStatus: 'known',
         labels: [...labels],
         confidence: labels.has('irrelevant') ? 0.55 : 0.82,
         sourceIds,
@@ -173,6 +199,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
       const isDuplicate = request.input.candidateId === request.input.canonicalId
         || includesAny(text, ['duplicate', '重复', '转载']);
       return {
+        decisionStatus: 'known',
         isDuplicate,
         canonicalId: isDuplicate ? (request.input.canonicalId || request.input.candidateId || null) : null,
         reason: injection.detected
@@ -199,6 +226,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
       }
       if (injection.detected) riskLabels.push('prompt_injection_detected');
       return {
+        decisionStatus: injection.detected ? 'unknown' : 'known',
         riskLevel: riskLabels.length > 0 ? 'high' : 'low',
         riskLabels,
         safeSummary: '仅保留来源支持的活动事实与教育/合作语境，需编辑人审。',
@@ -215,6 +243,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
     if (request.task === 'match') {
       const score = includesAny(text, ['机器人', 'ai', '高校', '大学']) ? 86 : 60;
       return {
+        decisionStatus: injection.detected ? 'unknown' : 'known',
         score,
         subscores: {
           topic: score,
@@ -238,6 +267,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
 
     if (request.task === 'proposal') {
       return {
+        decisionStatus: injection.detected ? 'unknown' : 'known',
         tiers: [
           { name: 'light', value: '媒体支持与活动复盘', resources: ['来源摘要', '活动回顾'], nextStep: '确认公开素材授权' },
           { name: 'medium', value: '主题公开课 + X Space 联动', resources: ['主持/嘉宾待确认', 'Space 宣发'], nextStep: '确认议程与嘉宾边界' },
@@ -265,6 +295,7 @@ export class DeterministicFallbackProvider implements AgentProvider {
     const isPositive = includesAny(text, ['可以', '感兴趣', '合作', '欢迎', 'positive']);
     const isDecline = includesAny(text, ['不考虑', '拒绝', 'decline']);
     return {
+      decisionStatus: isPositive || isDecline ? 'known' : 'unknown',
       intent: isPositive ? 'positive' : isDecline ? 'decline' : 'unknown',
       confidence: isPositive || isDecline ? 0.84 : 0.5,
       summary: isPositive ? '对合作有初步兴趣。' : isDecline ? '暂不考虑合作。' : '意图不明确，需人工复核。',
@@ -288,6 +319,10 @@ export class OpenAICompatibleJsonProvider implements AgentProvider {
     private readonly baseUrl = DEFAULT_BASE_URL,
     private readonly model = 'deepseek-chat',
   ) {}
+
+  get modelVersion() {
+    return this.model;
+  }
 
   private endpoint() {
     const url = new URL(this.baseUrl);
@@ -352,19 +387,138 @@ export function createAgentProvider(env: NodeJS.ProcessEnv = process.env): Agent
   return new DeterministicFallbackProvider();
 }
 
-export async function runAgentTask(request: AgentRequest, provider = createAgentProvider()) {
+function unknownEvidence(request: AgentRequest, reason: string) {
+  const sourceIds = sourceIdsOf(request);
+  const claims: Record<AgentTask, string[]> = {
+    classify: ['classification'],
+    dedup: ['duplicate_decision'],
+    compliance: ['risk_assessment', 'safe_summary'],
+    match: ['match_score', 'fit_points'],
+    proposal: ['proposal_basis', 'risks'],
+    reply: ['intent', 'reply_summary'],
+  };
+  return claims[request.task].map((claimId) => evidence(
+    claimId,
+    `无法可靠生成该结论（${reason}），必须人工复核。`,
+    sourceIds,
+  ));
+}
+
+export function buildUnknownAgentResult(request: AgentRequest, reason: string): Record<string, unknown> {
+  const sourceIds = sourceIdsOf(request);
+  const common = {
+    decisionStatus: 'unknown',
+    sourceIds,
+    evidence: unknownEvidence(request, reason),
+    needsReview: true,
+  };
+  if (request.task === 'classify') {
+    return { ...common, labels: ['unknown'], confidence: 0 };
+  }
+  if (request.task === 'dedup') {
+    return {
+      ...common,
+      isDuplicate: null,
+      canonicalId: null,
+      reason: `无法可靠判断重复关系：${reason}。`,
+      confidence: 0,
+    };
+  }
+  if (request.task === 'compliance') {
+    return {
+      ...common,
+      riskLevel: 'unknown',
+      riskLabels: ['manual_review_required'],
+      safeSummary: '无法可靠生成安全摘要，禁止自动发布。',
+      diffSummary: `未生成自动改写：${reason}。`,
+    };
+  }
+  if (request.task === 'match') {
+    return {
+      ...common,
+      score: null,
+      subscores: null,
+      fitPoints: [],
+      conflicts: ['模型结果不可用，禁止据此推进合作。'],
+      missingInfo: [`需要人工评估：${reason}。`],
+    };
+  }
+  if (request.task === 'proposal') {
+    return {
+      ...common,
+      tiers: null,
+      risks: ['未生成提案，禁止对外发送。'],
+      questions: [`请人工补充信息后重试：${reason}。`],
+      guardrails: {
+        noUnapprovedPrize: true,
+        noGuaranteedExposure: true,
+        humanApprovalRequired: true,
+      },
+    };
+  }
+  return {
+    ...common,
+    intent: 'unknown',
+    confidence: 0,
+    summary: `无法可靠判断回复意图：${reason}。`,
+    nextAction: '进入人工复核队列，不自动回复。',
+    needsHumanReview: true,
+  };
+}
+
+function lowConfidenceReason(request: AgentRequest, result: Record<string, unknown>) {
+  if (result.decisionStatus === 'unknown') return 'provider_returned_unknown';
+  if (typeof result.confidence === 'number' && result.confidence < LOW_CONFIDENCE_THRESHOLD) {
+    return 'low_confidence';
+  }
+  if (request.task === 'match' && result.subscores && typeof result.subscores === 'object') {
+    const completeness = (result.subscores as Record<string, unknown>).completeness;
+    if (typeof completeness === 'number' && completeness < 60) return 'insufficient_input_completeness';
+  }
+  if (sourceIdsOf(request).includes('unverified-input')) return 'unverified_input';
+  return null;
+}
+
+export async function runAgentTaskWithTrace(
+  request: AgentRequest,
+  provider = createAgentProvider(),
+): Promise<AgentExecution> {
   const safeRequest = normalizeAgentRequestSources(request) as AgentRequest;
-  const fallback = new DeterministicFallbackProvider();
-  if (inspectUntrustedAgentInput(safeRequest).detected) {
-    return fallback.generateJson(safeRequest);
-  }
-  try {
-    const result = await provider.generateJson(safeRequest);
-    if (validateAgentResult(safeRequest, result).length > 0) throw new Error('invalid_agent_result');
-    return result;
-  } catch {
-    return fallback.generateJson(safeRequest);
-  }
+  const schemaVersion = agentSchemaBundle.version;
+  const modelVersion = `${provider.name}:${provider.modelVersion}`;
+  const identity = createAgentCacheIdentity({ request: safeRequest, schemaVersion, modelVersion });
+  const startedAt = Date.now();
+  const cache = globalAgentResultCache();
+  const execution = await cache.getOrCompute(identity.cacheKey, async () => {
+    if (inspectUntrustedAgentInput(safeRequest).detected) {
+      return buildUnknownAgentResult(safeRequest, 'untrusted_prompt_injection');
+    }
+    try {
+      const result = await provider.generateJson(safeRequest);
+      if (validateAgentResult(safeRequest, result).length > 0) throw new Error('invalid_agent_result');
+      const reason = lowConfidenceReason(safeRequest, result);
+      return reason ? buildUnknownAgentResult(safeRequest, reason) : result;
+    } catch {
+      return buildUnknownAgentResult(safeRequest, 'provider_failure');
+    }
+  });
+  const result = execution.value as Record<string, unknown>;
+  return {
+    result,
+    trace: {
+      ...identity,
+      cacheHit: execution.cacheHit,
+      incrementalInputTokens: execution.cacheHit ? 0 : null,
+      incrementalOutputTokens: execution.cacheHit ? 0 : null,
+      incrementalCostMicrousd: execution.cacheHit ? 0 : null,
+      latencyMs: Date.now() - startedAt,
+      outcome: result.decisionStatus === 'known' ? 'known' : 'unknown',
+    },
+  };
+}
+
+export async function runAgentTask(request: AgentRequest, provider = createAgentProvider()) {
+  return (await runAgentTaskWithTrace(request, provider)).result;
 }
 
 export { agentSchemaBundle };

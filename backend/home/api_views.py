@@ -36,6 +36,9 @@ from .models import (
     EditorialReview,
     OutreachBatch,
     OutreachMessage,
+    AgentRun,
+    AgentAlert,
+    DailyAgentBudget,
 )
 from .serializers import (
     WorkspaceSerializer,
@@ -50,6 +53,7 @@ from .serializers import (
     IngestionRunSerializer,
     PublicContentRecapSerializer,
     AdminContentReviewSerializer,
+    AgentRunSerializer,
 )
 from .models import UniversityEvent, EventReview, TweetReview, OutreachDraft, PipelineRun, PipelineConfig
 from .serializers import UniversityEventSerializer, EventReviewSerializer, TweetReviewSerializer, OutreachDraftSerializer
@@ -62,6 +66,7 @@ from .api_contracts import (
     request_operator,
     success_response,
 )
+from .agent_observability import agent_metrics, evaluate_ingestion_alerts
 
 
 def _init_llm():
@@ -1217,6 +1222,85 @@ class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelVie
             pass
 
         return None
+
+
+class AdminAgentRunViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
+    """OBS-1/2/AI-10: privacy-safe traces and human feedback audit."""
+
+    queryset = AgentRun.objects.all()
+    serializer_class = AgentRunSerializer
+    lookup_field = 'run_id'
+    ordering = ['-created_at']
+
+    @action(detail=True, methods=['post'])
+    def feedback(self, request, run_id=None):
+        action_name = 'agent-run-feedback'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        if request.data.get('trainingEligible') is True or request.data.get('trainingStatus') == 'approved':
+            return error_response(
+                request, action_name, 'automatic_training_forbidden',
+                'Human feedback must be reviewed separately before any training use.',
+            )
+        run = self.get_object()
+        feedback = {
+            'revision': request.data.get('revision') or {},
+            'reasonCodes': request.data.get('reasonCodes') or [],
+            'comment': str(request.data.get('comment') or '')[:500],
+            'trainingStatus': 'not_reviewed',
+            'trainingEligible': False,
+            'source': 'human_revision',
+        }
+        run.human_feedback = feedback
+        run.feedback_by = request_operator(request)
+        run.feedback_at = timezone.now()
+        try:
+            run.save(update_fields=['human_feedback', 'feedback_by', 'feedback_at'])
+        except ValidationError as error:
+            return error_response(request, action_name, 'unsafe_feedback', str(error))
+        return success_response(request, action_name, {
+            'run': AgentRunSerializer(run).data,
+            'automaticTraining': False,
+        })
+
+
+class AdminAgentMetricsView(APIView):
+    def get(self, request):
+        workspace = _active_workspace(request)
+        budget = DailyAgentBudget.objects.filter(
+            workspace=workspace, date=timezone.localdate(),
+        ).first()
+        return Response({
+            'externalSideEffect': False,
+            'tasks': agent_metrics(workspace),
+            'budget': {
+                'limitMicrousd': budget.limit_microusd if budget else 0,
+                'spentMicrousd': budget.spent_microusd if budget else 0,
+                'requestLimit': budget.request_limit if budget else 0,
+                'requestCount': budget.request_count if budget else 0,
+                'fallbackOnly': budget.fallback_only if budget else False,
+            },
+            'alerts': list(AgentAlert.objects.filter(workspace=workspace, status='open').values(
+                'id', 'alert_type', 'severity', 'summary', 'evidence', 'occurrence_count', 'last_seen_at',
+            )[:20]),
+        })
+
+
+class AdminAgentAlertEvaluateView(APIView):
+    def post(self, request):
+        action_name = 'agent-alert-evaluate'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        alerts = evaluate_ingestion_alerts(_active_workspace(request))
+        return success_response(request, action_name, {
+            'alertsCreatedOrUpdated': len(alerts),
+            'alertIds': [alert.id for alert in alerts],
+        })
 
 
 # =============================================================================

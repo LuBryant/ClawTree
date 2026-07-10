@@ -1408,6 +1408,70 @@ class AgentRun(models.Model):
         return f'{self.run_id}:{self.task_type}:{self.status}'
 
 
+class DailyAgentBudget(models.Model):
+    """OBS-4: workspace daily provider budget with deterministic fallback state."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='agent_budgets')
+    date = models.DateField(verbose_name='预算日期')
+    limit_microusd = models.PositiveBigIntegerField(default=0, verbose_name='预算上限 (micro USD)')
+    spent_microusd = models.PositiveBigIntegerField(default=0, verbose_name='已用成本 (micro USD)')
+    request_limit = models.PositiveIntegerField(default=0, verbose_name='请求上限，0 表示不限')
+    request_count = models.PositiveIntegerField(default=0, verbose_name='已用请求数')
+    fallback_only = models.BooleanField(default=False, verbose_name='仅允许确定性降级')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'date'], name='unique_workspace_agent_budget_date'),
+        ]
+
+    @property
+    def exceeded(self):
+        return bool(
+            self.fallback_only
+            or (self.limit_microusd and self.spent_microusd >= self.limit_microusd)
+            or (self.request_limit and self.request_count >= self.request_limit)
+        )
+
+
+class AgentAlert(models.Model):
+    """OBS-5: deduplicated, auditable operational alert without raw content."""
+
+    SEVERITY_CHOICES = [('info', 'Info'), ('warning', 'Warning'), ('critical', 'Critical')]
+    STATUS_CHOICES = [('open', 'Open'), ('acknowledged', 'Acknowledged'), ('resolved', 'Resolved')]
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='agent_alerts')
+    alert_key = models.CharField(max_length=180, verbose_name='告警幂等键')
+    alert_type = models.CharField(max_length=80, verbose_name='告警类型')
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='warning')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    connector = models.ForeignKey(
+        SourceConnector, on_delete=models.SET_NULL, null=True, blank=True, related_name='agent_alerts',
+    )
+    summary = models.CharField(max_length=300, verbose_name='脱敏摘要')
+    evidence = models.JSONField(default=dict, blank=True, verbose_name='聚合指标证据')
+    occurrence_count = models.PositiveIntegerField(default=1)
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    last_seen_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'alert_key'], name='unique_workspace_agent_alert_key'),
+        ]
+
+    def clean(self):
+        super().clean()
+        if _trace_contains_private_data(self.evidence) or _trace_contains_private_data(self.summary):
+            raise ValidationError({'evidence': 'Alerts may contain aggregate metrics only, never PII or raw content.'})
+        if self.status == 'resolved' and not self.resolved_at:
+            raise ValidationError({'resolved_at': 'Resolved alerts require resolved_at.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class PipelineRun(models.Model):
     """自动化流水线运行记录 — 4 步骤：采集 → 推文 → 邮件 → 审批"""
     STEP_CHOICES = [

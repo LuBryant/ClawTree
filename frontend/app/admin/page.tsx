@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { fetchEventStats, type EventStats } from '../lib/api-client';
 import { useLanguage } from '../i18n/LanguageProvider';
 import { DEMO_WORKSPACE } from '../config/workspaces';
+import agentObservability from '../../data/agent-observability.json';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<EventStats | null>(null);
@@ -36,6 +37,43 @@ export default function AdminDashboard() {
         <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
           {tx(`${DEMO_WORKSPACE.name}高校行 · ClawTree 演示案例运营台`, `${DEMO_WORKSPACE.nameEn} campus tour · ClawTree Demo Case Operations`)}
         </p>
+      </section>
+
+      <section className="panel" style={{ padding: '20px' }}>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-widest">🤖 Agent Observability</h2>
+            <p className="mt-1 text-xs" style={{ color: 'var(--muted)' }}>
+              {tx('按 connector / task 展示成功率、P95 延迟、成本和缓存命中', 'Success, P95 latency, cost, and cache hits by connector/task')}
+            </p>
+          </div>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            Budget ${agentObservability.budget.spentMicrousd.toLocaleString()} / ${agentObservability.budget.limitMicrousd.toLocaleString()} µUSD
+          </p>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead style={{ color: 'var(--muted)' }}>
+              <tr><th className="py-2">Connector / Task</th><th>Success</th><th>P95</th><th>Cost</th><th>Cache</th></tr>
+            </thead>
+            <tbody>
+              {agentObservability.tasks.map((row) => (
+                <tr key={`${row.connector}-${row.task}`} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                  <td className="py-3 font-semibold">{row.connector} / {row.task}</td>
+                  <td>{Math.round(row.successRate * 100)}%</td>
+                  <td>{row.p95LatencyMs} ms</td>
+                  <td>{row.costMicrousd.toLocaleString()} µUSD</td>
+                  <td>{Math.round(row.cacheHitRate * 100)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {agentObservability.alerts.map((alert) => (
+          <p key={alert.summary} className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
+            ⚠ {alert.summary}
+          </p>
+        ))}
       </section>
 
       {/* 指标 */}

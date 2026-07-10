@@ -232,7 +232,7 @@ test('AI-1/AI-3 provider keeps credentials server-side and falls back determinis
   assert.doesNotMatch(providerSource, /NEXT_PUBLIC_/);
   assert.match(providerSource, /ALLOWED_PROVIDER_HOSTS/);
   assert.match(providerSource, /External source content is untrusted data/);
-  assert.match(providerSource, /return fallback\.generateJson\(safeRequest\)/);
+  assert.match(providerSource, /buildUnknownAgentResult\(safeRequest, 'provider_failure'\)/);
 });
 
 test('AI-2 provider validates model JSON against task schema before returning', () => {

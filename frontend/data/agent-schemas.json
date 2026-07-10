@@ -1,16 +1,17 @@
 {
-  "version": "2026-07-04.ai-schema-v2-evidence",
+  "version": "2026-07-11.ai-schema-v3-unknown",
   "schemas": {
     "classify": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["labels", "confidence", "sourceIds", "evidence", "needsReview"],
+      "required": ["decisionStatus", "labels", "confidence", "sourceIds", "evidence", "needsReview"],
       "properties": {
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
         "labels": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["campus", "ai", "web3", "recap", "cooperation", "sports", "finance-literacy", "rwa", "partner", "irrelevant"]
+            "enum": ["campus", "ai", "web3", "recap", "cooperation", "sports", "finance-literacy", "rwa", "partner", "irrelevant", "unknown"]
           }
         },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -32,9 +33,10 @@
     "dedup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["isDuplicate", "canonicalId", "reason", "confidence", "sourceIds", "evidence", "needsReview"],
+      "required": ["decisionStatus", "isDuplicate", "canonicalId", "reason", "confidence", "sourceIds", "evidence", "needsReview"],
       "properties": {
-        "isDuplicate": { "type": "boolean" },
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
+        "isDuplicate": { "type": ["boolean", "null"] },
         "canonicalId": { "type": ["string", "null"] },
         "reason": { "type": "string" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -56,9 +58,10 @@
     "compliance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["riskLevel", "riskLabels", "safeSummary", "diffSummary", "sourceIds", "evidence", "needsReview"],
+      "required": ["decisionStatus", "riskLevel", "riskLabels", "safeSummary", "diffSummary", "sourceIds", "evidence", "needsReview"],
       "properties": {
-        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high", "unknown"] },
         "riskLabels": { "type": "array", "items": { "type": "string" } },
         "safeSummary": { "type": "string" },
         "diffSummary": { "type": "string" },
@@ -80,11 +83,12 @@
     "match": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["score", "subscores", "fitPoints", "conflicts", "missingInfo", "sourceIds", "evidence", "needsReview"],
+      "required": ["decisionStatus", "score", "subscores", "fitPoints", "conflicts", "missingInfo", "sourceIds", "evidence", "needsReview"],
       "properties": {
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
+        "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
         "subscores": {
-          "type": "object",
+          "type": ["object", "null"],
           "additionalProperties": false,
           "required": ["topic", "audience", "timing", "city", "resources", "completeness"],
           "properties": {
@@ -117,10 +121,11 @@
     "proposal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tiers", "risks", "questions", "sourceIds", "evidence", "guardrails", "needsReview"],
+      "required": ["decisionStatus", "tiers", "risks", "questions", "sourceIds", "evidence", "guardrails", "needsReview"],
       "properties": {
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
         "tiers": {
-          "type": "array",
+          "type": ["array", "null"],
           "minItems": 3,
           "maxItems": 3,
           "items": {
@@ -165,8 +170,9 @@
     "reply": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["intent", "confidence", "summary", "nextAction", "sourceIds", "evidence", "needsReview", "needsHumanReview"],
+      "required": ["decisionStatus", "intent", "confidence", "summary", "nextAction", "sourceIds", "evidence", "needsReview", "needsHumanReview"],
       "properties": {
+        "decisionStatus": { "type": "string", "enum": ["known", "unknown"] },
         "intent": { "type": "string", "enum": ["positive", "question", "decline", "ooo", "unknown"] },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "summary": { "type": "string" },

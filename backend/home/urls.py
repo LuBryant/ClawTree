@@ -21,6 +21,9 @@ from .api_views import (
     AdminOutreachBatchApproveView,
     AdminOutreachBatchSendView,
     AdminOutreachBatchStopView,
+    AdminAgentRunViewSet,
+    AdminAgentMetricsView,
+    AdminAgentAlertEvaluateView,
 )
 
 router = DefaultRouter()
@@ -35,6 +38,7 @@ router.register(r'admin/ingestion-runs', AdminIngestionRunViewSet, basename='adm
 router.register(r'admin/content-reviews', AdminContentReviewViewSet, basename='admin-content-review')
 router.register(r'admin/matches', AdminCollaborationMatchViewSet, basename='admin-match')
 router.register(r'admin/proposals', AdminProposalViewSet, basename='admin-proposal')
+router.register(r'admin/agent-runs', AdminAgentRunViewSet, basename='admin-agent-run')
 router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 router.register(r'workspace-capabilities', WorkspaceCapabilityViewSet, basename='workspace-capability')
 
@@ -45,6 +49,8 @@ urlpatterns = [
     path('admin/outreach-batches/<int:pk>/approve/', AdminOutreachBatchApproveView.as_view(), name='admin-outreach-batch-approve'),
     path('admin/outreach-batches/<int:pk>/send/', AdminOutreachBatchSendView.as_view(), name='admin-outreach-batch-send'),
     path('admin/outreach-batches/<int:pk>/stop/', AdminOutreachBatchStopView.as_view(), name='admin-outreach-batch-stop'),
+    path('admin/agent-metrics/', AdminAgentMetricsView.as_view(), name='admin-agent-metrics'),
+    path('admin/agent-alerts/evaluate/', AdminAgentAlertEvaluateView.as_view(), name='admin-agent-alert-evaluate'),
     path('', include(router.urls)),
     path('pipeline/', PipelineViewSet.as_view({'get': 'list'})),
     path('pipeline/configure/', PipelineViewSet.as_view({'post': 'configure'})),

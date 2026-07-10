@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "version": "2026-07-11.agent-eval-v1",
+    "schemaVersion": "2026-07-11.ai-schema-v3-unknown",
+    "asOf": "2026-07-11",
+    "purpose": "Offline, provider-independent regression set for classify, dedup, compliance, match, proposal, and reply tasks.",
+    "thresholds": {
+      "classificationMicroF1": 0.9,
+      "dedupPrecision": 0.9,
+      "dedupRecall": 0.9,
+      "citationCoverage": 1,
+      "proposalAcceptanceAccuracy": 0.9,
+      "proposalGuardrailPassRate": 1,
+      "lowConfidenceReviewRecall": 1,
+      "lowConfidenceUnknownDispositionRecall": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "classify-campus-ai", "task": "classify",
+      "input": { "text": "复旦大学 AI 机器人学生社团开放日", "sourceIds": ["src-c01"] },
+      "expected": { "labels": ["campus", "ai"] },
+      "prediction": { "decisionStatus": "known", "labels": ["campus", "ai"], "confidence": 0.91, "sourceIds": ["src-c01"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c01"] }], "needsReview": true }
+    },
+    {
+      "id": "classify-web3-cooperation", "task": "classify",
+      "input": { "text": "高校 Web3 社区联合合作招募", "sourceIds": ["src-c02"] },
+      "expected": { "labels": ["campus", "web3", "cooperation"] },
+      "prediction": { "decisionStatus": "known", "labels": ["campus", "web3", "cooperation"], "confidence": 0.89, "sourceIds": ["src-c02"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c02"] }], "needsReview": true }
+    },
+    {
+      "id": "classify-finance-recap", "task": "classify",
+      "input": { "text": "青年财经素养公开课活动回顾", "sourceIds": ["src-c03"] },
+      "expected": { "labels": ["finance-literacy", "recap"] },
+      "prediction": { "decisionStatus": "known", "labels": ["finance-literacy", "recap"], "confidence": 0.88, "sourceIds": ["src-c03"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c03"] }], "needsReview": true }
+    },
+    {
+      "id": "classify-rwa", "task": "classify",
+      "input": { "text": "RWA 与区块链资产教育论坛", "sourceIds": ["src-c04"] },
+      "expected": { "labels": ["web3", "rwa"] },
+      "prediction": { "decisionStatus": "known", "labels": ["web3", "rwa"], "confidence": 0.86, "sourceIds": ["src-c04"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c04"] }], "needsReview": true }
+    },
+    {
+      "id": "classify-sports-negative", "task": "classify",
+      "input": { "text": "校际足球世界杯观赛派对", "sourceIds": ["src-c05"] },
+      "expected": { "labels": ["campus", "sports"] },
+      "prediction": { "decisionStatus": "known", "labels": ["campus", "sports"], "confidence": 0.81, "sourceIds": ["src-c05"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c05"] }], "needsReview": true }
+    },
+    {
+      "id": "classify-low-confidence-irrelevant", "task": "classify", "expectedLowConfidence": true,
+      "input": { "text": "周末咖啡豆烘焙记录", "sourceIds": ["src-c06"] },
+      "expected": { "labels": ["unknown"] },
+      "prediction": { "decisionStatus": "unknown", "labels": ["unknown"], "confidence": 0.48, "sourceIds": ["src-c06"], "evidence": [{ "claimId": "classification", "sourceIds": ["src-c06"] }], "needsReview": true }
+    },
+
+    {
+      "id": "dedup-exact-id", "task": "dedup",
+      "input": { "candidateId": "post-101", "canonicalId": "post-101", "sourceIds": ["src-d01"] },
+      "expected": { "isDuplicate": true },
+      "prediction": { "decisionStatus": "known", "isDuplicate": true, "confidence": 0.99, "sourceIds": ["src-d01"], "evidence": [{ "claimId": "duplicate_decision", "sourceIds": ["src-d01"] }], "needsReview": true }
+    },
+    {
+      "id": "dedup-repost-marker", "task": "dedup",
+      "input": { "text": "重复转载：高校 AI 开放日", "candidateId": "post-102", "canonicalId": "post-099", "sourceIds": ["src-d02"] },
+      "expected": { "isDuplicate": true },
+      "prediction": { "decisionStatus": "known", "isDuplicate": true, "confidence": 0.94, "sourceIds": ["src-d02"], "evidence": [{ "claimId": "duplicate_decision", "sourceIds": ["src-d02"] }], "needsReview": true }
+    },
+    {
+      "id": "dedup-distinct-events", "task": "dedup",
+      "input": { "text": "不同城市、不同日期的同主题活动", "candidateId": "event-202", "canonicalId": "event-201", "sourceIds": ["src-d03"] },
+      "expected": { "isDuplicate": false },
+      "prediction": { "decisionStatus": "known", "isDuplicate": false, "confidence": 0.87, "sourceIds": ["src-d03"], "evidence": [{ "claimId": "duplicate_decision", "sourceIds": ["src-d03"] }], "needsReview": true }
+    },
+    {
+      "id": "dedup-title-collision-not-duplicate", "task": "dedup",
+      "input": { "text": "标题相同但主办方和活动日期不同", "candidateId": "event-204", "canonicalId": "event-203", "sourceIds": ["src-d04"] },
+      "expected": { "isDuplicate": false },
+      "prediction": { "decisionStatus": "known", "isDuplicate": false, "confidence": 0.79, "sourceIds": ["src-d04"], "evidence": [{ "claimId": "duplicate_decision", "sourceIds": ["src-d04"] }], "needsReview": true }
+    },
+    {
+      "id": "dedup-low-confidence-paraphrase", "task": "dedup", "expectedLowConfidence": true,
+      "input": { "text": "疑似改写版本，缺少稳定标识和发布日期", "candidateId": "post-105", "canonicalId": "post-088", "sourceIds": ["src-d05"] },
+      "expected": { "isDuplicate": null },
+      "prediction": { "decisionStatus": "unknown", "isDuplicate": null, "confidence": 0.51, "sourceIds": ["src-d05"], "evidence": [{ "claimId": "duplicate_decision", "sourceIds": ["src-d05"] }], "needsReview": true }
+    },
+
+    {
+      "id": "compliance-safe-education", "task": "compliance",
+      "input": { "text": "面向学生的区块链基础知识公开课", "sourceIds": ["src-k01"] },
+      "expected": { "riskLevel": "low" },
+      "prediction": { "decisionStatus": "known", "riskLevel": "low", "confidence": 0.9, "sourceIds": ["src-k01"], "evidence": [{ "claimId": "risk_assessment", "sourceIds": ["src-k01"] }, { "claimId": "safe_summary", "sourceIds": ["src-k01"] }], "needsReview": true }
+    },
+    {
+      "id": "compliance-investment-guarantee", "task": "compliance",
+      "input": { "text": "保证年化收益，提供明确投资建议", "sourceIds": ["src-k02"] },
+      "expected": { "riskLevel": "high" },
+      "prediction": { "decisionStatus": "known", "riskLevel": "high", "confidence": 0.98, "sourceIds": ["src-k02"], "evidence": [{ "claimId": "risk_assessment", "sourceIds": ["src-k02"] }, { "claimId": "safe_summary", "sourceIds": ["src-k02"] }], "needsReview": true }
+    },
+    {
+      "id": "compliance-betting", "task": "compliance",
+      "input": { "text": "下注预测比赛结果，稳赚不赔", "sourceIds": ["src-k03"] },
+      "expected": { "riskLevel": "high" },
+      "prediction": { "decisionStatus": "known", "riskLevel": "high", "confidence": 0.97, "sourceIds": ["src-k03"], "evidence": [{ "claimId": "risk_assessment", "sourceIds": ["src-k03"] }, { "claimId": "safe_summary", "sourceIds": ["src-k03"] }], "needsReview": true }
+    },
+    {
+      "id": "compliance-unapproved-resources", "task": "compliance",
+      "input": { "text": "承诺顶级投资机构到场和百万曝光", "sourceIds": ["src-k04"] },
+      "expected": { "riskLevel": "high" },
+      "prediction": { "decisionStatus": "known", "riskLevel": "high", "confidence": 0.95, "sourceIds": ["src-k04"], "evidence": [{ "claimId": "risk_assessment", "sourceIds": ["src-k04"] }, { "claimId": "safe_summary", "sourceIds": ["src-k04"] }], "needsReview": true }
+    },
+    {
+      "id": "compliance-low-confidence-context", "task": "compliance", "expectedLowConfidence": true,
+      "input": { "text": "材料提到市场回报，但上下文不完整", "sourceIds": ["src-k05"] },
+      "expected": { "riskLevel": "unknown" },
+      "prediction": { "decisionStatus": "unknown", "riskLevel": "unknown", "confidence": 0.56, "sourceIds": ["src-k05"], "evidence": [{ "claimId": "risk_assessment", "sourceIds": ["src-k05"] }, { "claimId": "safe_summary", "sourceIds": ["src-k05"] }], "needsReview": true }
+    },
+
+    {
+      "id": "match-strong-campus-ai", "task": "match",
+      "input": { "text": "高校 AI 机器人创新节，面向学生开发者", "sourceIds": ["src-m01"] },
+      "expected": { "accepted": true, "score": 88 },
+      "prediction": { "decisionStatus": "known", "accepted": true, "score": 86, "confidence": 0.9, "sourceIds": ["src-m01"], "evidence": [{ "claimId": "match_score", "sourceIds": ["src-m01"] }, { "claimId": "fit_points", "sourceIds": ["src-m01"] }], "needsReview": true }
+    },
+    {
+      "id": "match-strong-web3", "task": "match",
+      "input": { "text": "大学 Web3 黑客松和开发者工作坊", "sourceIds": ["src-m02"] },
+      "expected": { "accepted": true, "score": 84 },
+      "prediction": { "decisionStatus": "known", "accepted": true, "score": 86, "confidence": 0.88, "sourceIds": ["src-m02"], "evidence": [{ "claimId": "match_score", "sourceIds": ["src-m02"] }, { "claimId": "fit_points", "sourceIds": ["src-m02"] }], "needsReview": true }
+    },
+    {
+      "id": "match-low-fit", "task": "match",
+      "input": { "text": "封闭式古典音乐教师研修会", "sourceIds": ["src-m03"] },
+      "expected": { "accepted": false, "score": 42 },
+      "prediction": { "decisionStatus": "known", "accepted": false, "score": 44, "confidence": 0.82, "sourceIds": ["src-m03"], "evidence": [{ "claimId": "match_score", "sourceIds": ["src-m03"] }, { "claimId": "fit_points", "sourceIds": ["src-m03"] }], "needsReview": true }
+    },
+    {
+      "id": "match-low-confidence-missing-data", "task": "match", "expectedLowConfidence": true,
+      "input": { "text": "活动主题待定，日期、受众和主办方未确认", "sourceIds": ["src-m04"] },
+      "expected": { "accepted": false, "score": null },
+      "prediction": { "decisionStatus": "unknown", "accepted": false, "score": null, "confidence": 0.49, "sourceIds": ["src-m04"], "evidence": [{ "claimId": "match_score", "sourceIds": ["src-m04"] }, { "claimId": "fit_points", "sourceIds": ["src-m04"] }], "needsReview": true }
+    },
+
+    {
+      "id": "proposal-grounded-accept", "task": "proposal",
+      "input": { "text": "经来源确认的高校 AI 开放日", "sourceIds": ["src-p01", "cap-media"] },
+      "expected": { "accepted": true },
+      "prediction": { "decisionStatus": "known", "accepted": true, "sourceIds": ["src-p01", "cap-media"], "evidence": [{ "claimId": "proposal_basis", "sourceIds": ["src-p01", "cap-media"] }, { "claimId": "risks", "sourceIds": ["src-p01"] }], "guardrails": { "noUnapprovedPrize": true, "noGuaranteedExposure": true, "humanApprovalRequired": true }, "containsForbiddenPromise": false, "needsReview": true }
+    },
+    {
+      "id": "proposal-missing-contact-reject", "task": "proposal",
+      "input": { "text": "活动匹配但没有经核验的公开联系渠道", "sourceIds": ["src-p02"] },
+      "expected": { "accepted": false },
+      "prediction": { "decisionStatus": "known", "accepted": false, "sourceIds": ["src-p02"], "evidence": [{ "claimId": "proposal_basis", "sourceIds": ["src-p02"] }, { "claimId": "risks", "sourceIds": ["src-p02"] }], "guardrails": { "noUnapprovedPrize": true, "noGuaranteedExposure": true, "humanApprovalRequired": true }, "containsForbiddenPromise": false, "needsReview": true }
+    },
+    {
+      "id": "proposal-grounded-web3-accept", "task": "proposal",
+      "input": { "text": "官方来源确认的 Web3 开发者活动与媒体合作需求", "sourceIds": ["src-p03", "cap-space"] },
+      "expected": { "accepted": true },
+      "prediction": { "decisionStatus": "known", "accepted": true, "sourceIds": ["src-p03", "cap-space"], "evidence": [{ "claimId": "proposal_basis", "sourceIds": ["src-p03", "cap-space"] }, { "claimId": "risks", "sourceIds": ["src-p03"] }], "guardrails": { "noUnapprovedPrize": true, "noGuaranteedExposure": true, "humanApprovalRequired": true }, "containsForbiddenPromise": false, "needsReview": true }
+    },
+    {
+      "id": "proposal-low-confidence-unverified", "task": "proposal", "expectedLowConfidence": true,
+      "input": { "text": "奖金、嘉宾和资源均来自未经核验的转述", "sourceIds": ["src-p04"] },
+      "expected": { "accepted": false },
+      "prediction": { "decisionStatus": "unknown", "accepted": false, "confidence": 0.45, "sourceIds": ["src-p04"], "evidence": [{ "claimId": "proposal_basis", "sourceIds": ["src-p04"] }, { "claimId": "risks", "sourceIds": ["src-p04"] }], "guardrails": { "noUnapprovedPrize": true, "noGuaranteedExposure": true, "humanApprovalRequired": true }, "containsForbiddenPromise": false, "needsReview": true }
+    },
+
+    {
+      "id": "reply-positive", "task": "reply",
+      "input": { "replyText": "我们感兴趣，可以约时间进一步聊合作。", "sourceIds": ["src-r01"] },
+      "expected": { "intent": "positive" },
+      "prediction": { "decisionStatus": "known", "intent": "positive", "confidence": 0.93, "sourceIds": ["src-r01"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r01"] }, { "claimId": "reply_summary", "sourceIds": ["src-r01"] }], "needsReview": true }
+    },
+    {
+      "id": "reply-question", "task": "reply",
+      "input": { "replyText": "请问你们能提供哪些资源，活动时间怎么安排？", "sourceIds": ["src-r02"] },
+      "expected": { "intent": "question" },
+      "prediction": { "decisionStatus": "known", "intent": "question", "confidence": 0.9, "sourceIds": ["src-r02"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r02"] }, { "claimId": "reply_summary", "sourceIds": ["src-r02"] }], "needsReview": true }
+    },
+    {
+      "id": "reply-decline", "task": "reply",
+      "input": { "replyText": "感谢联系，目前不考虑合作。", "sourceIds": ["src-r03"] },
+      "expected": { "intent": "decline" },
+      "prediction": { "decisionStatus": "known", "intent": "decline", "confidence": 0.95, "sourceIds": ["src-r03"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r03"] }, { "claimId": "reply_summary", "sourceIds": ["src-r03"] }], "needsReview": true }
+    },
+    {
+      "id": "reply-ooo", "task": "reply",
+      "input": { "replyText": "自动回复：我正在休假，7 月 20 日返回办公室。", "sourceIds": ["src-r04"] },
+      "expected": { "intent": "ooo" },
+      "prediction": { "decisionStatus": "known", "intent": "ooo", "confidence": 0.98, "sourceIds": ["src-r04"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r04"] }, { "claimId": "reply_summary", "sourceIds": ["src-r04"] }], "needsReview": true }
+    },
+    {
+      "id": "reply-unknown", "task": "reply", "expectedLowConfidence": true,
+      "input": { "replyText": "收到。", "sourceIds": ["src-r05"] },
+      "expected": { "intent": "unknown" },
+      "prediction": { "decisionStatus": "unknown", "intent": "unknown", "confidence": 0.42, "sourceIds": ["src-r05"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r05"] }, { "claimId": "reply_summary", "sourceIds": ["src-r05"] }], "needsReview": true }
+    },
+    {
+      "id": "reply-ambiguous-forward", "task": "reply", "expectedLowConfidence": true,
+      "input": { "replyText": "我转给相关同事看看。", "sourceIds": ["src-r06"] },
+      "expected": { "intent": "unknown" },
+      "prediction": { "decisionStatus": "unknown", "intent": "unknown", "confidence": 0.5, "sourceIds": ["src-r06"], "evidence": [{ "claimId": "intent", "sourceIds": ["src-r06"] }, { "claimId": "reply_summary", "sourceIds": ["src-r06"] }], "needsReview": true }
+    }
+  ]
+}
