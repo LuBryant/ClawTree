@@ -4,10 +4,14 @@ import time
 import subprocess
 import sys
 import requests
+import hashlib
 from datetime import datetime
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -29,6 +33,8 @@ from .models import (
     SourceConnector,
     IngestionRun,
     EditorialReview,
+    OutreachBatch,
+    OutreachMessage,
 )
 from .serializers import (
     WorkspaceSerializer,
@@ -47,6 +53,14 @@ from .serializers import (
 from .models import UniversityEvent, EventReview, TweetReview, OutreachDraft, PipelineRun, PipelineConfig
 from .serializers import UniversityEventSerializer, EventReviewSerializer, TweetReviewSerializer, OutreachDraftSerializer
 from .filters import UniversityEventFilter, EventReviewFilter, TweetReviewFilter
+from .api_contracts import (
+    claim_idempotency,
+    error_response,
+    input_version,
+    require_mutation_contract,
+    request_operator,
+    success_response,
+)
 
 
 def _init_llm():
@@ -179,6 +193,209 @@ class PublicFeedView(APIView):
         })
 
 
+def _client_key(request, scope):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+    address = forwarded or request.META.get('REMOTE_ADDR', 'unknown')
+    digest = hashlib.sha256(address.encode('utf-8')).hexdigest()[:24]
+    return f'clawtree:{scope}:{digest}'
+
+
+def _rate_limited(request, scope, limit, window_seconds=60):
+    """Small cache-backed fixed-window limiter for public endpoints."""
+    key = _client_key(request, scope)
+    if cache.add(key, 1, timeout=window_seconds):
+        return False
+    try:
+        return cache.incr(key) > limit
+    except ValueError:
+        cache.set(key, 1, timeout=window_seconds)
+        return False
+
+
+class UserAssistantChatView(APIView):
+    """API-6: bounded, rate-limited assistant with a safe local fallback."""
+
+    MAX_MESSAGES = 20
+    MAX_MESSAGE_CHARS = 4000
+    MAX_TOTAL_CHARS = 20000
+
+    def post(self, request):
+        if _rate_limited(request, 'assistant-chat', 10):
+            return _error('rate_limited', 'Too many chat requests. Please retry in one minute.', status.HTTP_429_TOO_MANY_REQUESTS)
+        messages = request.data.get('messages')
+        if not isinstance(messages, list) or not messages or len(messages) > self.MAX_MESSAGES:
+            return _error('invalid_messages', 'messages must be a non-empty bounded list.')
+        total = 0
+        for message in messages:
+            if not isinstance(message, dict) or message.get('role') not in ('user', 'assistant'):
+                return _error('invalid_messages', 'Only user and assistant roles are accepted.')
+            content = message.get('content')
+            if not isinstance(content, str) or not content.strip() or len(content) > self.MAX_MESSAGE_CHARS:
+                return _error('invalid_messages', 'Each message must contain bounded text.')
+            total += len(content)
+        if total > self.MAX_TOTAL_CHARS or messages[-1].get('role') != 'user':
+            return _error('invalid_messages', 'Conversation is too large or does not end with a user message.')
+
+        question = messages[-1]['content'].strip()
+        handoff_terms = ('人工', '客服', '合作', '联系', '报价', 'human', 'agent', 'contact', 'partnership')
+        handoff_required = any(term in question.lower() for term in handoff_terms)
+        workspace = _active_workspace(request)
+        if handoff_required:
+            answer = '我可以帮你转交人工团队。提交联系信息前，请先确认你同意我们仅将其用于本次合作跟进。'
+            reason = 'user_requested_or_commercial_follow_up'
+        else:
+            answer = (
+                f'我是 {workspace.name} 的安全客服助手。目前模型服务未启用，我不会猜测未经审核的信息。'
+                '你可以询问公开活动与合作方式；需要具体承诺时，我会建议转人工确认。'
+            )
+            reason = ''
+        return Response({
+            'answer': answer,
+            'mode': 'safe_fallback',
+            'grounded': False,
+            'citations': [],
+            'handoff': {
+                'required': handoff_required,
+                'reason': reason,
+                'url': '/user/cooperate',
+            },
+            'externalSideEffect': False,
+        })
+
+
+class UserCooperationLeadView(APIView):
+    """API-6: consent-gated handoff intake; defaults to simulation/no delivery."""
+
+    def post(self, request):
+        action_name = 'cooperation-lead-create'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        if _rate_limited(request, 'cooperation-lead', 5, 300):
+            return error_response(request, action_name, 'rate_limited', 'Too many lead submissions. Please retry later.', http_status=status.HTTP_429_TOO_MANY_REQUESTS)
+        if request.data.get('website'):
+            return error_response(request, action_name, 'abuse_detected', 'Submission rejected.')
+        if request.data.get('consent') is not True:
+            return error_response(request, action_name, 'consent_required', 'Explicit consent is required before collecting contact information.')
+        name = str(request.data.get('name', '')).strip()
+        contact = str(request.data.get('contact', '')).strip()
+        intent = str(request.data.get('intent', '')).strip()
+        if not name or not contact or not intent or max(len(name), len(contact)) > 200 or len(intent) > 2000:
+            return error_response(request, action_name, 'invalid_lead', 'name, contact, and a bounded intent are required.')
+        return success_response(request, action_name, {
+            'status': 'accepted_for_human_review',
+            'handoff': True,
+            'retentionPurpose': '合作申请人工跟进',
+        }, http_status=status.HTTP_202_ACCEPTED)
+
+
+class AdminOutreachBatchApproveView(APIView):
+    """API-5: human approval of rate, daily cap, and optional schedule."""
+
+    @transaction.atomic
+    def post(self, request, pk):
+        action_name = f'outreach-batch-{pk}-approve'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        batch = get_object_or_404(OutreachBatch.objects.select_for_update(), pk=pk, workspace=_active_workspace(request))
+        if batch.status not in ('draft', 'awaiting_approval'):
+            return error_response(request, action_name, 'invalid_batch_state', 'Only draft or awaiting-approval batches can be approved.', http_status=status.HTTP_409_CONFLICT)
+        operator = request_operator(request)
+        if not operator or operator in ('admin', 'anonymous'):
+            return error_response(request, action_name, 'named_approver_required', 'A named human approver is required.')
+        try:
+            rate = int(request.data.get('rate_limit_per_hour', batch.rate_limit_per_hour))
+            daily = int(request.data.get('daily_limit', batch.daily_limit))
+        except (TypeError, ValueError):
+            return error_response(request, action_name, 'invalid_limits', 'Rate and daily limits must be integers.')
+        if rate < 1 or daily < 1:
+            return error_response(request, action_name, 'invalid_limits', 'Rate and daily limits must be positive.')
+        batch.rate_limit_per_hour = rate
+        batch.daily_limit = daily
+        batch.approved_by = operator
+        batch.approved_at = timezone.now()
+        if batch.status == 'draft':
+            batch.transition_to('awaiting_approval')
+            batch.save()
+        batch.transition_to('approved')
+        batch.save()
+        return success_response(request, action_name, {
+            'id': batch.id, 'status': batch.status, 'approved_by': batch.approved_by,
+            'rate_limit_per_hour': rate, 'daily_limit': daily,
+        })
+
+
+class AdminOutreachBatchSendView(APIView):
+    """API-5: fail-closed dispatch gate; simulation is the immutable default."""
+
+    @transaction.atomic
+    def post(self, request, pk):
+        action_name = f'outreach-batch-{pk}-send'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        batch = get_object_or_404(OutreachBatch.objects.select_for_update(), pk=pk, workspace=_active_workspace(request))
+        if batch.stop_requested or batch.status == 'stopped':
+            return error_response(request, action_name, 'emergency_stop_active', 'Dispatch is disabled by the emergency stop.', http_status=status.HTTP_409_CONFLICT)
+        approved_states = ('approved', 'scheduled', 'running')
+        if batch.status not in approved_states or not batch.approved_by or not batch.approved_at:
+            return success_response(request, action_name, {
+                'batch_id': batch.id, 'status': batch.status, 'sent_count': 0,
+                'eligible_count': 0, 'blocked_reason': 'batch_not_approved', 'simulation': True,
+            })
+        eligible = OutreachMessage.objects.filter(
+            batch=batch, status='approved', unsubscribed_at__isnull=True,
+        ).exclude(provider_status__in=('unsubscribed', 'complained')).count()
+        # Live delivery deliberately requires a separately implemented provider
+        # adapter. This endpoint never calls SMTP or a network service.
+        return success_response(request, action_name, {
+            'batch_id': batch.id, 'status': batch.status, 'sent_count': 0,
+            'eligible_count': min(eligible, batch.daily_limit),
+            'blocked_count': batch.messages.count() - eligible,
+            'simulation': True,
+        })
+
+
+class AdminOutreachBatchStopView(APIView):
+    """API-5: immediate persistent kill switch for a batch."""
+
+    @transaction.atomic
+    def post(self, request, pk):
+        action_name = f'outreach-batch-{pk}-stop'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        batch = get_object_or_404(OutreachBatch.objects.select_for_update(), pk=pk, workspace=_active_workspace(request))
+        reason = str(request.data.get('reason', '')).strip()
+        if not reason:
+            return error_response(request, action_name, 'stop_reason_required', 'Emergency stop requires an audit reason.')
+        if batch.status == 'completed':
+            return error_response(request, action_name, 'invalid_batch_state', 'A completed batch cannot be stopped.', http_status=status.HTTP_409_CONFLICT)
+        batch.stop_requested = True
+        batch.stop_reason = reason
+        if batch.status != 'stopped':
+            batch.transition_to('stopped')
+        batch.save()
+        cancelled = batch.messages.filter(status__in=('approved', 'queued')).update(status='cancelled')
+        return success_response(request, action_name, {
+            'id': batch.id, 'status': batch.status, 'stop_requested': True,
+            'cancelled_count': cancelled,
+        })
+
+
 class PublicContentRecapViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     """Published Content Relay recaps for teachers and students."""
 
@@ -265,6 +482,371 @@ class AdminContentReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ModelView
     def reject(self, request, pk=None):
         reason = request.data.get('rejection_reason') or 'Rejected by human reviewer.'
         return self._transition(request, 'rejected', {'rejection_reason': reason})
+
+
+def _match_data(match):
+    return {
+        'id': match.id,
+        'workspace': match.workspace_id,
+        'event': match.event_id,
+        'campaign_key': match.campaign_key,
+        'status': match.status,
+        'overall_score': match.overall_score,
+        'subscores': {
+            'theme': match.theme_score,
+            'audience': match.audience_score,
+            'timing': match.timing_score,
+            'city': match.city_score,
+            'resources': match.resource_score,
+            'information': match.information_score,
+        },
+        'fit_points': match.fit_points,
+        'missing_information': match.missing_information,
+        'conflicts': match.conflicts,
+        'citations': match.citations,
+        'score_citations': match.score_citations,
+        'scoring_version': match.scoring_version,
+        'model_version': match.model_version,
+        'reviewed_by': match.reviewed_by,
+        'reviewed_at': match.reviewed_at,
+        'created_at': match.created_at,
+        'updated_at': match.updated_at,
+    }
+
+
+def _proposal_data(proposal):
+    return {
+        'id': proposal.id,
+        'match': proposal.match_id,
+        'version': proposal.version,
+        'previous_version': proposal.previous_version_id,
+        'status': proposal.status,
+        'packages': proposal.packages,
+        'partner_value': proposal.partner_value,
+        'workspace_value': proposal.workspace_value,
+        'resources': proposal.resources,
+        'pending_questions': proposal.pending_questions,
+        'risks': proposal.risks,
+        'source_refs': proposal.source_refs,
+        'evidence': proposal.evidence,
+        'guardrail_checks': proposal.guardrail_checks,
+        'edit_summary': proposal.edit_summary,
+        'edited_by': proposal.edited_by,
+        'approved_by': proposal.approved_by,
+        'approved_at': proposal.approved_at,
+        'rejection_reason': proposal.rejection_reason,
+        'created_at': proposal.created_at,
+        'updated_at': proposal.updated_at,
+    }
+
+
+class AdminCollaborationMatchViewSet(viewsets.ViewSet):
+    """Evidence-bound match API with no external side effects."""
+
+    action_name = 'collaboration-match-generate'
+
+    def _queryset(self, request):
+        from .models import CollaborationMatch
+        return CollaborationMatch.objects.select_related('workspace', 'event').filter(
+            workspace__slug=_workspace_slug(request),
+        )
+
+    def list(self, request):
+        return Response({
+            'externalSideEffect': False,
+            'results': [_match_data(item) for item in self._queryset(request).order_by('-updated_at')],
+        })
+
+    def retrieve(self, request, pk=None):
+        item = get_object_or_404(self._queryset(request), pk=pk)
+        return Response({'externalSideEffect': False, 'data': _match_data(item)})
+
+    @action(detail=False, methods=['post'])
+    def generate(self, request):
+        contract_error = require_mutation_contract(request, self.action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, self.action_name)
+        if idempotency_error:
+            return idempotency_error
+
+        workspace = _active_workspace(request)
+        event_id = request.data.get('event_id') or request.data.get('event')
+        if not event_id:
+            return error_response(request, self.action_name, 'event_required', 'event_id is required.')
+        event = UniversityEvent.objects.filter(workspace=workspace, pk=event_id).first()
+        if not event:
+            return error_response(
+                request, self.action_name, 'event_not_found',
+                'The event does not exist in the active workspace.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+
+        requested_ids = request.data.get('capability_ids')
+        capability_query = Capability.objects.filter(workspace=workspace, approved=True)
+        if requested_ids is not None and not isinstance(requested_ids, list):
+            return error_response(
+                request, self.action_name, 'invalid_capability_ids',
+                'capability_ids must be an array.',
+            )
+        capabilities = list(
+            capability_query.filter(id__in=requested_ids).order_by('code')
+            if requested_ids is not None else capability_query.order_by('code')
+        )
+        if requested_ids is not None and len(capabilities) != len(set(requested_ids)):
+            return error_response(
+                request, self.action_name, 'capability_not_found',
+                'Every capability must be approved and belong to the active workspace.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+
+        event_ref = f'event:{event.id}'
+        citations = [{
+            'id': event_ref,
+            'source_type': 'event',
+            'source_id': str(event.id),
+            'label': event.title,
+            'url': event.source_url,
+        }]
+        citations.extend({
+            'id': f'capability:{capability.id}',
+            'source_type': 'capability',
+            'source_id': str(capability.id),
+            'label': capability.title,
+            'source_ids': capability.source_ids,
+        } for capability in capabilities)
+        citation_ids = [item['id'] for item in citations]
+
+        event_text = ' '.join(filter(None, [event.title, event.description, event.category, event.event_type])).lower()
+        capability_text = ' '.join(
+            ' '.join(filter(None, [item.title, item.title_en, item.boundary, item.boundary_en]))
+            for item in capabilities
+        ).lower()
+        terms = ('ai', '人工智能', 'web3', '区块链', '机器人', '财经', 'hackathon', '黑客松')
+        overlap = sum(term in event_text and term in capability_text for term in terms)
+        scores = {
+            'theme_score': min(100, 55 + overlap * 10) if capabilities else 25,
+            'audience_score': 85 if event.university else 30,
+            'timing_score': 85 if event.event_date else 35,
+            'city_score': 80 if event.location else 40,
+            'resource_score': min(100, 30 + len(capabilities) * 15) if capabilities else 15,
+        }
+        complete = [event.title, event.university, event.description, event.source_url, event.event_date, event.location]
+        scores['information_score'] = round(100 * sum(bool(value) for value in complete) / len(complete))
+        overall_score = round(sum(scores.values()) / len(scores))
+        fit_points = [
+            f'{event.university} 的活动主题可与已审核能力“{item.title}”进一步核验合作边界。'
+            for item in capabilities[:3]
+        ] or ['当前没有已审核能力可直接承诺，需由运营补充能力证据。']
+        missing = []
+        if not event.event_date:
+            missing.append('活动日期待确认')
+        if not event.location:
+            missing.append('活动地点或线上形式待确认')
+        if not event.registration_url:
+            missing.append('报名或官方活动入口待确认')
+        if not capabilities:
+            missing.append('可投入资源与负责人待确认')
+        score_citations = {
+            'theme': citation_ids,
+            'audience': [event_ref],
+            'timing': [event_ref],
+            'city': [event_ref],
+            'resources': citation_ids,
+            'information': [event_ref],
+        }
+
+        from .models import CollaborationMatch
+        defaults = {
+            **scores,
+            'status': 'suggested',
+            'overall_score': overall_score,
+            'fit_points': fit_points,
+            'missing_information': missing,
+            'conflicts': [],
+            'citations': citations,
+            'score_citations': score_citations,
+            'model_version': 'deterministic-match-v1',
+        }
+        try:
+            with transaction.atomic():
+                match, created = CollaborationMatch.objects.get_or_create(
+                    workspace=workspace,
+                    event=event,
+                    campaign_key=str(request.data.get('campaign_key') or f'event-{event.id}')[:120],
+                    scoring_version=str(input_version(request))[:80],
+                    defaults=defaults,
+                )
+        except (IntegrityError, ValidationError) as error:
+            return error_response(
+                request, self.action_name, 'match_generation_failed', str(error),
+                http_status=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            self.action_name,
+            {'match': _match_data(match), 'created': created, 'idempotent_replay': not created},
+            http_status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            external_side_effect=False,
+        )
+
+    def _review(self, request, pk, next_status):
+        action_name = f'collaboration-match-{next_status}'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        match = get_object_or_404(self._queryset(request), pk=pk)
+        if match.status == next_status:
+            return success_response(request, action_name, {'match': _match_data(match), 'idempotent_replay': True})
+        try:
+            if match.status != 'suggested':
+                raise ValidationError({'status': f'Illegal match transition: {match.status} -> {next_status}'})
+            match.status = next_status
+            match.reviewed_by = request.headers.get('X-ClawTree-Operator') or _operator(request)
+            match.reviewed_at = timezone.now()
+            match.save()
+        except ValidationError as error:
+            return error_response(request, action_name, 'illegal_transition', str(error))
+        return success_response(request, action_name, {'match': _match_data(match), 'idempotent_replay': False})
+
+    @action(detail=True, methods=['post'])
+    def verify(self, request, pk=None):
+        return self._review(request, pk, 'verified')
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        return self._review(request, pk, 'rejected')
+
+
+class AdminProposalViewSet(viewsets.ViewSet):
+    """Versioned three-tier proposal drafts; never creates outreach."""
+
+    action_name = 'proposal-generate'
+
+    def _queryset(self, request):
+        from .models import Proposal
+        return Proposal.objects.select_related('match', 'match__workspace', 'match__event').filter(
+            match__workspace__slug=_workspace_slug(request),
+        )
+
+    def list(self, request):
+        return Response({
+            'externalSideEffect': False,
+            'results': [_proposal_data(item) for item in self._queryset(request).order_by('-updated_at')],
+        })
+
+    def retrieve(self, request, pk=None):
+        item = get_object_or_404(self._queryset(request), pk=pk)
+        return Response({'externalSideEffect': False, 'data': _proposal_data(item)})
+
+    @action(detail=False, methods=['post'])
+    def generate(self, request):
+        contract_error = require_mutation_contract(request, self.action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, self.action_name)
+        if idempotency_error:
+            return idempotency_error
+
+        match_id = request.data.get('match_id') or request.data.get('match')
+        if not match_id:
+            return error_response(request, self.action_name, 'match_required', 'match_id is required.')
+        match = get_object_or_404(AdminCollaborationMatchViewSet()._queryset(request), pk=match_id)
+        if match.status != 'verified':
+            return error_response(
+                request, self.action_name, 'verified_match_required',
+                'A proposal draft can only be generated from a human-verified match.',
+                http_status=status.HTTP_409_CONFLICT,
+            )
+
+        from .models import Proposal
+        try:
+            # Defaulting to version 1 makes a retry deterministically address
+            # the same row. Clients explicitly request version 2+ for edits.
+            version = int(request.data.get('version', 1))
+        except (TypeError, ValueError):
+            return error_response(request, self.action_name, 'invalid_version', 'version must be an integer.')
+        same_version = Proposal.objects.filter(match=match, version=version).first()
+        if same_version:
+            return success_response(
+                request, self.action_name,
+                {'proposal': _proposal_data(same_version), 'created': False, 'idempotent_replay': True},
+            )
+        previous = Proposal.objects.filter(match=match, version=version - 1).first() if version > 1 else None
+
+        source_refs = [item['id'] if isinstance(item, dict) else item for item in (match.citations or [])]
+        fit_summary = '；'.join(match.fit_points[:2]) if match.fit_points else '合作方向仍需人工补充'
+        packages = [
+            {
+                'name': 'light',
+                'value': '媒体支持与活动回顾建议稿',
+                'resources': ['公开来源整理', '活动回顾内容框架'],
+                'nextStep': '双方确认公开信息、内容授权与发布时间',
+            },
+            {
+                'name': 'medium',
+                'value': '主题分享或线上 Space 联动建议稿',
+                'resources': ['议题共创', '候选嘉宾与传播清单（均待人工确认）'],
+                'nextStep': '确认受众、议题、嘉宾、时间与各方责任',
+            },
+            {
+                'name': 'deep',
+                'value': '联合活动或黑客松建议稿',
+                'resources': ['活动机制共创', '项目招募与赛后复盘框架'],
+                'nextStep': '进入正式需求澄清、预算、法务与资源审批',
+            },
+        ]
+        risks = [*(match.conflicts or []), '资源、嘉宾、费用、权益和主办身份均未获得最终批准']
+        pending = [
+            *(match.missing_information or []),
+            '对方的合作目标、目标受众和成功指标是什么？',
+            '各方可投入资源及决策人是谁？',
+        ]
+        defaults = {
+            'previous_version': previous,
+            'status': 'draft',
+            'packages': packages,
+            'partner_value': f'围绕“{match.event.title}”提供分层、可选择且可核验的合作路径。',
+            'workspace_value': '沉淀高校合作案例、公开内容资产与长期生态关系。',
+            'resources': [item.title for item in match.workspace.capabilities.filter(approved=True).order_by('code')],
+            'pending_questions': pending,
+            'risks': risks,
+            'source_refs': source_refs,
+            'evidence': [
+                {'claimId': 'proposal_basis', 'claim': fit_summary, 'sourceIds': source_refs},
+                {
+                    'claimId': 'risks',
+                    'claim': '所有未批准资源必须在对外使用前人工确认。',
+                    'sourceIds': source_refs,
+                },
+            ],
+            'guardrail_checks': {
+                'noUnapprovedPrize': True,
+                'noGuaranteedExposure': True,
+                'humanApprovalRequired': True,
+                'externalSideEffectsAllowed': False,
+            },
+            'edit_summary': 'Deterministic three-tier proposal draft generated from the verified match.',
+            'edited_by': request.headers.get('X-ClawTree-Operator') or _operator(request),
+        }
+        try:
+            with transaction.atomic():
+                proposal = Proposal.objects.create(match=match, version=version, **defaults)
+        except (IntegrityError, ValidationError) as error:
+            return error_response(
+                request, self.action_name, 'proposal_generation_failed', str(error),
+                http_status=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request,
+            self.action_name,
+            {'proposal': _proposal_data(proposal), 'created': True, 'idempotent_replay': False},
+            http_status=status.HTTP_201_CREATED,
+            external_side_effect=False,
+        )
 
 
 class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):

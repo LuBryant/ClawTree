@@ -131,4 +131,5 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
         'rest_framework.filters.SearchFilter',
     ],
+    'EXCEPTION_HANDLER': 'home.api_contracts.clawtree_exception_handler',
 }

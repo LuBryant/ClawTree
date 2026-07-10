@@ -1,5 +1,46 @@
+import re
+import uuid
+
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
+
+
+SCORE_VALIDATORS = [MinValueValidator(0), MaxValueValidator(100)]
+
+
+def _validate_string_list(value, field_name, *, allow_empty=True):
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
+        raise ValidationError({field_name: 'Must be a list of non-empty strings.'})
+    if not allow_empty and not value:
+        raise ValidationError({field_name: 'Must contain at least one item.'})
+
+
+def _trace_contains_private_data(value):
+    """Fail closed when observability snapshots contain likely raw PII."""
+    sensitive_keys = {
+        'email', 'contact_email', 'recipient_email', 'phone', 'contact_phone',
+        'wechat', 'qq', 'raw_prompt', 'prompt', 'raw_text', 'input_text',
+        'email_body', 'message_body',
+    }
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if str(key).lower() in sensitive_keys:
+                return True
+            if _trace_contains_private_data(nested):
+                return True
+        return False
+    if isinstance(value, (list, tuple)):
+        return any(_trace_contains_private_data(item) for item in value)
+    if isinstance(value, str):
+        if value in {'[REDACTED]', '<redacted>'}:
+            return False
+        if re.search(r'(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])', value):
+            return True
+        if re.search(r'(?<!\d)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\d)', value):
+            return True
+    return False
 
 
 class Workspace(models.Model):
@@ -592,6 +633,591 @@ class OutreachDraft(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class ContactPoint(models.Model):
+    """DATA-6: an evidenced, purpose-limited public event contact."""
+
+    CHANNEL_CHOICES = [
+        ('email', 'Email'),
+        ('contact_page', 'Public contact page'),
+        ('phone', 'Phone'),
+        ('wechat', 'WeChat'),
+        ('qq', 'QQ'),
+    ]
+    PURPOSE_CHOICES = [
+        ('event', 'Event coordination'),
+        ('collaboration', 'Collaboration'),
+        ('media', 'Media'),
+        ('general', 'General public enquiry'),
+    ]
+    VERIFICATION_CHOICES = [
+        ('unverified', 'Unverified'),
+        ('verified', 'Verified public business contact'),
+        ('stale', 'Stale / needs re-verification'),
+        ('opted_out', 'Opted out'),
+        ('suppressed', 'Suppressed'),
+    ]
+
+    university_event = models.ForeignKey(
+        UniversityEvent, on_delete=models.CASCADE, related_name='contact_points', verbose_name='关联活动',
+    )
+    channel = models.CharField(max_length=30, choices=CHANNEL_CHOICES, verbose_name='联系方式类型')
+    value = models.CharField(max_length=500, verbose_name='联系值')
+    purpose = models.CharField(max_length=30, choices=PURPOSE_CHOICES, verbose_name='用途')
+    evidence_url = models.URLField(max_length=800, verbose_name='公开证据 URL')
+    first_verified_at = models.DateTimeField(default=timezone.now, verbose_name='首次核验时间')
+    last_verified_at = models.DateTimeField(default=timezone.now, verbose_name='最近核验时间')
+    confidence = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS, verbose_name='可信度 (0-100)')
+    verification_status = models.CharField(
+        max_length=20, choices=VERIFICATION_CHOICES, default='unverified', verbose_name='核验/退订状态',
+    )
+    is_public_business_contact = models.BooleanField(default=False, verbose_name='公开机构/活动联系方式')
+    is_mock = models.BooleanField(default=False, verbose_name='演示联系人')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['university_event', 'channel', 'value']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['university_event', 'channel', 'value'], name='unique_event_contact_channel_value',
+            ),
+        ]
+        verbose_name = '活动公开联系点'
+        verbose_name_plural = '活动公开联系点'
+
+    def clean(self):
+        super().clean()
+        if self.first_verified_at and self.last_verified_at and self.last_verified_at < self.first_verified_at:
+            raise ValidationError({'last_verified_at': 'Last verification cannot precede first verification.'})
+        if self.verification_status == 'verified' and not self.is_public_business_contact:
+            raise ValidationError({
+                'is_public_business_contact': 'A verified contact must be an evidenced public business contact.',
+            })
+        if self.channel == 'email' and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', self.value or ''):
+            raise ValidationError({'value': 'Email contact points must contain a valid email address.'})
+        if self.channel == 'contact_page' and not re.match(r'^https?://', self.value or ''):
+            raise ValidationError({'value': 'Contact page values must be an absolute public URL.'})
+
+    @property
+    def is_usable_for_live_outreach(self):
+        return bool(
+            self.verification_status == 'verified'
+            and self.is_public_business_contact
+            and not self.is_mock
+            and self.evidence_url
+            and self.last_verified_at
+        )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.university_event_id}:{self.channel}:{self.purpose}'
+
+
+class CollaborationMatch(models.Model):
+    """DATA-7: explainable event/campaign matching with cited sub-scores."""
+
+    STATUS_CHOICES = [
+        ('suggested', 'Suggested'),
+        ('verified', 'Human verified'),
+        ('rejected', 'Rejected'),
+    ]
+    SCORE_DIMENSIONS = (
+        'theme', 'audience', 'timing', 'city', 'resources', 'information',
+    )
+    ALLOWED_TRANSITIONS = {
+        'suggested': {'verified', 'rejected'},
+        'verified': {'rejected'},
+        'rejected': set(),
+    }
+
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='collaboration_matches', verbose_name='工作区',
+    )
+    event = models.ForeignKey(
+        UniversityEvent, on_delete=models.CASCADE, related_name='collaboration_matches', verbose_name='高校活动',
+    )
+    campaign_key = models.CharField(max_length=120, verbose_name='Campaign 标识')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='suggested', verbose_name='状态')
+    overall_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='总分')
+    theme_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='主题分')
+    audience_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='受众分')
+    timing_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='时间分')
+    city_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='城市分')
+    resource_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='资源分')
+    information_score = models.PositiveSmallIntegerField(validators=SCORE_VALIDATORS, verbose_name='信息完整度分')
+    fit_points = models.JSONField(default=list, blank=True, verbose_name='契合点')
+    missing_information = models.JSONField(default=list, blank=True, verbose_name='缺失信息')
+    conflicts = models.JSONField(default=list, blank=True, verbose_name='冲突项')
+    citations = models.JSONField(default=list, verbose_name='证据引用')
+    score_citations = models.JSONField(default=dict, verbose_name='分项评分引用')
+    scoring_version = models.CharField(max_length=80, verbose_name='评分规则版本')
+    model_version = models.CharField(max_length=120, verbose_name='模型/规则版本')
+    reviewed_by = models.CharField(max_length=120, blank=True, default='', verbose_name='审核人')
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name='审核时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['-overall_score', '-updated_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'event', 'campaign_key', 'scoring_version'],
+                name='unique_workspace_event_campaign_scoring',
+            ),
+        ]
+        verbose_name = '合作匹配'
+        verbose_name_plural = '合作匹配'
+
+    def clean(self):
+        super().clean()
+        if self.event_id and self.workspace_id and self.event.workspace_id != self.workspace_id:
+            raise ValidationError({'workspace': 'Match workspace must equal the event workspace.'})
+        for field_name in ('fit_points', 'missing_information', 'conflicts'):
+            _validate_string_list(getattr(self, field_name), field_name)
+        if not isinstance(self.citations, list) or not self.citations:
+            raise ValidationError({'citations': 'At least one event or capability citation is required.'})
+        citation_ids = set()
+        for citation in self.citations:
+            if not isinstance(citation, dict):
+                raise ValidationError({'citations': 'Each citation must be an object.'})
+            citation_id = citation.get('id')
+            if not isinstance(citation_id, str) or not citation_id.strip() or citation_id in citation_ids:
+                raise ValidationError({'citations': 'Citation ids must be non-empty and unique.'})
+            normalized_type = citation.get('source_type') or citation.get('type')
+            source_id = citation.get('source_id') or citation_id.partition(':')[2]
+            if normalized_type not in {'event', 'capability', 'event_source', 'approved_capability'} or not source_id:
+                raise ValidationError({'citations': 'Citations must resolve to an event or approved capability.'})
+            citation_ids.add(citation_id)
+        if not isinstance(self.score_citations, dict) or set(self.score_citations) != set(self.SCORE_DIMENSIONS):
+            raise ValidationError({'score_citations': 'Every scoring dimension must have its own citations.'})
+        for dimension, references in self.score_citations.items():
+            if not isinstance(references, list) or not references or any(ref not in citation_ids for ref in references):
+                raise ValidationError({'score_citations': f'{dimension} must cite one or more known citation ids.'})
+        if self.status == 'verified' and (not self.reviewed_by or not self.reviewed_at):
+            raise ValidationError({'status': 'Verified matches require a named human reviewer and reviewed_at.'})
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).only('status').first()
+            if previous and previous.status != self.status and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set()):
+                raise ValidationError({'status': f'Illegal match transition: {previous.status} -> {self.status}'})
+
+    def transition_to(self, next_status, reviewer=''):
+        if next_status not in self.ALLOWED_TRANSITIONS.get(self.status, set()):
+            raise ValidationError({'status': f'Illegal match transition: {self.status} -> {next_status}'})
+        self.status = next_status
+        if next_status == 'verified':
+            if not reviewer:
+                raise ValidationError({'reviewed_by': 'A named human reviewer is required.'})
+            self.reviewed_by = reviewer
+            self.reviewed_at = timezone.now()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.campaign_key}:{self.event_id}:{self.overall_score}'
+
+
+class Proposal(models.Model):
+    """DATA-8: versioned, reusable three-tier cooperation proposal."""
+
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('awaiting_approval', 'Awaiting approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('superseded', 'Superseded'),
+    ]
+    ALLOWED_TRANSITIONS = {
+        'draft': {'awaiting_approval', 'rejected', 'superseded'},
+        'awaiting_approval': {'approved', 'rejected', 'draft', 'superseded'},
+        'approved': {'superseded'},
+        'rejected': {'draft', 'superseded'},
+        'superseded': set(),
+    }
+
+    match = models.ForeignKey(
+        CollaborationMatch, on_delete=models.CASCADE, related_name='proposals', verbose_name='合作匹配',
+    )
+    version = models.PositiveIntegerField(default=1, verbose_name='版本')
+    previous_version = models.OneToOneField(
+        'self', on_delete=models.PROTECT, related_name='next_version', null=True, blank=True, verbose_name='上一版本',
+    )
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default='draft', verbose_name='审批状态')
+    packages = models.JSONField(default=list, verbose_name='轻/中/深三档合作包')
+    partner_value = models.TextField(blank=True, default='', verbose_name='合作方价值')
+    workspace_value = models.TextField(blank=True, default='', verbose_name='工作区价值')
+    resources = models.JSONField(default=list, blank=True, verbose_name='资源清单')
+    pending_questions = models.JSONField(default=list, blank=True, verbose_name='待确认项')
+    risks = models.JSONField(default=list, blank=True, verbose_name='风险')
+    source_refs = models.JSONField(default=list, verbose_name='事实来源引用')
+    evidence = models.JSONField(default=list, verbose_name='结论与引用映射')
+    guardrail_checks = models.JSONField(default=dict, verbose_name='合规检查')
+    edit_summary = models.TextField(blank=True, default='', verbose_name='人工编辑摘要')
+    edited_by = models.CharField(max_length=120, blank=True, default='', verbose_name='编辑人')
+    approved_by = models.CharField(max_length=120, blank=True, default='', verbose_name='审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    rejection_reason = models.TextField(blank=True, default='', verbose_name='驳回原因')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['match', '-version']
+        constraints = [
+            models.UniqueConstraint(fields=['match', 'version'], name='unique_match_proposal_version'),
+        ]
+        verbose_name = '合作提案'
+        verbose_name_plural = '合作提案'
+
+    def clean(self):
+        super().clean()
+        if self.version < 1:
+            raise ValidationError({'version': 'Proposal versions start at 1.'})
+        if self.version == 1 and self.previous_version_id:
+            raise ValidationError({'previous_version': 'Version 1 cannot have a previous version.'})
+        if self.version > 1:
+            if not self.previous_version_id:
+                raise ValidationError({'previous_version': 'Versioned proposals must link to the prior version.'})
+            if self.previous_version.match_id != self.match_id or self.previous_version.version != self.version - 1:
+                raise ValidationError({'previous_version': 'Previous version must be version - 1 for the same match.'})
+        if not isinstance(self.packages, list) or len(self.packages) != 3:
+            raise ValidationError({'packages': 'Proposal must contain exactly light, medium, and deep packages.'})
+        package_names = []
+        for package in self.packages:
+            if not isinstance(package, dict):
+                raise ValidationError({'packages': 'Each package must be an object.'})
+            if any(key not in package for key in ('name', 'value', 'resources', 'nextStep')):
+                raise ValidationError({'packages': 'Each package requires name, value, resources, and nextStep.'})
+            if not isinstance(package.get('resources'), list):
+                raise ValidationError({'packages': 'Package resources must be a list.'})
+            package_names.append(package.get('name'))
+        if package_names != ['light', 'medium', 'deep']:
+            raise ValidationError({'packages': 'Packages must be ordered light, medium, deep.'})
+        for field_name in ('resources', 'pending_questions', 'risks', 'source_refs'):
+            _validate_string_list(getattr(self, field_name), field_name, allow_empty=field_name not in {'source_refs'})
+        if not isinstance(self.evidence, list) or not self.evidence:
+            raise ValidationError({'evidence': 'Proposal claims require evidence mappings.'})
+        known_refs = set(self.source_refs)
+        for claim in self.evidence:
+            if not isinstance(claim, dict) or not (claim.get('claim_id') or claim.get('claimId')) or not claim.get('claim'):
+                raise ValidationError({'evidence': 'Each evidence item requires claimId and claim.'})
+            refs = claim.get('source_refs') or claim.get('sourceIds')
+            if not isinstance(refs, list) or not refs or any(ref not in known_refs for ref in refs):
+                raise ValidationError({'evidence': 'Every proposal claim must cite known source_refs.'})
+        required_guardrails = {'noUnapprovedPrize', 'noGuaranteedExposure', 'humanApprovalRequired'}
+        if not isinstance(self.guardrail_checks, dict) or not required_guardrails.issubset(self.guardrail_checks):
+            raise ValidationError({'guardrail_checks': 'Required proposal guardrails are missing.'})
+        if self.status == 'approved':
+            if not self.approved_by or not self.approved_at:
+                raise ValidationError({'status': 'Approved proposals require a named approver and approved_at.'})
+            if self.match.status != 'verified':
+                raise ValidationError({'match': 'Only a human-verified match can have an approved proposal.'})
+            if not all(self.guardrail_checks.get(key) is True for key in required_guardrails):
+                raise ValidationError({'guardrail_checks': 'All guardrails must pass before approval.'})
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).only('status', 'version', 'match_id').first()
+            if previous and (previous.version != self.version or previous.match_id != self.match_id):
+                raise ValidationError({'version': 'Proposal identity/version is immutable; create a new version.'})
+            if previous and previous.status != self.status and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set()):
+                raise ValidationError({'status': f'Illegal proposal transition: {previous.status} -> {self.status}'})
+
+    def transition_to(self, next_status):
+        if next_status not in self.ALLOWED_TRANSITIONS.get(self.status, set()):
+            raise ValidationError({'status': f'Illegal proposal transition: {self.status} -> {next_status}'})
+        self.status = next_status
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.match_id}:v{self.version}:{self.status}'
+
+
+class OutreachBatch(models.Model):
+    """DATA-9: human-approved, rate-limited collection of individual messages."""
+
+    STATUS_CHOICES = [
+        ('draft', 'Draft'), ('awaiting_approval', 'Awaiting approval'), ('approved', 'Approved'),
+        ('scheduled', 'Scheduled'), ('running', 'Running'), ('completed', 'Completed'),
+        ('stopped', 'Stopped'), ('failed', 'Failed'),
+    ]
+    ALLOWED_TRANSITIONS = {
+        'draft': {'awaiting_approval', 'stopped'},
+        'awaiting_approval': {'approved', 'draft', 'stopped'},
+        'approved': {'scheduled', 'running', 'stopped'},
+        'scheduled': {'running', 'stopped'},
+        'running': {'completed', 'stopped', 'failed'},
+        'failed': {'running', 'stopped'},
+        'completed': set(), 'stopped': set(),
+    }
+
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='outreach_batches', verbose_name='工作区',
+    )
+    name = models.CharField(max_length=200, verbose_name='批次名称')
+    selection_criteria = models.JSONField(default=dict, blank=True, verbose_name='筛选条件')
+    target_count = models.PositiveIntegerField(default=0, verbose_name='目标数量')
+    rate_limit_per_hour = models.PositiveIntegerField(default=10, verbose_name='每小时上限')
+    daily_limit = models.PositiveIntegerField(default=30, verbose_name='每日上限')
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
+    created_by = models.CharField(max_length=120, verbose_name='创建人')
+    approved_by = models.CharField(max_length=120, blank=True, default='', verbose_name='审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    scheduled_at = models.DateTimeField(null=True, blank=True, verbose_name='计划发送时间')
+    stop_requested = models.BooleanField(default=False, verbose_name='立即停止')
+    stop_reason = models.TextField(blank=True, default='', verbose_name='停止原因')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '外联批次'
+        verbose_name_plural = '外联批次'
+
+    def clean(self):
+        super().clean()
+        if self.rate_limit_per_hour < 1 or self.daily_limit < 1:
+            raise ValidationError({'rate_limit_per_hour': 'Rate and daily limits must be positive.'})
+        if self.status in {'approved', 'scheduled', 'running', 'completed', 'failed'} and (not self.approved_by or not self.approved_at):
+            raise ValidationError({'status': 'Dispatch-capable batches require human approval.'})
+        if self.status == 'scheduled' and not self.scheduled_at:
+            raise ValidationError({'scheduled_at': 'Scheduled batches require scheduled_at.'})
+        if (self.stop_requested or self.status == 'stopped') and not self.stop_reason:
+            raise ValidationError({'stop_reason': 'Stopped batches require a reason.'})
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).only('status').first()
+            if previous and previous.status != self.status and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set()):
+                raise ValidationError({'status': f'Illegal batch transition: {previous.status} -> {self.status}'})
+
+    def transition_to(self, next_status):
+        if next_status not in self.ALLOWED_TRANSITIONS.get(self.status, set()):
+            raise ValidationError({'status': f'Illegal batch transition: {self.status} -> {next_status}'})
+        self.status = next_status
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class OutreachMessage(models.Model):
+    """DATA-9: one school, one approved message, one idempotency key."""
+
+    STATUS_CHOICES = [
+        ('draft', 'Draft'), ('awaiting_approval', 'Awaiting approval'), ('approved', 'Approved'),
+        ('queued', 'Queued'), ('sending', 'Sending'), ('sent', 'Sent'), ('failed', 'Failed'),
+        ('bounced', 'Bounced'), ('unsubscribed', 'Unsubscribed'), ('suppressed', 'Suppressed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    PROVIDER_STATUS_CHOICES = [
+        ('none', 'Not submitted'), ('pending', 'Pending'), ('accepted', 'Accepted'),
+        ('delivered', 'Delivered'), ('deferred', 'Deferred'), ('bounced', 'Bounced'),
+        ('rejected', 'Rejected'), ('complained', 'Complaint'), ('unsubscribed', 'Unsubscribed'),
+    ]
+    ALLOWED_TRANSITIONS = {
+        'draft': {'awaiting_approval', 'cancelled', 'suppressed'},
+        'awaiting_approval': {'approved', 'draft', 'cancelled', 'suppressed'},
+        'approved': {'queued', 'cancelled', 'suppressed'},
+        'queued': {'sending', 'cancelled', 'suppressed'},
+        'sending': {'sent', 'failed', 'bounced', 'suppressed'},
+        'failed': {'queued', 'cancelled', 'suppressed'},
+        'sent': {'bounced', 'unsubscribed'},
+        'bounced': set(), 'unsubscribed': set(), 'suppressed': set(), 'cancelled': set(),
+    }
+
+    batch = models.ForeignKey(OutreachBatch, on_delete=models.CASCADE, related_name='messages', verbose_name='外联批次')
+    university_event = models.ForeignKey(
+        UniversityEvent, on_delete=models.PROTECT, related_name='outreach_messages', verbose_name='目标高校活动',
+    )
+    university_key = models.CharField(max_length=240, editable=False, verbose_name='规范化高校幂等键')
+    proposal = models.ForeignKey(Proposal, on_delete=models.PROTECT, related_name='outreach_messages', verbose_name='提案')
+    proposal_version = models.PositiveIntegerField(verbose_name='提案版本快照')
+    contact_point = models.ForeignKey(
+        ContactPoint, on_delete=models.PROTECT, related_name='outreach_messages', verbose_name='联系证据',
+    )
+    contact_evidence_url = models.URLField(max_length=800, verbose_name='联系证据 URL 快照')
+    contact_verified_at = models.DateTimeField(verbose_name='联系证据核验时间快照')
+    idempotency_key = models.CharField(max_length=160, unique=True, verbose_name='发送幂等键')
+    subject = models.CharField(max_length=300, verbose_name='主题')
+    body = models.TextField(verbose_name='个性化正文')
+    personalization = models.JSONField(default=list, blank=True, verbose_name='个性化依据')
+    citation_ids = models.JSONField(default=list, verbose_name='事实引用')
+    guardrail_checks = models.JSONField(default=dict, verbose_name='外联合规检查')
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default='draft', verbose_name='状态')
+    approved_by = models.CharField(max_length=120, blank=True, default='', verbose_name='审批人')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='审批时间')
+    provider = models.CharField(max_length=80, blank=True, default='', verbose_name='Provider')
+    provider_status = models.CharField(
+        max_length=24, choices=PROVIDER_STATUS_CHOICES, default='none', verbose_name='Provider 状态',
+    )
+    provider_message_id = models.CharField(max_length=200, blank=True, default='', verbose_name='Provider 消息 ID')
+    provider_error_code = models.CharField(max_length=120, blank=True, default='', verbose_name='Provider 错误码')
+    provider_error_message = models.TextField(blank=True, default='', verbose_name='Provider 错误摘要')
+    retry_count = models.PositiveIntegerField(default=0, verbose_name='重试次数')
+    next_retry_at = models.DateTimeField(null=True, blank=True, verbose_name='下次重试时间')
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name='发送时间')
+    bounced_at = models.DateTimeField(null=True, blank=True, verbose_name='退信时间')
+    unsubscribed_at = models.DateTimeField(null=True, blank=True, verbose_name='退订时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['batch', 'university_event']
+        constraints = [
+            models.UniqueConstraint(fields=['batch', 'university_key'], name='unique_batch_university_message'),
+        ]
+        verbose_name = '外联消息'
+        verbose_name_plural = '外联消息'
+
+    def clean(self):
+        super().clean()
+        if self.batch_id and self.university_event_id and self.batch.workspace_id != self.university_event.workspace_id:
+            raise ValidationError({'university_event': 'Message target must belong to the batch workspace.'})
+        if self.university_event_id:
+            expected_key = re.sub(r'\s+', ' ', self.university_event.university.strip()).casefold()
+            if self.university_key != expected_key:
+                raise ValidationError({'university_key': 'University key must be derived from the target school.'})
+        if self.proposal_id:
+            if self.proposal_version != self.proposal.version:
+                raise ValidationError({'proposal_version': 'Message must bind the exact proposal version.'})
+            if self.university_event_id and self.proposal.match.event_id != self.university_event_id:
+                raise ValidationError({'proposal': 'Proposal and message must target the same event/school.'})
+        if self.contact_point_id:
+            if self.university_event_id and self.contact_point.university_event_id != self.university_event_id:
+                raise ValidationError({'contact_point': 'Contact evidence must belong to the target event.'})
+            if self.contact_evidence_url != self.contact_point.evidence_url or self.contact_verified_at != self.contact_point.last_verified_at:
+                raise ValidationError({'contact_evidence_url': 'Contact evidence snapshot must match the bound contact point.'})
+        _validate_string_list(self.personalization, 'personalization')
+        _validate_string_list(self.citation_ids, 'citation_ids', allow_empty=False)
+        if not isinstance(self.guardrail_checks, dict):
+            raise ValidationError({'guardrail_checks': 'Guardrail checks must be an object.'})
+        approval_states = {'approved', 'queued', 'sending', 'sent', 'failed', 'bounced', 'unsubscribed'}
+        if self.status in approval_states:
+            if not self.approved_by or not self.approved_at:
+                raise ValidationError({'status': 'Dispatch requires explicit message approval.'})
+            if not self.batch.approved_by or not self.batch.approved_at:
+                raise ValidationError({'batch': 'Dispatch requires an approved batch.'})
+            if self.proposal.status != 'approved':
+                raise ValidationError({'proposal': 'Dispatch requires an approved proposal version.'})
+        if self.status in {'approved', 'queued', 'sending'} and (
+            self.contact_point.channel != 'email' or not self.contact_point.is_usable_for_live_outreach
+        ):
+            raise ValidationError({'contact_point': 'Live outreach requires a verified, public, non-mock contact.'})
+        if self.status in {'queued', 'sending'} and (self.batch.stop_requested or self.batch.status == 'stopped'):
+            raise ValidationError({'batch': 'No message may enter the send path after an emergency stop.'})
+        if self.status == 'sent' and (not self.sent_at or not self.provider_message_id or self.provider_status not in {'accepted', 'delivered'}):
+            raise ValidationError({'status': 'Sent messages require provider acknowledgement and sent_at.'})
+        if self.status == 'bounced' and not self.bounced_at:
+            raise ValidationError({'bounced_at': 'Bounced messages require bounced_at.'})
+        if self.status == 'unsubscribed' and not self.unsubscribed_at:
+            raise ValidationError({'unsubscribed_at': 'Unsubscribed messages require unsubscribed_at.'})
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).only('status', 'idempotency_key', 'proposal_version').first()
+            if previous and (previous.idempotency_key != self.idempotency_key or previous.proposal_version != self.proposal_version):
+                raise ValidationError({'idempotency_key': 'Idempotency key and proposal version are immutable.'})
+            if previous and previous.status != self.status and self.status not in self.ALLOWED_TRANSITIONS.get(previous.status, set()):
+                raise ValidationError({'status': f'Illegal message transition: {previous.status} -> {self.status}'})
+
+    def transition_to(self, next_status):
+        if next_status not in self.ALLOWED_TRANSITIONS.get(self.status, set()):
+            raise ValidationError({'status': f'Illegal message transition: {self.status} -> {next_status}'})
+        self.status = next_status
+
+    def save(self, *args, **kwargs):
+        if self.university_event_id:
+            self.university_key = re.sub(r'\s+', ' ', self.university_event.university.strip()).casefold()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class AgentRun(models.Model):
+    """DATA-10: privacy-safe model/schema trace, cost, latency, citations, and feedback."""
+
+    STATUS_CHOICES = [
+        ('queued', 'Queued'), ('running', 'Running'), ('succeeded', 'Succeeded'),
+        ('failed', 'Failed'), ('fallback', 'Deterministic fallback'), ('blocked', 'Privacy blocked'),
+    ]
+    PRIVACY_CHOICES = [
+        ('no_pii', 'No PII present'), ('redacted', 'Sensitive fields redacted'), ('blocked', 'Blocked by privacy guard'),
+    ]
+
+    run_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='运行 ID')
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='agent_runs', verbose_name='工作区',
+    )
+    task_type = models.CharField(max_length=40, verbose_name='Agent 任务类型')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued', verbose_name='状态')
+    model_provider = models.CharField(max_length=80, blank=True, default='', verbose_name='模型 Provider')
+    model_name = models.CharField(max_length=120, blank=True, default='', verbose_name='模型名称')
+    model_version = models.CharField(max_length=120, verbose_name='模型/规则版本')
+    schema_name = models.CharField(max_length=120, verbose_name='Schema 名称')
+    schema_version = models.CharField(max_length=80, verbose_name='Schema 版本')
+    prompt_version = models.CharField(max_length=80, blank=True, default='', verbose_name='Prompt 版本')
+    input_references = models.JSONField(default=list, verbose_name='输入引用')
+    citations = models.JSONField(default=list, blank=True, verbose_name='输出引用')
+    input_snapshot = models.JSONField(default=dict, blank=True, verbose_name='脱敏输入快照')
+    structured_output = models.JSONField(default=dict, blank=True, verbose_name='脱敏结构化输出')
+    tool_calls = models.JSONField(default=list, blank=True, verbose_name='脱敏工具调用')
+    input_tokens = models.PositiveIntegerField(default=0, verbose_name='输入 token')
+    output_tokens = models.PositiveIntegerField(default=0, verbose_name='输出 token')
+    cached_input_tokens = models.PositiveIntegerField(default=0, verbose_name='缓存输入 token')
+    latency_ms = models.PositiveIntegerField(default=0, verbose_name='延迟毫秒')
+    cost_microusd = models.PositiveBigIntegerField(default=0, verbose_name='成本 (micro USD)')
+    retry_count = models.PositiveIntegerField(default=0, verbose_name='重试次数')
+    cache_hit = models.BooleanField(default=False, verbose_name='缓存命中')
+    privacy_status = models.CharField(max_length=20, choices=PRIVACY_CHOICES, default='no_pii', verbose_name='隐私状态')
+    redacted_fields = models.JSONField(default=list, blank=True, verbose_name='脱敏字段')
+    error_code = models.CharField(max_length=120, blank=True, default='', verbose_name='错误码')
+    error_message = models.TextField(blank=True, default='', verbose_name='脱敏错误摘要')
+    human_feedback = models.JSONField(default=dict, blank=True, verbose_name='人工反馈')
+    feedback_by = models.CharField(max_length=120, blank=True, default='', verbose_name='反馈人')
+    feedback_at = models.DateTimeField(null=True, blank=True, verbose_name='反馈时间')
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name='结束时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Agent 运行'
+        verbose_name_plural = 'Agent 运行'
+
+    @property
+    def total_tokens(self):
+        return self.input_tokens + self.output_tokens
+
+    def clean(self):
+        super().clean()
+        _validate_string_list(self.input_references, 'input_references', allow_empty=False)
+        _validate_string_list(self.citations, 'citations')
+        _validate_string_list(self.redacted_fields, 'redacted_fields')
+        trace_payloads = (
+            self.input_references, self.citations, self.input_snapshot, self.structured_output,
+            self.tool_calls, self.error_message, self.human_feedback,
+        )
+        if any(_trace_contains_private_data(payload) for payload in trace_payloads):
+            raise ValidationError({'privacy_status': 'AgentRun trace contains raw PII or prompt/body content.'})
+        if self.redacted_fields and self.privacy_status != 'redacted':
+            raise ValidationError({'privacy_status': 'Runs with redacted_fields must be marked redacted.'})
+        if self.privacy_status == 'blocked' and self.status not in {'blocked', 'failed'}:
+            raise ValidationError({'status': 'Privacy-blocked traces cannot be successful.'})
+        if self.started_at and self.finished_at and self.finished_at < self.started_at:
+            raise ValidationError({'finished_at': 'Finish time cannot precede start time.'})
+        if self.status in {'succeeded', 'failed', 'fallback', 'blocked'} and not self.finished_at:
+            raise ValidationError({'finished_at': 'Terminal AgentRun states require finished_at.'})
+        if self.human_feedback and (not self.feedback_by or not self.feedback_at):
+            raise ValidationError({'human_feedback': 'Human feedback requires feedback_by and feedback_at.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.run_id}:{self.task_type}:{self.status}'
 
 
 class PipelineRun(models.Model):

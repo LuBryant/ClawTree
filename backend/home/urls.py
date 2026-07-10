@@ -11,9 +11,16 @@ from .api_views import (
     AdminSourceConnectorViewSet,
     AdminIngestionRunViewSet,
     AdminContentReviewViewSet,
+    AdminCollaborationMatchViewSet,
+    AdminProposalViewSet,
     PipelineViewSet,
     WorkspaceViewSet,
     WorkspaceCapabilityViewSet,
+    UserAssistantChatView,
+    UserCooperationLeadView,
+    AdminOutreachBatchApproveView,
+    AdminOutreachBatchSendView,
+    AdminOutreachBatchStopView,
 )
 
 router = DefaultRouter()
@@ -26,11 +33,18 @@ router.register(r'outreach', OutreachDraftViewSet, basename='outreach')
 router.register(r'admin/source-connectors', AdminSourceConnectorViewSet, basename='admin-source-connector')
 router.register(r'admin/ingestion-runs', AdminIngestionRunViewSet, basename='admin-ingestion-run')
 router.register(r'admin/content-reviews', AdminContentReviewViewSet, basename='admin-content-review')
+router.register(r'admin/matches', AdminCollaborationMatchViewSet, basename='admin-match')
+router.register(r'admin/proposals', AdminProposalViewSet, basename='admin-proposal')
 router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 router.register(r'workspace-capabilities', WorkspaceCapabilityViewSet, basename='workspace-capability')
 
 urlpatterns = [
     path('user/feed/', PublicFeedView.as_view(), name='user-feed'),
+    path('user/assistant/chat/', UserAssistantChatView.as_view(), name='user-assistant-chat'),
+    path('user/cooperation-leads/', UserCooperationLeadView.as_view(), name='user-cooperation-leads'),
+    path('admin/outreach-batches/<int:pk>/approve/', AdminOutreachBatchApproveView.as_view(), name='admin-outreach-batch-approve'),
+    path('admin/outreach-batches/<int:pk>/send/', AdminOutreachBatchSendView.as_view(), name='admin-outreach-batch-send'),
+    path('admin/outreach-batches/<int:pk>/stop/', AdminOutreachBatchStopView.as_view(), name='admin-outreach-batch-stop'),
     path('', include(router.urls)),
     path('pipeline/', PipelineViewSet.as_view({'get': 'list'})),
     path('pipeline/configure/', PipelineViewSet.as_view({'post': 'configure'})),

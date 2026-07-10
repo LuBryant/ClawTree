@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { addedLinesFromDiff, scanText } from '../scripts/secret-scan.mjs';
 
@@ -22,4 +23,10 @@ test('git diff scanner considers additions but ignores removed leaked values', (
   const removed = ['sk', 'removed0123456789abcdefghijkl'].join('-');
   const diff = `--- a/client.ts\n+++ b/client.ts\n@@ -1 +1 @@\n-const key = '${removed}'\n+const key = process.env.API_KEY`;
   assert.equal(addedLinesFromDiff(diff), 'const key = process.env.API_KEY');
+});
+
+test('source scanner implementation excludes dependency environments', () => {
+  const scannerSource = readFileSync(new URL('../scripts/secret-scan.mjs', import.meta.url), 'utf8');
+  assert.match(scannerSource, /segment === '\.venv'/);
+  assert.match(scannerSource, /segment === 'node_modules'/);
 });
