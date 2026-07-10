@@ -231,6 +231,8 @@ class TweetReview(models.Model):
     is_sensitive = models.BooleanField(default=False, verbose_name='是否含敏感文案')
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='推文发布时间')
     raw_data = models.TextField(blank=True, default='', verbose_name='原始 JSON')
+    space_url = models.URLField(max_length=500, blank=True, default='', verbose_name='Space 语音链接')
+    space_summary = models.TextField(blank=True, default='', verbose_name='Space 语音总结')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='收录时间')
 
     class Meta:

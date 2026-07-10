@@ -342,11 +342,15 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
   formatDate: (s: string | null) => string;
 }) {
   const { tx } = useLanguage();
+  const [showSpaceSummary, setShowSpaceSummary] = useState(false);
   // 解析 media_urls JSON
   let mediaUrls: string[] = [];
   try {
     mediaUrls = JSON.parse(t.media_urls);
   } catch { mediaUrls = []; }
+
+  const hasSpace = !!t.space_url;
+  const hasSpaceSummary = !!t.space_summary;
 
   return (
     <div className="event-card"
@@ -360,6 +364,11 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
           {t.is_sensitive && (
             <span className="badge" style={{ borderColor: 'var(--warning)', background: 'rgba(248,214,109,0.1)', color: 'var(--warning)' }}>
               {tx('已润色', 'Edited')}
+            </span>
+          )}
+          {hasSpace && (
+            <span className="badge" style={{ borderColor: 'var(--success)', background: 'rgba(22,242,179,0.1)', color: 'var(--success)' }}>
+              🎙️ Space
             </span>
           )}
         </div>
@@ -399,15 +408,42 @@ function TweetCard({ tweet: t, expanded, onToggle, formatDate }: {
         </div>
       )}
 
+      {/* Space 总结展示 */}
+      {showSpaceSummary && t.space_summary && (
+        <div className="mt-2 pt-3" style={{ borderTop: '1px solid rgba(22,242,179,0.25)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--success)' }}>
+              🎙️ {tx('Space 语音总结', 'Space Summary')}
+            </span>
+          </div>
+          <div className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-dim)' }}
+            dangerouslySetInnerHTML={{ __html: t.space_summary.replace(/\n/g, '<br/>') }} />
+        </div>
+      )}
+
       {/* 底部操作栏 */}
       <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
         <button onClick={onToggle} className="text-xs font-bold transition hover:brightness-125" style={{ color: 'var(--info)' }}>
           {expanded ? `▲ ${tx('收起', 'Collapse')}` : `▼ ${tx('展开全文', 'Read full text')}`}
         </button>
-        <a href={t.twitter_url} target="_blank" rel="noopener noreferrer"
-          className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>
-          🔗 {tx('查看原文', 'View original')}
-        </a>
+        <div className="flex gap-2">
+          {hasSpace && hasSpaceSummary && (
+            <button onClick={() => setShowSpaceSummary(!showSpaceSummary)}
+              className="btn-outline btn-sm whitespace-nowrap"
+              style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem', color: showSpaceSummary ? 'var(--text-dim)' : 'var(--success)', borderColor: 'rgba(22,242,179,0.4)' }}>
+              {showSpaceSummary ? tx('🎙️ 收起总结', '🎙️ Hide summary') : tx('🎙️ 查看总结', '🎙️ View summary')}
+            </button>
+          )}
+          {hasSpace && !hasSpaceSummary && (
+            <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>
+              {tx('🎙️ 总结待生成', '🎙️ Summary pending')}
+            </span>
+          )}
+          <a href={t.twitter_url} target="_blank" rel="noopener noreferrer"
+            className="btn-outline btn-sm whitespace-nowrap" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>
+            🔗 {tx('查看原文', 'View original')}
+          </a>
+        </div>
       </div>
     </div>
   );

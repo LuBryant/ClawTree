@@ -106,6 +106,8 @@ class TweetReviewSerializer(serializers.ModelSerializer):
             'text_processed',
             'media_urls',
             'twitter_url',
+            'space_url',
+            'space_summary',
             'summary',
             'is_review_worthy',
             'is_sensitive',
