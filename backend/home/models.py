@@ -1,5 +1,6 @@
 import re
 import uuid
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -168,6 +169,69 @@ class UniversityEvent(models.Model):
     )
 
     registration_url = models.URLField(max_length=500, blank=True, default='', verbose_name='报名链接')
+    timezone_name = models.CharField(max_length=64, default='Asia/Shanghai', verbose_name='活动时区')
+
+    REGISTRATION_STATUS_CHOICES = [
+        ('unknown', 'Unknown'),
+        ('open', 'Open'),
+        ('waitlist', 'Waitlist'),
+        ('closed', 'Closed'),
+        ('not_required', 'Not required'),
+    ]
+    registration_status = models.CharField(
+        max_length=20, choices=REGISTRATION_STATUS_CHOICES, default='unknown', verbose_name='报名状态',
+    )
+
+    EVENT_STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('postponed', 'Postponed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    event_status = models.CharField(
+        max_length=20, choices=EVENT_STATUS_CHOICES, default='scheduled', verbose_name='活动状态',
+    )
+    postponement_note = models.TextField(blank=True, default='', verbose_name='延期/取消说明')
+    page_published_at = models.DateTimeField(null=True, blank=True, verbose_name='来源页发布时间')
+    page_last_checked_at = models.DateTimeField(null=True, blank=True, verbose_name='来源页最近核验时间')
+    freshness_status = models.CharField(
+        max_length=20,
+        choices=[('unknown', 'Unknown'), ('fresh', 'Fresh'), ('aging', 'Aging'), ('stale', 'Stale')],
+        default='unknown',
+        verbose_name='页面新鲜度',
+    )
+    date_conflict = models.BooleanField(default=False, verbose_name='日期是否冲突')
+    date_conflict_note = models.TextField(blank=True, default='', verbose_name='日期冲突证据')
+
+    SOURCE_TIER_CHOICES = [
+        ('official_university', 'University official site'),
+        ('official_department', 'Faculty / innovation center'),
+        ('public_organization', 'Public student organization / society'),
+        ('event_platform', 'Public event platform'),
+        ('unknown', 'Unknown source'),
+    ]
+    source_tier = models.CharField(
+        max_length=30, choices=SOURCE_TIER_CHOICES, default='unknown', verbose_name='来源等级',
+    )
+    officiality_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    completeness_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    freshness_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    date_consistency_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    confidence_explanation = models.JSONField(default=dict, blank=True, verbose_name='可信度解释')
+
+    VERIFICATION_STATUS_CHOICES = [
+        ('pending', 'Pending human verification'),
+        ('verified', 'Verified'),
+        ('rejected', 'Rejected'),
+    ]
+    verification_status = models.CharField(
+        max_length=20, choices=VERIFICATION_STATUS_CHOICES, default='pending', db_index=True,
+        verbose_name='活动核验状态',
+    )
+    verification_queue_reasons = models.JSONField(default=list, blank=True, verbose_name='人工核验原因')
+    verification_requested_at = models.DateTimeField(null=True, blank=True, verbose_name='进入核验队列时间')
+    verified_at = models.DateTimeField(null=True, blank=True, verbose_name='核验时间')
+    verified_by = models.CharField(max_length=120, blank=True, default='', verbose_name='核验人')
+    verification_note = models.TextField(blank=True, default='', verbose_name='核验备注')
     is_contacted = models.BooleanField(default=False, verbose_name='是否已联系')
     score = models.PositiveSmallIntegerField(default=0, verbose_name='置信度 (0-100)')
     raw_data = models.TextField(blank=True, default='', verbose_name='原始数据 JSON')
@@ -182,6 +246,130 @@ class UniversityEvent(models.Model):
             or self.contact_wechat
             or self.contact_qq
         )
+
+    @property
+    def is_expired(self):
+        end_date = self.event_end_date or self.event_date
+        return bool(end_date and end_date < timezone.localdate())
+
+    @property
+    def needs_human_verification(self):
+        return self.verification_status == 'pending' or bool(self.verification_queue_reasons)
+
+    def clean(self):
+        super().clean()
+        try:
+            ZoneInfo(self.timezone_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValidationError({'timezone_name': 'Use a valid IANA timezone, for example Asia/Shanghai.'})
+        if self.event_date and self.event_end_date and self.event_end_date < self.event_date:
+            self.date_conflict = True
+            if not self.date_conflict_note:
+                self.date_conflict_note = 'event_end_date precedes event_date'
+        if self.event_status in {'postponed', 'cancelled'} and not self.postponement_note:
+            raise ValidationError({'postponement_note': 'Postponed or cancelled events require evidence notes.'})
+        if self.verification_status == 'verified' and (not self.verified_by or not self.verified_at):
+            raise ValidationError({'verification_status': 'Verified events require a human reviewer and timestamp.'})
+
+    def refresh_radar_assessment(self, *, reference_time=None):
+        """OR-3/6/7 deterministic, explainable scoring and fail-closed queueing."""
+        now = reference_time or timezone.now()
+        officiality = {
+            'official_university': 100,
+            'official_department': 90,
+            'public_organization': 75,
+            'event_platform': 55,
+            'unknown': 20,
+        }[self.source_tier]
+        completeness_fields = (
+            self.title, self.university, self.event_date, self.location,
+            self.description, self.source_url, self.registration_url,
+        )
+        completeness = round(100 * sum(bool(value) for value in completeness_fields) / len(completeness_fields))
+        if not self.page_last_checked_at:
+            freshness, freshness_status = 0, 'unknown'
+        else:
+            age_days = max(0, (now - self.page_last_checked_at).days)
+            if age_days <= 7:
+                freshness, freshness_status = 100, 'fresh'
+            elif age_days <= 14:
+                freshness, freshness_status = 75, 'aging'
+            elif age_days <= 30:
+                freshness, freshness_status = 40, 'aging'
+            else:
+                freshness, freshness_status = 0, 'stale'
+        if self.date_conflict or (self.event_date and self.event_end_date and self.event_end_date < self.event_date):
+            date_consistency = 0
+        elif self.event_date:
+            date_consistency = 100
+        else:
+            date_consistency = 25
+        overall = round(
+            officiality * .35 + completeness * .25 + freshness * .20 + date_consistency * .20
+        )
+        reasons = []
+        end_date = self.event_end_date or self.event_date
+        if overall < 70:
+            reasons.append('low_confidence')
+        if self.date_conflict or date_consistency == 0:
+            reasons.append('date_conflict')
+        if end_date and end_date < timezone.localdate(now):
+            reasons.append('expired')
+        if self.event_status in {'cancelled', 'postponed'}:
+            reasons.append(self.event_status)
+        if freshness_status in {'unknown', 'stale'}:
+            reasons.append('page_not_fresh')
+
+        self.officiality_score = officiality
+        self.completeness_score = completeness
+        self.freshness_score = freshness
+        self.date_consistency_score = date_consistency
+        self.score = overall
+        self.freshness_status = freshness_status
+        self.confidence_explanation = {
+            'version': 'campus-radar-v1',
+            'weights': {'officiality': 0.35, 'completeness': 0.25, 'freshness': 0.20, 'date_consistency': 0.20},
+            'subscores': {
+                'officiality': officiality,
+                'completeness': completeness,
+                'freshness': freshness,
+                'date_consistency': date_consistency,
+            },
+            'overall': overall,
+        }
+        self.verification_queue_reasons = list(dict.fromkeys(reasons))
+        if reasons:
+            self.verification_status = 'pending'
+            self.verification_requested_at = self.verification_requested_at or now
+            self.verified_at = None
+            self.verified_by = ''
+        return self.confidence_explanation
+
+    def mark_verified(self, *, reviewer, note='', reference_time=None):
+        now = reference_time or timezone.now()
+        self.refresh_radar_assessment(reference_time=now)
+        blocking = {'date_conflict', 'expired', 'cancelled', 'postponed'} & set(self.verification_queue_reasons)
+        if blocking:
+            raise ValidationError({'verification_status': f'Blocking radar findings must be resolved: {sorted(blocking)}'})
+        if not reviewer:
+            raise ValidationError({'verified_by': 'A named human reviewer is required.'})
+        self.verification_status = 'verified'
+        self.verification_queue_reasons = []
+        self.verified_by = reviewer
+        self.verified_at = now
+        self.verification_note = note
+
+    def mark_rejected(self, *, reviewer, note):
+        if not reviewer or not note:
+            raise ValidationError({'verification_status': 'Rejection requires a reviewer and reason.'})
+        self.verification_status = 'rejected'
+        self.verified_by = reviewer
+        self.verified_at = timezone.now()
+        self.verification_note = note
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-created_at']

@@ -1,0 +1,7 @@
+{
+  "search_url": "https://www.huodongxing.com/search?q=web3",
+  "search_html": "<html><body><div class=\"search-item event-card\"><a href=\"/event/998877\" title=\"浙江大学 Web3 校园黑客松\">查看活动</a><p class=\"desc\">区块链与智能合约校园挑战</p></div></body></html>",
+  "pages": {
+    "https://www.huodongxing.com/event/998877": "<html><head><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Hackathon\",\"name\":\"浙江大学 Web3 校园黑客松\",\"organizer\":{\"name\":\"浙江大学\"},\"keywords\":[\"Web3\",\"区块链\",\"智能合约\"],\"eventAttendanceMode\":\"https://schema.org/OnlineEventAttendanceMode\",\"location\":{\"name\":\"线上腾讯会议\"},\"startDate\":\"2026-10-01\",\"endDate\":\"2026-10-03\",\"description\":\"面向大学生的 Web3 与智能合约线上黑客松。\",\"offers\":{\"url\":\"https://www.huodongxing.com/event/998877/register\"}}</script></head><body><h1>浙江大学 Web3 校园黑客松</h1><p>浙江大学线上腾讯会议，2026-10-01 至 2026-10-03。</p></body></html>"
+  }
+}

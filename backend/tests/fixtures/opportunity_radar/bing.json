@@ -1,0 +1,7 @@
+{
+  "search_url": "https://www.bing.com/search?q=campus+ai",
+  "search_html": "<html><body><ol><li class=\"b_algo\"><h2><a href=\"https://ai.fudan.edu.cn/events/robotics-2026\">复旦大学具身智能与机器人工作坊</a></h2><div class=\"b_caption\"><p>复旦大学面向高校师生举办 AI 机器人工作坊。</p></div></li></ol></body></html>",
+  "pages": {
+    "https://ai.fudan.edu.cn/events/robotics-2026": "<html><head><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"EducationEvent\",\"name\":\"复旦大学具身智能与机器人工作坊\",\"organizer\":{\"@type\":\"CollegeOrUniversity\",\"name\":\"复旦大学\"},\"keywords\":[\"AI\",\"机器人\"],\"eventAttendanceMode\":\"https://schema.org/MixedEventAttendanceMode\",\"location\":{\"@type\":\"Place\",\"name\":\"张江校区人工智能创新中心\",\"address\":{\"addressLocality\":\"上海\",\"streetAddress\":\"海科路 100 号\"}},\"startDate\":\"2026-08-15T09:00:00+08:00\",\"endDate\":\"2026-08-16T17:00:00+08:00\",\"description\":\"面向高校师生的具身智能实践与机器人协作工作坊。\",\"offers\":{\"url\":\"https://ai.fudan.edu.cn/register/robotics-2026\"}}</script></head><body><main><h1>复旦大学具身智能与机器人工作坊</h1><p>主办：复旦大学</p><p>2026-08-15 至 2026-08-16，线上直播与张江校区人工智能创新中心同步举行。</p><a href=\"/register/robotics-2026\">报名</a></main></body></html>"
+  }
+}

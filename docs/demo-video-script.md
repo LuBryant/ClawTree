@@ -1,6 +1,6 @@
 # ClawTree 冠军级 Demo 视频脚本：AI Agent 自动采集 × 智能外联 × 链上存证
 
-参考：仓库根目录 [README.md](../README.md)、[SPEECH.md](../SPEECH.md)、[PPT.md](../PPT.md)。  
+参考：仓库根目录 [README.md](../README.md)、[SPEECH.md](SPEECH.md)、[PPT.md](PPT.md)。
 这版脚本用于正式录屏/现场路演：主线不再只是“页面展示”，而是展示 ClawTree 已经把媒体与高校增长做成一条可运行的 AI Agent 工作流。
 
 一句话主线：

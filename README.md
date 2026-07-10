@@ -420,6 +420,13 @@ python manage.py save_events data/highSchool/events_20260704_2340.json
 `meta`, deduplicates by `source_url`, and records the ingestion run. Optional
 flags include `--owner NAME` and `--workspace SLUG`.
 
+New contacts must use the evidence-bound `contact_points` schema documented in
+`docs/campus-opportunity-source-policy.md`. Only public institutional/event
+email addresses with an explicit `evidence_url`, `purpose`, public scope, and
+non-guessed provenance create `ContactPoint` records. Legacy event contact
+columns are no longer populated by this importer. Run the offline quality suite
+with `python manage.py evaluate_campus_opportunities`.
+
 ### Other ingestion and fixture commands
 
 Run the credential-free Content Relay fixture:
@@ -927,6 +934,11 @@ python manage.py save_events data/highSchool/events_20260704_2340.json
 
 `save_events` 接受包含 `events`、可选 `meta` 的 OpenClaw JSON 对象，以 `source_url`
 去重并记录采集运行；可选参数有 `--owner NAME` 和 `--workspace SLUG`。
+
+新联系人必须使用 `docs/campus-opportunity-source-policy.md` 定义的证据化
+`contact_points` 结构。只有显式提供 `evidence_url`、`purpose`、公开机构/活动范围且
+并非猜测得到的邮箱才会创建 `ContactPoint`；导入器不再写入活动旧联系字段。
+离线质量评测命令为 `python manage.py evaluate_campus_opportunities`。
 
 ### 其他采集与 Fixture 命令
 

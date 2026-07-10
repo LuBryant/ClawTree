@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "version": "2026-07-11.or-10-v1",
+    "as_of": "2026-07-11",
+    "purpose": "Campus Opportunity Radar deterministic quality evaluation",
+    "required_scenarios": [
+      "duplicate",
+      "expired",
+      "invalid_email",
+      "no_official_source",
+      "private_email",
+      "guessed_email"
+    ]
+  },
+  "cases": [
+    {
+      "id": "official-event-baseline",
+      "title": "高校 AI 创新工作坊",
+      "university": "示例大学",
+      "event_date": "2026-08-20",
+      "source_type": "university_official",
+      "source_url": "https://events.example.edu/ai-workshop",
+      "contact_points": [
+        {
+          "channel": "email",
+          "value": "events@example.edu",
+          "purpose": "event",
+          "evidence_url": "https://events.example.edu/ai-workshop#contact",
+          "contact_scope": "event",
+          "provenance": "published",
+          "is_public_business_contact": true,
+          "verification_status": "verified",
+          "confidence": 96
+        }
+      ],
+      "expected": {"issues": [], "accepted_contacts": 1}
+    },
+    {
+      "id": "duplicate-tracking-url",
+      "title": "高校 AI 创新工作坊（转载参数）",
+      "university": "示例大学",
+      "event_date": "2026-08-20",
+      "source_type": "university_official",
+      "source_url": "https://events.example.edu/ai-workshop?utm_source=platform",
+      "expected": {"issues": ["duplicate"], "accepted_contacts": 0}
+    },
+    {
+      "id": "expired-event",
+      "title": "已结束的 Web3 沙龙",
+      "university": "示例大学",
+      "event_date": "2026-06-01",
+      "source_type": "faculty_department",
+      "source_url": "https://cs.example.edu/events/web3-salon",
+      "expected": {"issues": ["expired"], "accepted_contacts": 0}
+    },
+    {
+      "id": "invalid-email",
+      "title": "错误邮箱活动",
+      "university": "示例大学",
+      "event_date": "2026-09-01",
+      "source_type": "innovation_center",
+      "source_url": "https://innovation.example.edu/events/invalid-email",
+      "contact_points": [
+        {
+          "channel": "email",
+          "value": "events-at-example.edu",
+          "purpose": "event",
+          "evidence_url": "https://innovation.example.edu/events/invalid-email#contact",
+          "contact_scope": "innovation_center",
+          "provenance": "published",
+          "is_public_business_contact": true
+        }
+      ],
+      "expected": {"issues": ["invalid_email"], "accepted_contacts": 0}
+    },
+    {
+      "id": "platform-only-no-official-source",
+      "title": "活动平台转载的高校讲座",
+      "university": "示例大学",
+      "event_date": "2026-09-02",
+      "source_type": "event_platform",
+      "source_url": "https://tickets.example.org/events/campus-talk",
+      "expected": {"issues": ["no_official_source"], "accepted_contacts": 0}
+    },
+    {
+      "id": "private-email-provider",
+      "title": "仅留私人邮箱的社团活动",
+      "university": "示例大学",
+      "event_date": "2026-09-03",
+      "source_type": "public_student_org",
+      "source_url": "https://clubs.example.edu/events/private-email",
+      "contact_points": [
+        {
+          "channel": "email",
+          "value": "student.organizer@gmail.com",
+          "purpose": "event",
+          "evidence_url": "https://clubs.example.edu/events/private-email#contact",
+          "contact_scope": "private",
+          "provenance": "published",
+          "is_public_business_contact": false
+        }
+      ],
+      "expected": {
+        "issues": ["not_public_business_contact", "private_or_unspecified_scope", "personal_email_provider"],
+        "accepted_contacts": 0
+      }
+    },
+    {
+      "id": "guessed-role-email",
+      "title": "根据域名猜测邮箱的学会活动",
+      "university": "示例大学",
+      "event_date": "2026-09-04",
+      "source_type": "professional_society",
+      "source_url": "https://society.example.org/events/guessed-email",
+      "contact_points": [
+        {
+          "channel": "email",
+          "value": "events@society.example.org",
+          "purpose": "collaboration",
+          "evidence_url": "https://society.example.org/events/guessed-email",
+          "contact_scope": "professional_society",
+          "provenance": "guessed",
+          "is_guessed": true,
+          "is_public_business_contact": true
+        }
+      ],
+      "expected": {"issues": ["guessed_contact"], "accepted_contacts": 0}
+    },
+    {
+      "id": "missing-contact-evidence-and-purpose",
+      "title": "缺少联系证据与用途",
+      "university": "示例大学",
+      "event_date": "2026-09-05",
+      "source_type": "university_official",
+      "source_url": "https://events.example.edu/no-contact-evidence",
+      "contact_points": [
+        {
+          "channel": "email",
+          "value": "events@example.edu",
+          "contact_scope": "event",
+          "provenance": "published",
+          "is_public_business_contact": true
+        }
+      ],
+      "expected": {"issues": ["missing_evidence_url", "missing_purpose"], "accepted_contacts": 0}
+    }
+  ]
+}

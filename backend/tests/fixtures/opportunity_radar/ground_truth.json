@@ -1,0 +1,32 @@
+{
+  "bing": {
+    "title": "复旦大学具身智能与机器人工作坊",
+    "university": "复旦大学",
+    "topic": "AI",
+    "format": "hybrid",
+    "location": "张江校区人工智能创新中心 上海 海科路 100 号",
+    "starts_at": "2026-08-15",
+    "ends_at": "2026-08-16",
+    "registration_url": "https://ai.fudan.edu.cn/register/robotics-2026"
+  },
+  "ccf": {
+    "title": "中山大学可信人工智能论坛",
+    "university": "中山大学",
+    "topic": "AI",
+    "format": "offline",
+    "location": "广州校区南校园怀士堂 广州",
+    "starts_at": "2026-09-20",
+    "ends_at": "2026-09-20",
+    "registration_url": "https://www.ccf.org.cn/Activities/2026/sysu-ai-forum/register"
+  },
+  "huodongxing": {
+    "title": "浙江大学 Web3 校园黑客松",
+    "university": "浙江大学",
+    "topic": "Web3",
+    "format": "online",
+    "location": "线上腾讯会议",
+    "starts_at": "2026-10-01",
+    "ends_at": "2026-10-03",
+    "registration_url": "https://www.huodongxing.com/event/998877/register"
+  }
+}

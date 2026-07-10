@@ -11,6 +11,12 @@ class UniversityEventFilter(django_filters.FilterSet):
     score_min = django_filters.NumberFilter(field_name='score', lookup_expr='gte')
     event_date_from = django_filters.DateFilter(field_name='event_date', lookup_expr='gte')
     event_date_to = django_filters.DateFilter(field_name='event_date', lookup_expr='lte')
+    registration_status = django_filters.CharFilter(lookup_expr='exact')
+    event_status = django_filters.CharFilter(lookup_expr='exact')
+    source_tier = django_filters.CharFilter(lookup_expr='exact')
+    verification_status = django_filters.CharFilter(lookup_expr='exact')
+    freshness_status = django_filters.CharFilter(lookup_expr='exact')
+    needs_verification = django_filters.BooleanFilter(method='filter_needs_verification')
 
     class Meta:
         model = UniversityEvent
@@ -18,7 +24,14 @@ class UniversityEventFilter(django_filters.FilterSet):
             'category', 'event_type', 'university',
             'is_contacted', 'score_min',
             'event_date_from', 'event_date_to',
+            'registration_status', 'event_status', 'source_tier',
+            'verification_status', 'freshness_status',
         ]
+
+    def filter_needs_verification(self, queryset, name, value):
+        if value:
+            return queryset.filter(verification_status='pending')
+        return queryset.exclude(verification_status='pending')
 
 
 class EventReviewFilter(django_filters.FilterSet):

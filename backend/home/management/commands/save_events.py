@@ -10,12 +10,13 @@ OpenClaw University-Event-Collector — 活动保存命令
 import json
 import sys
 import time
-from datetime import date, datetime
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from home.models import IngestionRun, SourceConnector, UniversityEvent, Workspace
+from home.models import ContactPoint, IngestionRun, SourceConnector, UniversityEvent, Workspace
+from home.opportunity_quality import extract_contact_candidates, validate_contact_candidate
 
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -49,6 +50,37 @@ def _infer_category(title, description):
 VALID_TYPES = ['黑客松', '分享会', '讲座', '竞赛', '研讨会', '论坛', '工作坊', '其他']
 
 
+def _redacted_raw_event(event):
+    """Keep source facts for audit without persisting contact values outside ContactPoint."""
+    snapshot = dict(event)
+    for key in (
+        'contact', 'contact_points', 'contact_email', 'contact_ai_email',
+        'contact_phone', 'contact_wechat', 'contact_qq',
+    ):
+        snapshot.pop(key, None)
+    snapshot['contact_data_redacted'] = True
+    return snapshot
+
+
+def _contact_defaults(candidate, *, verified_at=None):
+    raw_confidence = candidate.get('confidence')
+    try:
+        confidence = max(0, min(100, int(raw_confidence))) if raw_confidence is not None else 0
+    except (TypeError, ValueError):
+        confidence = 0
+    verified_at = verified_at or timezone.now()
+    return {
+        'purpose': str(candidate['purpose']).strip().lower(),
+        'evidence_url': str(candidate.get('evidence_url') or candidate.get('evidenceUrl')).strip()[:800],
+        'confidence': confidence,
+        # Import evidence can establish public-business scope, but cannot stand
+        # in for the later human verification required by live outreach.
+        'verification_status': 'unverified',
+        'is_public_business_contact': True,
+        'last_verified_at': verified_at,
+    }
+
+
 class Command(BaseCommand):
     help = '导入 OpenClaw University-Event-Collector 输出的 JSON'
 
@@ -75,6 +107,8 @@ class Command(BaseCommand):
         self.stdout.write(f'  events: {len(events)}')
 
         saved = skipped = failed = 0
+        contacts_saved = contacts_updated = contacts_rejected = 0
+        contact_rejections = []
         failed_items = []
         run = None
         connector = None
@@ -104,7 +138,6 @@ class Command(BaseCommand):
             # 兼容两种输入格式
             # 格式 A（OpenClaw 旧版）: school, activity_name, date, type, contact:{official_email,...}, confidence
             # 格式 B（OpenClaw 新版）: university, title, event_date, event_type, contact_email, score
-            contact = ev.get('contact', {})
             title = (ev.get('title') or ev.get('activity_name') or '')[:500]
             university = (ev.get('university') or ev.get('school') or '')[:200]
             desc = (ev.get('description') or '')[:1000]
@@ -113,12 +146,20 @@ class Command(BaseCommand):
             if ev_type not in VALID_TYPES:
                 ev_type = '其他'
             event_date_raw = ev.get('event_date') or ev.get('date') or None
-            contact_email = (ev.get('contact_email') or contact.get('official_email') or '')[:200]
-            contact_ai_email = (ev.get('contact_ai_email') or contact.get('ai_dept_email') or '')[:200]
-            contact_phone = (ev.get('contact_phone') or contact.get('phone') or '')[:50]
-            contact_wechat = (ev.get('contact_wechat') or contact.get('wechat') or '')[:100]
-            contact_qq = (ev.get('contact_qq') or contact.get('qq') or '')[:50]
             location = (ev.get('location') or '')[:300]
+            accepted_contacts = []
+            for contact_index, candidate in enumerate(extract_contact_candidates(ev)):
+                reasons = validate_contact_candidate(candidate)
+                if reasons:
+                    contacts_rejected += 1
+                    contact_rejections.append({
+                        'event_index': i,
+                        'contact_index': contact_index,
+                        'title': title[:80],
+                        'reasons': reasons,
+                    })
+                else:
+                    accepted_contacts.append(candidate)
             # score: 新版直接是整数，旧版 confidence 是 0-1 浮点
             raw_score = ev.get('score') or ev.get('confidence')
             if raw_score is not None:
@@ -139,10 +180,11 @@ class Command(BaseCommand):
 
             if dry_run:
                 self.stdout.write(self.style.WARNING(f'    [DRY-RUN] [{_infer_category(title, desc)}] {title[:60]}'))
+                contacts_saved += len(accepted_contacts)
                 saved += 1
                 continue
 
-            _, created = UniversityEvent.objects.update_or_create(
+            event, created = UniversityEvent.objects.update_or_create(
                 workspace=workspace,
                 source_url=source_url,
                 defaults={
@@ -152,17 +194,29 @@ class Command(BaseCommand):
                     'description': desc,
                     'location': location,
                     'source_name': 'openclaw',
-                    'contact_email': contact_email,
-                    'contact_ai_email': contact_ai_email,
-                    'contact_phone': contact_phone,
-                    'contact_wechat': contact_wechat,
-                    'contact_qq': contact_qq,
                     'category': _infer_category(title, desc),
                     'event_type': ev_type,
                     'score': score,
-                    'raw_data': json.dumps(ev, ensure_ascii=False),
+                    'raw_data': json.dumps(_redacted_raw_event(ev), ensure_ascii=False),
                 },
             )
+
+            for candidate in accepted_contacts:
+                verified_at = timezone.now()
+                contact_defaults = _contact_defaults(candidate, verified_at=verified_at)
+                contact, contact_created = ContactPoint.objects.get_or_create(
+                    university_event=event,
+                    channel='email',
+                    value=str(candidate['value']).strip().lower()[:500],
+                    defaults={**contact_defaults, 'first_verified_at': verified_at},
+                )
+                if contact_created:
+                    contacts_saved += 1
+                else:
+                    for field, value in contact_defaults.items():
+                        setattr(contact, field, value)
+                    contact.save()
+                    contacts_updated += 1
 
             if created:
                 saved += 1
@@ -197,6 +251,10 @@ class Command(BaseCommand):
             'saved': saved,
             'skipped': skipped,
             'failed': failed,
+            'contacts_saved': contacts_saved,
+            'contacts_updated': contacts_updated,
+            'contacts_rejected': contacts_rejected,
+            'contact_rejections': contact_rejections,
             'run_id': run.id if run else None,
         }
         self.stdout.write(self.style.SUCCESS(f'DONE — saved {saved}, skipped {skipped}, failed {failed}'))

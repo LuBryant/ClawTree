@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -879,7 +880,39 @@ class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyMode
             },
             'contacted': qs.filter(is_contacted=True).count(),
             'uncontacted': qs.filter(is_contacted=False).count(),
+            'verification_queue': qs.filter(verification_status='pending').count(),
+            'verified': qs.filter(verification_status='verified').count(),
+            'date_conflicts': qs.filter(date_conflict=True).count(),
         })
+
+    @action(detail=True, methods=['post'])
+    def assess(self, request, pk=None):
+        event = self.get_object()
+        event.refresh_radar_assessment()
+        event.save()
+        return Response(AdminUniversityEventSerializer(event).data)
+
+    @action(detail=True, methods=['post'])
+    def verify(self, request, pk=None):
+        event = self.get_object()
+        reviewer = request.data.get('reviewer') or request.headers.get('X-ClawTree-Operator', '')
+        try:
+            event.mark_verified(reviewer=reviewer, note=request.data.get('note', ''))
+            event.save()
+        except ValidationError as error:
+            return Response({'error': error.message_dict}, status=status.HTTP_409_CONFLICT)
+        return Response(AdminUniversityEventSerializer(event).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        event = self.get_object()
+        reviewer = request.data.get('reviewer') or request.headers.get('X-ClawTree-Operator', '')
+        try:
+            event.mark_rejected(reviewer=reviewer, note=request.data.get('note', ''))
+            event.save()
+        except ValidationError as error:
+            return Response({'error': error.message_dict}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(AdminUniversityEventSerializer(event).data)
 
     @action(detail=False, methods=['post'])
     def generate_email(self, request):
@@ -965,6 +998,17 @@ class PublicUniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOn
     filterset_class = UniversityEventFilter
     search_fields = ['title', 'university', 'description', 'source_name', 'location']
     ordering_fields = ['event_date', 'created_at']
+
+    def get_queryset(self):
+        today = timezone.localdate()
+        return super().get_queryset().filter(
+            verification_status='verified',
+            event_status='scheduled',
+            event_date__isnull=False,
+        ).filter(
+            Q(event_end_date__gte=today)
+            | Q(event_end_date__isnull=True, event_date__gte=today)
+        )
 
 
 class OutreachDraftViewSet(WorkspaceScopedQuerysetMixin, viewsets.ModelViewSet):

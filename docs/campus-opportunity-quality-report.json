@@ -1,0 +1,150 @@
+{
+  "fixture_version": "2026-07-11.or-10-v1",
+  "as_of": "2026-07-11",
+  "total": 8,
+  "passed": 8,
+  "failed": 0,
+  "issue_counts": {
+    "duplicate": 1,
+    "expired": 1,
+    "guessed_contact": 1,
+    "invalid_email": 1,
+    "missing_evidence_url": 1,
+    "missing_purpose": 1,
+    "no_official_source": 1,
+    "not_public_business_contact": 1,
+    "personal_email_provider": 1,
+    "private_or_unspecified_scope": 1
+  },
+  "results": [
+    {
+      "id": "official-event-baseline",
+      "issues": [],
+      "accepted_contacts": 1,
+      "contact_rejections": [],
+      "expected_issues": [],
+      "passed": true
+    },
+    {
+      "id": "duplicate-tracking-url",
+      "issues": [
+        "duplicate"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [],
+      "expected_issues": [
+        "duplicate"
+      ],
+      "passed": true
+    },
+    {
+      "id": "expired-event",
+      "issues": [
+        "expired"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [],
+      "expected_issues": [
+        "expired"
+      ],
+      "passed": true
+    },
+    {
+      "id": "invalid-email",
+      "issues": [
+        "invalid_email"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [
+        {
+          "index": 0,
+          "reasons": [
+            "invalid_email"
+          ]
+        }
+      ],
+      "expected_issues": [
+        "invalid_email"
+      ],
+      "passed": true
+    },
+    {
+      "id": "platform-only-no-official-source",
+      "issues": [
+        "no_official_source"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [],
+      "expected_issues": [
+        "no_official_source"
+      ],
+      "passed": true
+    },
+    {
+      "id": "private-email-provider",
+      "issues": [
+        "not_public_business_contact",
+        "private_or_unspecified_scope",
+        "personal_email_provider"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [
+        {
+          "index": 0,
+          "reasons": [
+            "not_public_business_contact",
+            "private_or_unspecified_scope",
+            "personal_email_provider"
+          ]
+        }
+      ],
+      "expected_issues": [
+        "not_public_business_contact",
+        "private_or_unspecified_scope",
+        "personal_email_provider"
+      ],
+      "passed": true
+    },
+    {
+      "id": "guessed-role-email",
+      "issues": [
+        "guessed_contact"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [
+        {
+          "index": 0,
+          "reasons": [
+            "guessed_contact"
+          ]
+        }
+      ],
+      "expected_issues": [
+        "guessed_contact"
+      ],
+      "passed": true
+    },
+    {
+      "id": "missing-contact-evidence-and-purpose",
+      "issues": [
+        "missing_evidence_url",
+        "missing_purpose"
+      ],
+      "accepted_contacts": 0,
+      "contact_rejections": [
+        {
+          "index": 0,
+          "reasons": [
+            "missing_evidence_url",
+            "missing_purpose"
+          ]
+        }
+      ],
+      "expected_issues": [
+        "missing_evidence_url",
+        "missing_purpose"
+      ],
+      "passed": true
+    }
+  ]
+}

@@ -57,6 +57,7 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'university',
             'event_date',
             'event_end_date',
+            'timezone_name',
             'location',
             'description',
             'source_url',
@@ -64,6 +65,10 @@ class UniversityEventSerializer(serializers.ModelSerializer):
             'category',
             'event_type',
             'registration_url',
+            'registration_status',
+            'event_status',
+            'freshness_status',
+            'source_tier',
             'created_at',
         ]
         read_only_fields = ['created_at']
@@ -80,7 +85,24 @@ class AdminUniversityEventSerializer(UniversityEventSerializer):
             'contact_qq',
             'is_contacted',
             'score',
+            'postponement_note',
+            'page_published_at',
+            'page_last_checked_at',
+            'date_conflict',
+            'date_conflict_note',
+            'officiality_score',
+            'completeness_score',
+            'freshness_score',
+            'date_consistency_score',
+            'confidence_explanation',
+            'verification_status',
+            'verification_queue_reasons',
+            'verification_requested_at',
+            'verified_at',
+            'verified_by',
+            'verification_note',
         ]
+        read_only_fields = fields
 
 
 class EventReviewSerializer(serializers.ModelSerializer):

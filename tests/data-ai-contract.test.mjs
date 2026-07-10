@@ -48,6 +48,16 @@ const providerSource = await readFile(
 const goldenGate = JSON.parse(
   await readFile(new URL('../frontend/data/golden-gate.json', import.meta.url), 'utf8'),
 );
+const campusSourcePolicy = await readFile(
+  new URL('../docs/campus-opportunity-source-policy.md', import.meta.url),
+  'utf8',
+);
+const campusQualityFixture = JSON.parse(
+  await readFile(new URL('../backend/data/quality/campus-opportunity-eval.json', import.meta.url), 'utf8'),
+);
+const campusQualityReport = JSON.parse(
+  await readFile(new URL('../docs/campus-opportunity-quality-report.json', import.meta.url), 'utf8'),
+);
 
 test('DATA-1~4 content relay models and migration are present', () => {
   for (const modelName of ['SourceConnector', 'IngestionRun', 'ContentItem', 'EditorialReview']) {
@@ -159,6 +169,33 @@ test('CR-3/CR-16 ingestion jobs write run reports and have scheduler entries', (
   assert.match(saveEventsCommand, /'source': source/);
   assert.match(crontabSource, /run_content_relay/);
   assert.match(crontabSource, /cron_content_relay\.log/);
+});
+
+test('OR-1/OR-5/OR-10 freeze source priority and fail closed on unsafe contacts', () => {
+  const orderedSources = [
+    'university_official', 'faculty_department', 'innovation_center',
+    'public_student_org', 'professional_society', 'event_platform',
+  ];
+  let previousIndex = -1;
+  for (const source of orderedSources) {
+    const index = campusSourcePolicy.indexOf(source);
+    assert.ok(index > previousIndex, `${source} must appear in frozen priority order`);
+    previousIndex = index;
+  }
+  assert.match(saveEventsCommand, /ContactPoint\.objects\.get_or_create/);
+  assert.match(saveEventsCommand, /validate_contact_candidate/);
+  assert.match(saveEventsCommand, /contact_data_redacted/);
+  assert.doesNotMatch(saveEventsCommand, /'contact_email': contact_email/);
+  assert.doesNotMatch(saveEventsCommand, /'contact_phone': contact_phone/);
+
+  assert.deepEqual(campusQualityFixture.meta.required_scenarios, [
+    'duplicate', 'expired', 'invalid_email', 'no_official_source', 'private_email', 'guessed_email',
+  ]);
+  assert.equal(campusQualityReport.failed, 0);
+  assert.equal(campusQualityReport.passed, campusQualityFixture.cases.length);
+  for (const issue of ['duplicate', 'expired', 'invalid_email', 'no_official_source', 'guessed_contact']) {
+    assert.ok(campusQualityReport.issue_counts[issue] >= 1, issue);
+  }
 });
 
 test('GATE-5 golden set contains 10 content items, 10 events, and 3 proposal targets', () => {

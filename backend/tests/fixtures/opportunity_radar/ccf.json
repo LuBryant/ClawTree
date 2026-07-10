@@ -1,0 +1,7 @@
+{
+  "search_url": "https://www.ccf.org.cn/Activities/",
+  "search_html": "<html><body><div class=\"activities-list\"><a href=\"/Activities/2026/sysu-ai-forum\" title=\"可信人工智能论坛\">中山大学可信人工智能论坛</a></div></body></html>",
+  "pages": {
+    "https://www.ccf.org.cn/Activities/2026/sysu-ai-forum": "<html><head><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Event\",\"name\":\"中山大学可信人工智能论坛\",\"organizer\":{\"name\":\"中山大学\"},\"keywords\":\"人工智能, AI Safety\",\"eventAttendanceMode\":\"https://schema.org/OfflineEventAttendanceMode\",\"location\":{\"name\":\"广州校区南校园怀士堂\",\"address\":{\"addressLocality\":\"广州\"}},\"startDate\":\"2026-09-20\",\"endDate\":\"2026-09-20\",\"description\":\"围绕可信人工智能评测与治理开展的高校论坛。\",\"registrationUrl\":\"https://www.ccf.org.cn/Activities/2026/sysu-ai-forum/register\"}</script></head><body><h1>中山大学可信人工智能论坛</h1><p>中山大学，广州校区南校园怀士堂，2026-09-20 线下举办。</p></body></html>"
+  }
+}

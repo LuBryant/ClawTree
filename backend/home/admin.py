@@ -14,12 +14,48 @@ admin.site.register(Capability)
 class UniversityEventAdmin(admin.ModelAdmin):
     list_display = [
         'workspace', 'title', 'university', 'category', 'event_type',
-        'event_date', 'score', 'contact_email', 'contact_wechat', 'is_contacted', 'created_at',
+        'event_date', 'event_status', 'registration_status', 'source_tier', 'score',
+        'verification_status', 'freshness_status', 'date_conflict', 'is_contacted', 'created_at',
     ]
-    list_filter = ['workspace', 'category', 'event_type', 'is_contacted', 'university']
+    list_filter = [
+        'workspace', 'category', 'event_type', 'event_status', 'registration_status',
+        'source_tier', 'verification_status', 'freshness_status', 'date_conflict', 'is_contacted',
+    ]
     search_fields = ['title', 'university', 'description', 'contact_email', 'contact_ai_email']
     ordering = ['-created_at']
-    readonly_fields = ['created_at']
+    readonly_fields = [
+        'score', 'officiality_score', 'completeness_score', 'freshness_score',
+        'date_consistency_score', 'confidence_explanation', 'verification_queue_reasons',
+        'verification_requested_at', 'verified_at', 'verified_by', 'created_at',
+    ]
+    actions = ['reassess_events', 'verify_events', 'reject_events']
+
+    @admin.action(description='Recalculate radar confidence and verification queue')
+    def reassess_events(self, request, queryset):
+        for event in queryset:
+            event.refresh_radar_assessment()
+            event.save()
+
+    @admin.action(description='Verify selected eligible events')
+    def verify_events(self, request, queryset):
+        verified = 0
+        for event in queryset:
+            try:
+                event.mark_verified(reviewer=request.user.get_username() or 'django-admin')
+                event.save()
+                verified += 1
+            except Exception:
+                continue
+        self.message_user(request, f'Verified {verified} eligible event(s).')
+
+    @admin.action(description='Reject selected events')
+    def reject_events(self, request, queryset):
+        for event in queryset:
+            event.mark_rejected(
+                reviewer=request.user.get_username() or 'django-admin',
+                note='Rejected from Django admin verification queue.',
+            )
+            event.save()
 
 
 @admin.register(EventReview)
