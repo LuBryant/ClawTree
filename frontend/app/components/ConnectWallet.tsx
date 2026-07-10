@@ -3,8 +3,11 @@
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
 import { formatUnits } from 'viem';
 import { useTronWallet } from '../hooks/useTronWallet';
+import { useState, useEffect } from 'react';
 
 export default function ConnectWallet() {
+  const [mounted, setMounted] = useState(false);
+
   // ---- TRON native (TronLink / OKX) ----
   const tron = useTronWallet();
 
@@ -13,6 +16,20 @@ export default function ConnectWallet() {
   const { connect: wagmiConnect, connectors } = useConnect();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { data: evmBalance } = useBalance({ address: evmAddress });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 水合完成前显示占位，保证服务端/客户端首次渲染一致
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-9 w-24 animate-pulse rounded-lg bg-zinc-800" />
+        <div className="h-9 w-24 animate-pulse rounded-lg bg-zinc-800" />
+      </div>
+    );
+  }
 
   const isConnected = tron.isConnected || evmConnected;
 

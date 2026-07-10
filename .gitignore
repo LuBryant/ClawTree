@@ -34,6 +34,8 @@ backend/staticfiles/
 Thumbs.db
 
 # Env (keep templates, ignore all actual secret stores)
+/.env
+.env/
 .env
 .env.*
 !.env.example
@@ -50,3 +52,5 @@ migrations
 # Django schema migrations are application source and must be versioned.
 !backend/home/migrations/
 !backend/home/migrations/*.py
+.env.local
+.env.local/

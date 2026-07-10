@@ -14,6 +14,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from openai import OpenAI
 
 from .models import (
@@ -270,6 +272,10 @@ class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyMode
     queryset = UniversityEvent.objects.all()
     serializer_class = AdminUniversityEventSerializer
     filterset_class = UniversityEventFilter
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['title', 'university', 'description', 'source_name', 'location']
+    ordering_fields = ['event_date', 'created_at', 'score']
+    ordering = ['-created_at']
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -375,7 +381,7 @@ class PublicUniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOn
     queryset = UniversityEvent.objects.all()
     serializer_class = UniversityEventSerializer
     filterset_class = UniversityEventFilter
-    search_fields = ['title', 'university', 'description', 'source_name']
+    search_fields = ['title', 'university', 'description', 'source_name', 'location']
     ordering_fields = ['event_date', 'created_at']
 
 
