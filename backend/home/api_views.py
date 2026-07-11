@@ -6,6 +6,7 @@ import sys
 import requests
 import hashlib
 from datetime import datetime
+from pathlib import Path
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -13,6 +14,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -1857,6 +1859,24 @@ class PipelineViewSet(viewsets.ViewSet):
 
             tweets = data.get('data', {}).get('tweets', [])
             run.collected = len(tweets)
+
+            # 将原始采集数据写入 twitterData 文件夹
+            import logging
+            _logger = logging.getLogger('clawtree')
+            try:
+                twitter_data_dir = settings.BASE_DIR / 'data' / 'twitterData'
+                twitter_data_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = dt.now().strftime('%Y%m%d_%H%M%S')
+                data_file = twitter_data_dir / f'tweets_{timestamp}.json'
+                json_text = json.dumps({
+                    'collected_at': dt.now().isoformat(),
+                    'total_tweets': len(tweets),
+                    'raw_response': data,
+                }, ensure_ascii=False, indent=2, default=str)
+                data_file.write_text(json_text, encoding='utf-8')
+                _logger.info('推文原始数据已保存: %s (%d 条)', data_file, len(tweets))
+            except Exception as _e:
+                _logger.exception('推文数据保存失败: %s', _e)
 
             saved = skipped = polished = 0
             FILTER_SYSTEM = (

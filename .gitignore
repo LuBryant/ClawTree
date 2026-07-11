@@ -45,6 +45,10 @@ db.sqlite3
 db.sqlite3/
 /db.sqlite3
 
+# Collected data output
+backend/data/twitterData/
+backend/data/twitterData*.json
+
 migrations/
 migrations
 /migrations
