@@ -23,8 +23,10 @@ from .api_views import (
     AdminOutreachBatchStopView,
     AdminAgentRunViewSet,
     AdminAgentWorkflowViewSet,
+    AdminIntelligenceViewSet,
     AdminAgentMetricsView,
     AdminAgentAlertEvaluateView,
+    DemoCopilotView,
 )
 
 router = DefaultRouter()
@@ -41,12 +43,14 @@ router.register(r'admin/matches', AdminCollaborationMatchViewSet, basename='admi
 router.register(r'admin/proposals', AdminProposalViewSet, basename='admin-proposal')
 router.register(r'admin/agent-runs', AdminAgentRunViewSet, basename='admin-agent-run')
 router.register(r'admin/agent-workflows', AdminAgentWorkflowViewSet, basename='admin-agent-workflow')
+router.register(r'admin/intelligence', AdminIntelligenceViewSet, basename='admin-intelligence')
 router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 router.register(r'workspace-capabilities', WorkspaceCapabilityViewSet, basename='workspace-capability')
 
 urlpatterns = [
     path('user/feed/', PublicFeedView.as_view(), name='user-feed'),
     path('user/assistant/chat/', UserAssistantChatView.as_view(), name='user-assistant-chat'),
+    path('user/demo-copilot/', DemoCopilotView.as_view(), name='user-demo-copilot'),
     path('user/cooperation-leads/', UserCooperationLeadView.as_view(), name='user-cooperation-leads'),
     path('admin/outreach-batches/<int:pk>/approve/', AdminOutreachBatchApproveView.as_view(), name='admin-outreach-batch-approve'),
     path('admin/outreach-batches/<int:pk>/send/', AdminOutreachBatchSendView.as_view(), name='admin-outreach-batch-send'),

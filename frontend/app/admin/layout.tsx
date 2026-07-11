@@ -15,6 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/ingestion', label: `🛰 ${tx('采集运行', 'Ingestion runs')}`, exact: false },
     { href: '/admin/content', label: `📝 ${tx('内容审核', 'Content review')}`, exact: false },
     { href: '/admin/proposals', label: `🤝 ${tx('合作提案', 'Proposals')}`, exact: false },
+    { href: '/admin/evidence', label: `🔎 ${tx('评委证据模式', 'Judge evidence')}`, exact: false },
     { href: '/admin/outreach', label: `✉️ ${tx('外联审批', 'Outreach review')}`, exact: false },
   ];
 
@@ -39,7 +40,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </div>
       </aside>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        <nav className="mb-6 flex gap-2 overflow-x-auto pb-2 lg:hidden" aria-label={tx('管理模块', 'Admin sections')}>
+          {links.map(({ href, label, exact }) => {
+            const active = exact ? pathname === href : pathname.startsWith(href);
+            return (
+              <Link key={href} href={href}
+                className={`admin-link shrink-0 whitespace-nowrap ${active ? 'active' : ''}`}>
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        {children}
+      </div>
     </div>
   );
 }

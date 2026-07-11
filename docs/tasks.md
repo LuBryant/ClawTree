@@ -642,6 +642,20 @@ Evidence: <PR / file / report>
 | AIX-12 | P1 | Grounded Demo Copilot：允许评委自由追问项目、推荐理由、安全边界与来源 | 页面上下文检索、引用跳转、拒答/转人工 | 50 条中英自由问法：grounded answer precision ≥0.90；无证据拒答率 100%；P95<3s | 把评委问答本身变成可信 AI 演示 |
 | AIX-13 | P1 | 证据化网页研究工具：search 仅用于发现，关键事实必须抓取官方正文 | 官方域名评分、安全抓取、正文抽取、quote、注入扫描 | 报名/截止/主办方 claim 100% 来自正文；官方源优先率 ≥0.90；拒绝 private IP、危险重定向与超大响应 | 官方页与聚合页冲突时展示选源依据 |
 
+#### 21.4.1 AIX-07～13 完成证据（2026-07-11）
+
+| ID | Status | 交付结果 | Verification / Evidence |
+|---|---|---|---|
+| AIX-07 | Done / Runtime | 新增 workspace 隔离的 `EvidenceSource`、`EvidenceClaim`、`EvidenceRelation`，把组织、活动、能力、提案、审批与原文 quote/content hash 连接为可查询 adjacency；支持根节点路径展开，孤立 Claim fail closed | `backend/home/aix_intelligence.py`、migration 0013、`/api/admin/intelligence/evidence-graph/`、`frontend/app/admin/evidence/page.tsx`；orphan claim=0，路径查询 P95<500ms |
+| AIX-08 | Done / Runtime | Opportunity Composer 固定输出机会假设、目标受众、支持证据、反证/风险、缺失事实与可验证 KPI；真实工作流在 Proposal 前持久化 Opportunity | `Opportunity` model、`compose_opportunity()`、`/api/admin/intelligence/opportunities/`；每条至少 2 支持证据、1 反证、1 待确认问题、1 KPI |
+| AIX-09 | Done / Evaluated | 可解释 Ranker 输出 Top-K、六维分项引用、替代候选及 why-not 对比；断网时保持确定性 metadata/lexical 排序 | `rank_events()`、`rankMatches()`、`champion-intelligence.json`、`tests/aix-champion-intelligence.test.mjs`；Top-3 hit rate=1.0，NDCG@5=1.0，高于 baseline 0.7364 |
+| AIX-10 | Done / Runtime | 三档 Proposal Simulator 为 light/medium/deep 补齐双方资源、成本估算状态、风险、交付物、KPI、资源缺口、不可承诺项与逐档引用；继续版本化并强制 Human Gate | `simulate_proposal()`、`/api/admin/intelligence/proposal-simulate/`、Judge Evidence Mode；citation coverage=100%，5 条已审核 Demo 样本接受率=0.80 |
+| AIX-11 | Done / Runtime | `/admin/evidence` 一页回放 Opportunity → Ranking → Evidence Path → Proposal → Verifier → Human Gate；后端 replay 严格 allowlist 展示 Schema、模型、usage、成本、延迟、fallback 与人改摘要 | `/api/admin/intelligence/judge-replay/`、`judge_replay()`、`buildJudgeEvidenceReplay()`；响应不包含 Prompt、CoT、原始输入、联系人或审核人 PII |
+| AIX-12 | Done / Evaluated | Grounded Demo Copilot 只检索当前证据图/评委页面上下文；已知问题返回 claim quote 与引用跳转，无证据问题固定拒答并转人工核验 | `/api/user/demo-copilot/`、`/api/demo/copilot`、`champion-copilot-evals.json`；50 条中英问法 grounded precision=1.0、unsupported refusal rate=1.0、P95<3s |
+| AIX-13 | Done / Runtime | 网页研究执行 `discover → HTTPS/DNS/IP/redirect safety → bounded read → visible-text extraction → injection scan → exact quote claim`；search snippet 永远只作 discovery，正文 Claim 保存 SHA-256、locator、官方评分与选源理由 | `research_official_page()`、`WebResearchDocument`、`validateResearchResponse()`；拒绝私网、危险重定向、非 HTML、超大响应和 Prompt Injection；保留智谱优先且仅额度耗尽切千问 |
+
+统一验证基线：`npm run test` 89/89；Django `manage.py test tests` 73/73；Frontend ESLint、TypeScript、Next production build、Django check、migration dry-run、docs check 与 `git diff --check` 全部通过。AIX-07～13 所有生成、研究与回放接口保持 `externalSideEffect=false`，真实合作仍只能经命名人工审批。
+
 ### 21.5 P1：Hybrid RAG、模型路由与可靠性
 
 | ID | Priority | 需求 | 交付物 | 量化验收 | 风险边界 |

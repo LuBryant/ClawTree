@@ -109,6 +109,11 @@ export default function AdminDashboard() {
             <h3 className="text-base font-black uppercase tracking-wider">{tx('活动回顾', 'Event recaps')}</h3>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{tx('AI 整理的往期活动回顾与精彩瞬间', 'AI-organized event recaps and highlights')}</p>
           </Link>
+          <Link href="/admin/evidence" className="panel event-card" style={{ padding: '20px' }}>
+            <p className="text-2xl mb-3">🔎</p>
+            <h3 className="text-base font-black uppercase tracking-wider">{tx('评委证据模式', 'Judge evidence mode')}</h3>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{tx('机会、六维匹配、三档方案、证据路径与 Copilot 一页回放', 'Replay opportunity, six-dimensional match, proposal tiers, evidence paths, and Copilot')}</p>
+          </Link>
           {[
             { icon: '📨', title: tx('外联管道', 'Outreach pipeline'), desc: tx('即将上线 — 智能邮件 + 批量发送', 'Coming soon — smart email + batch delivery') },
             { icon: '📈', title: tx('趋势洞察', 'Trend intelligence'), desc: tx('即将上线 — 趋势分析 + 报告', 'Coming soon — trend analysis + reports') },

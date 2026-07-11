@@ -39,6 +39,9 @@ from .models import (
     AgentWorkflowRun,
     AgentAlert,
     DailyAgentBudget,
+    Opportunity,
+    Proposal,
+    WebResearchDocument,
 )
 from .serializers import (
     WorkspaceSerializer,
@@ -79,6 +82,17 @@ from .agent_runtime import (
     review_match_proposal_workflow,
     run_match_proposal_workflow,
     workflow_data,
+)
+from .aix_intelligence import (
+    compose_opportunity,
+    graph_for_workspace,
+    grounded_copilot,
+    judge_replay,
+    opportunity_data,
+    rank_events,
+    research_document_data,
+    research_official_page,
+    simulate_proposal,
 )
 
 
@@ -1397,6 +1411,184 @@ class AdminAgentWorkflowViewSet(viewsets.ViewSet):
         return success_response(request, action_name, {
             'workflow': workflow_data(workflow), 'changed': changed,
         }, external_side_effect=False)
+
+
+class AdminIntelligenceViewSet(viewsets.ViewSet):
+    """AIX-07..13 query and composition API; all actions are side-effect safe."""
+
+    def list(self, request):
+        workspace = _active_workspace(request)
+        return Response({
+            'externalSideEffect': False,
+            'capabilities': [
+                'evidence_graph', 'opportunity_composer', 'explainable_ranker',
+                'proposal_simulator', 'judge_replay', 'grounded_copilot', 'web_research',
+            ],
+            'counts': {
+                'opportunities': Opportunity.objects.filter(workspace=workspace).count(),
+                'researchDocuments': WebResearchDocument.objects.filter(workspace=workspace).count(),
+            },
+        })
+
+    @action(detail=False, methods=['get'], url_path='evidence-graph')
+    def evidence_graph(self, request):
+        workspace = _active_workspace(request)
+        started = time.perf_counter()
+        try:
+            max_depth = min(max(int(request.query_params.get('max_depth', 4)), 1), 8)
+        except (TypeError, ValueError):
+            return _error('invalid_max_depth', 'max_depth must be an integer from 1 to 8.')
+        graph = graph_for_workspace(
+            workspace,
+            root_kind=request.query_params.get('root_kind'),
+            root_id=request.query_params.get('root_id'),
+            max_depth=max_depth,
+        )
+        graph['queryLatencyMs'] = round((time.perf_counter() - started) * 1000, 2)
+        return Response({'externalSideEffect': False, 'data': graph})
+
+    @action(detail=False, methods=['get', 'post'], url_path='opportunities')
+    def opportunities(self, request):
+        workspace = _active_workspace(request)
+        if request.method == 'GET':
+            opportunities = Opportunity.objects.filter(workspace=workspace).select_related('event')
+            return Response({
+                'externalSideEffect': False,
+                'results': [opportunity_data(item) for item in opportunities],
+            })
+        action_name = 'opportunity-compose'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        event = UniversityEvent.objects.filter(workspace=workspace, pk=request.data.get('event_id')).first()
+        if not event:
+            return error_response(
+                request, action_name, 'event_not_found', 'Event not found.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+        requested_ids = request.data.get('capability_ids')
+        query = Capability.objects.filter(workspace=workspace, approved=True)
+        capabilities = list(query.filter(id__in=requested_ids) if isinstance(requested_ids, list) else query)
+        if isinstance(requested_ids, list) and len(capabilities) != len(set(requested_ids)):
+            return error_response(
+                request, action_name, 'capability_not_found',
+                'Every capability must be approved and belong to the workspace.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+        opportunity = compose_opportunity(workspace, event, capabilities)
+        return success_response(
+            request, action_name, {'opportunity': opportunity_data(opportunity)},
+            http_status=status.HTTP_201_CREATED, external_side_effect=False,
+        )
+
+    @action(detail=False, methods=['post'], url_path='match-rank')
+    def match_rank(self, request):
+        action_name = 'explainable-match-rank'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        workspace = _active_workspace(request)
+        event_ids = request.data.get('event_ids')
+        event_query = UniversityEvent.objects.filter(workspace=workspace)
+        if isinstance(event_ids, list):
+            event_query = event_query.filter(id__in=event_ids)
+        capabilities = list(Capability.objects.filter(workspace=workspace, approved=True).order_by('code'))
+        try:
+            top_k = int(request.data.get('top_k', 5))
+        except (TypeError, ValueError):
+            return error_response(request, action_name, 'invalid_top_k', 'top_k must be an integer.')
+        ranking = rank_events(workspace, list(event_query.order_by('id')), capabilities, top_k=top_k)
+        return success_response(
+            request, action_name,
+            {'topK': ranking, 'dimensions': ['theme', 'audience', 'timing', 'city', 'resources', 'information']},
+            external_side_effect=False,
+        )
+
+    @action(detail=False, methods=['post'], url_path='proposal-simulate')
+    def proposal_simulate(self, request):
+        action_name = 'proposal-simulate'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        workspace = _active_workspace(request)
+        proposal = Proposal.objects.select_related('match', 'match__event', 'match__workspace').filter(
+            match__workspace=workspace, pk=request.data.get('proposal_id'),
+        ).first()
+        if not proposal:
+            return error_response(
+                request, action_name, 'proposal_not_found', 'Proposal not found.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+        proposal = simulate_proposal(proposal)
+        return success_response(
+            request, action_name,
+            {'proposalId': proposal.id, 'version': proposal.version, 'packages': proposal.packages,
+             'guardrails': proposal.guardrail_checks},
+            external_side_effect=False,
+        )
+
+    @action(detail=False, methods=['get'], url_path='judge-replay')
+    def judge(self, request):
+        workspace = _active_workspace(request)
+        workflow = AgentWorkflowRun.objects.select_related('match', 'proposal').filter(
+            workspace=workspace, run_id=request.query_params.get('run_id'),
+        ).first()
+        if not workflow:
+            return _error('workflow_not_found', 'Workflow not found.', status.HTTP_404_NOT_FOUND)
+        return Response({'externalSideEffect': False, 'data': judge_replay(workflow)})
+
+    @action(detail=False, methods=['get', 'post'], url_path='research')
+    def research(self, request):
+        workspace = _active_workspace(request)
+        if request.method == 'GET':
+            documents = WebResearchDocument.objects.filter(workspace=workspace).select_related('source')[:100]
+            return Response({
+                'externalSideEffect': False,
+                'results': [research_document_data(item) for item in documents],
+            })
+        action_name = 'official-web-research'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        url = str(request.data.get('url') or '')
+        if not url.startswith('https://'):
+            return error_response(request, action_name, 'unsafe_url', 'A public HTTPS URL is required.')
+        document = research_official_page(workspace, url)
+        response_status = status.HTTP_201_CREATED if document.status == 'verified' else status.HTTP_422_UNPROCESSABLE_ENTITY
+        return success_response(
+            request, action_name, {'document': research_document_data(document)},
+            http_status=response_status, external_side_effect=False,
+        )
+
+
+class DemoCopilotView(APIView):
+    """AIX-12: deterministic grounded Q&A with complete refusal on no evidence."""
+
+    MAX_QUESTION_CHARS = 1000
+
+    def post(self, request):
+        if _rate_limited(request, 'demo-copilot', 30):
+            return _error('rate_limited', 'Too many requests.', status.HTTP_429_TOO_MANY_REQUESTS)
+        workspace = _active_workspace(request)
+        question = str(request.data.get('question') or '')
+        if len(question) > self.MAX_QUESTION_CHARS:
+            return _error('question_too_long', 'Question exceeds 1,000 characters.')
+        started = time.perf_counter()
+        result = grounded_copilot(workspace, question)
+        result['latencyMs'] = round((time.perf_counter() - started) * 1000, 2)
+        return Response({'externalSideEffect': False, 'data': result})
 
 
 class AdminAgentMetricsView(APIView):

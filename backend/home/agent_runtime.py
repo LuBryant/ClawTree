@@ -1009,6 +1009,11 @@ def run_match_proposal_workflow(*, workspace, event, capabilities, campaign_key,
             'edit_summary': f'Generated via {SCHEMA_VERSION}; human review required.',
         },
     )
+    # AIX-07..10 share the same persisted evidence instead of producing a
+    # second, disconnected explanation layer for the demo experience.
+    from .aix_intelligence import compose_opportunity, simulate_proposal
+    compose_opportunity(workspace, event, capabilities)
+    proposal = simulate_proposal(proposal)
     workflow.proposal = proposal
     workflow.save()
     workflow.status = 'awaiting_human_review'
@@ -1057,6 +1062,14 @@ def review_match_proposal_workflow(workflow, *, decision, reviewer, reason=''):
         'name': 'completed', 'at': workflow.finished_at.isoformat(), 'decision': decision,
     }]
     workflow.save()
+    if workflow.proposal_id:
+        from .aix_intelligence import ensure_event_evidence_graph
+        ensure_event_evidence_graph(
+            workflow.workspace,
+            workflow.event,
+            list(workflow.workspace.capabilities.filter(approved=True)),
+            proposal=workflow.proposal,
+        )
     return workflow, True
 
 

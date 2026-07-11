@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "version": "aix-x1-2026-07-11",
+    "dataMode": "reviewed_demo_fixture",
+    "externalSideEffect": false
+  },
+  "graph": {
+    "nodes": [
+      { "id": "source-campus-tour", "type": "source", "label": "广州高校行公开动态", "url": "https://x.com/TreefinanceCN/status/2071559653612552638", "checkedAt": "2026-07-11", "official": true },
+      { "id": "source-ai-data", "type": "source", "label": "AI 数据资产高校 AMA", "url": "https://x.com/JinseFinance/status/2069618254973370698", "checkedAt": "2026-07-11", "official": true },
+      { "id": "source-hkust-fintech", "type": "source", "label": "港科大（广州）金融科技学域", "url": "https://www.hkust-gz.edu.cn/zh/academics/hubs-and-thrust-areas/society-hub/financial-technology/", "checkedAt": "2026-07-11", "official": true },
+      { "id": "source-hkust-web3", "type": "source", "label": "Web3 合约交易平台研讨会", "url": "https://cft.hkust-gz.edu.cn/2024/07/10/", "checkedAt": "2026-07-11", "official": true },
+      { "id": "source-gdufe-ai", "type": "source", "label": "广东财经大学数智学科方向", "url": "https://info.gdufe.edu.cn/2025/0824/c4484a224342/page.htm", "checkedAt": "2026-07-11", "official": true },
+      { "id": "source-scut-ai", "type": "source", "label": "华南理工未来技术学院培养方向", "url": "https://www2.scut.edu.cn/ft/2021/0818/c30249a438835/page.htm", "checkedAt": "2026-07-11", "official": true },
+      { "id": "claim-now", "type": "claim", "label": "广州高校行提供近期合作窗口", "quote": "第五站落地广州，主题聚焦 AI 智能生态与数字技术、实体经济融合。", "sourceId": "source-campus-tour" },
+      { "id": "claim-topic", "type": "claim", "label": "AI 数据权利适合高校内容共创", "quote": "讨论 AI 时代的数据资产、定价权与确权。", "sourceId": "source-ai-data" },
+      { "id": "claim-hkust-fit", "type": "claim", "label": "港科大（广州）具备金融科技与 Web3 主题能力", "quote": "研究方向覆盖区块链、智能合约、数字货币、AI 与金融大数据。", "sourceId": "source-hkust-fintech" },
+      { "id": "claim-gdufe-fit", "type": "claim", "label": "广财具备财经与数智能力", "quote": "智能科学与技术学科方向连接数据智能与财经应用。", "sourceId": "source-gdufe-ai" },
+      { "id": "claim-scut-fit", "type": "claim", "label": "华工适合技术原型工作坊", "quote": "人工智能培养方向包含可信技术与区块链相关课程。", "sourceId": "source-scut-ai" },
+      { "id": "org-clawtree", "type": "organization", "label": "ClawTree" },
+      { "id": "org-hkustgz", "type": "organization", "label": "香港科技大学（广州）金融科技学域" },
+      { "id": "opportunity-guangzhou", "type": "opportunity", "label": "广州 AI × Web3 高校共创计划" },
+      { "id": "proposal-hkustgz", "type": "proposal", "label": "港科大（广州）三档合作方案" },
+      { "id": "approval-human", "type": "approval", "label": "待人工审批" }
+    ],
+    "edges": [
+      { "from": "claim-now", "to": "source-campus-tour", "type": "supported_by" },
+      { "from": "claim-topic", "to": "source-ai-data", "type": "supported_by" },
+      { "from": "claim-hkust-fit", "to": "source-hkust-fintech", "type": "supported_by" },
+      { "from": "claim-gdufe-fit", "to": "source-gdufe-ai", "type": "supported_by" },
+      { "from": "claim-scut-fit", "to": "source-scut-ai", "type": "supported_by" },
+      { "from": "opportunity-guangzhou", "to": "claim-now", "type": "derived_from" },
+      { "from": "opportunity-guangzhou", "to": "claim-topic", "type": "derived_from" },
+      { "from": "org-hkustgz", "to": "claim-hkust-fit", "type": "has_capability" },
+      { "from": "proposal-hkustgz", "to": "opportunity-guangzhou", "type": "addresses" },
+      { "from": "proposal-hkustgz", "to": "org-hkustgz", "type": "targets" },
+      { "from": "proposal-hkustgz", "to": "claim-hkust-fit", "type": "supported_by" },
+      { "from": "proposal-hkustgz", "to": "approval-human", "type": "requires" }
+    ]
+  },
+  "opportunity": {
+    "id": "opportunity-guangzhou",
+    "schemaVersion": "opportunity.v1",
+    "hypothesis": "在广州高校行窗口内，以 AI 数据权利与可信 Web3 为主题的联合工作坊，能把公开内容信号转化为高校合作线索。",
+    "audiences": ["AI/Web3 学生与社团", "金融科技师生", "生态增长与媒体团队"],
+    "supportingEvidence": [
+      { "id": "support-now", "claim": "广州高校行已经形成近期活动窗口。", "sourceIds": ["source-campus-tour"], "quote": "第五站落地广州" },
+      { "id": "support-topic", "claim": "AI 数据资产与确权已有高校讨论基础。", "sourceIds": ["source-ai-data"], "quote": "AI 时代的数据资产、定价权与确权" }
+    ],
+    "counterEvidence": [
+      { "id": "risk-resources", "claim": "场地、嘉宾与预算尚未获得合作方书面确认。", "sourceIds": ["source-campus-tour"], "quote": "公开动态仅确认活动主题与城市" }
+    ],
+    "missingFacts": ["具体日期是否仍可调整", "校方联系人和场地边界", "预算与嘉宾审批状态"],
+    "openQuestions": ["合作方愿意提供哪种场地、师资和宣传资源？"],
+    "kpis": [
+      { "name": "合格高校回复", "target": ">=3", "window": "提案审批后 7 天", "measurement": "经人工确认的正向或信息补充回复" }
+    ]
+  },
+  "matches": [
+    {
+      "id": "target-hkustgz",
+      "name": "香港科技大学（广州）金融科技学域",
+      "summary": "金融科技、智能合约与 AI 金融数据交叉最完整，适合作为深度共创首选。",
+      "risks": ["课程与活动档期未确认", "任何嘉宾与资源均需人工审批"],
+      "dimensions": {
+        "themeFit": { "score": 98, "reason": "金融科技与智能合约直接匹配。", "sourceIds": ["source-hkust-fintech"] },
+        "audienceFit": { "score": 94, "reason": "面向金融科技与数字经济学习者。", "sourceIds": ["source-hkust-fintech"] },
+        "capabilityFit": { "score": 96, "reason": "具备 Web3 项目式研讨公开证据。", "sourceIds": ["source-hkust-web3"] },
+        "timingFit": { "score": 86, "reason": "同在广州，可衔接高校行窗口。", "sourceIds": ["source-campus-tour"] },
+        "evidenceQuality": { "score": 97, "reason": "两条高校官方正文来源。", "sourceIds": ["source-hkust-fintech", "source-hkust-web3"] },
+        "executionFeasibility": { "score": 83, "reason": "主题契合，但场地与档期仍待确认。", "sourceIds": ["source-campus-tour", "source-hkust-fintech"] }
+      }
+    },
+    {
+      "id": "target-gdufe",
+      "name": "广东财经大学数智学院",
+      "summary": "财经教育语境强，适合轻量公开课与 AI 数据权利内容。",
+      "risks": ["公开证据不足以确认 Web3 组织能力", "需核验具体合作窗口"],
+      "dimensions": {
+        "themeFit": { "score": 91, "reason": "财经与数据智能匹配。", "sourceIds": ["source-gdufe-ai"] },
+        "audienceFit": { "score": 95, "reason": "财经与数智学生是直接受众。", "sourceIds": ["source-gdufe-ai"] },
+        "capabilityFit": { "score": 84, "reason": "AI 能力明确，Web3 能力需确认。", "sourceIds": ["source-gdufe-ai"] },
+        "timingFit": { "score": 90, "reason": "广州本地，活动衔接成本较低。", "sourceIds": ["source-campus-tour"] },
+        "evidenceQuality": { "score": 89, "reason": "高校官方来源，但主题证据单一。", "sourceIds": ["source-gdufe-ai"] },
+        "executionFeasibility": { "score": 91, "reason": "轻量课程与内容合作资源压力较小。", "sourceIds": ["source-campus-tour", "source-gdufe-ai"] }
+      }
+    },
+    {
+      "id": "target-scut",
+      "name": "华南理工大学未来技术学院",
+      "summary": "技术原型能力强，适合 AI Agent 工作坊，但财经受众契合略弱。",
+      "risks": ["财经教育关联需补充", "深度方案资源成本较高"],
+      "dimensions": {
+        "themeFit": { "score": 89, "reason": "AI 与可信技术匹配。", "sourceIds": ["source-scut-ai"] },
+        "audienceFit": { "score": 82, "reason": "技术学生契合，财经传播受众略弱。", "sourceIds": ["source-scut-ai"] },
+        "capabilityFit": { "score": 93, "reason": "适合技术原型与工程工作坊。", "sourceIds": ["source-scut-ai"] },
+        "timingFit": { "score": 88, "reason": "广州本地，可衔接高校行。", "sourceIds": ["source-campus-tour"] },
+        "evidenceQuality": { "score": 88, "reason": "高校官方培养方向来源。", "sourceIds": ["source-scut-ai"] },
+        "executionFeasibility": { "score": 78, "reason": "原型挑战需要更多导师与技术资源。", "sourceIds": ["source-campus-tour", "source-scut-ai"] }
+      }
+    }
+  ],
+  "proposalSimulator": {
+    "schemaVersion": "proposal-simulator.v1",
+    "tiers": [
+      {
+        "id": "light", "version": "1.0.0", "name": "轻量验证", "duration": "2 周", "cost": { "cashCny": "0-5000", "peopleDays": 4 },
+        "resources": { "clawtree": ["公开信号核验", "活动 brief 与复盘模板"], "partner": ["1 名内容审核人", "官方渠道确认"] },
+        "deliverables": ["一场线上主题分享", "一份带引用的活动复盘"],
+        "kpis": ["报名意向 >= 30", "引用覆盖率 = 100%", "审核后内容资产 >= 2"],
+        "risks": ["报名信息未确认时不得发布入口"], "resourceGaps": ["嘉宾与最终日期待确认"],
+        "prohibitedCommitments": ["不承诺曝光量", "不承诺嘉宾", "不承诺报名资格"],
+        "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech"]
+      },
+      {
+        "id": "medium", "version": "1.0.0", "name": "联合工作坊", "duration": "4 周", "cost": { "cashCny": "5000-20000", "peopleDays": 12 },
+        "resources": { "clawtree": ["机会与匹配分析", "AI 数据权利课程包", "媒体内容复盘"], "partner": ["场地", "1 名校内导师", "学生招募渠道"] },
+        "deliverables": ["90 分钟工作坊", "AI Agent 小挑战", "三篇审核内容资产"],
+        "kpis": ["有效参与 >= 50", "作品提交 >= 10", "满意度 >= 80%"],
+        "risks": ["场地与导师资源可能影响交付"], "resourceGaps": ["场地、导师和内容发布权待书面确认"],
+        "prohibitedCommitments": ["不承诺奖项或算力", "不承诺投资", "不自动发布"],
+        "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech", "source-hkust-web3"]
+      },
+      {
+        "id": "deep", "version": "1.0.0", "name": "联合实验室", "duration": "8-12 周", "cost": { "cashCny": "20000-80000（待审批）", "peopleDays": 30 },
+        "resources": { "clawtree": ["全链路 Agent 工作流", "跨校伙伴匹配", "影响力证据回放"], "partner": ["联合负责人", "持续导师资源", "活动与内容授权"] },
+        "deliverables": ["多校主题挑战", "合作伙伴 Demo Day", "可审计 Impact Passport"],
+        "kpis": ["合作高校 >= 3", "审核项目 >= 20", "二次合作意向 >= 2"],
+        "risks": ["预算、授权和多方排期复杂度高"], "resourceGaps": ["预算、品牌授权、导师与主办角色全部待审批"],
+        "prohibitedCommitments": ["不宣称主办方身份", "不承诺奖金或投资", "不保证合作结果"],
+        "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech", "source-hkust-web3"]
+      }
+    ]
+  },
+  "judgeEvidence": {
+    "runId": "aix-x1-demo-run-001",
+    "schemaVersion": "agent-workflow.v2",
+    "promptVersion": "opportunity-match-proposal.v1",
+    "model": "glm-4.7",
+    "provider": "zhipu",
+    "costMicrousd": 1840,
+    "latencyMs": 1876,
+    "fallback": { "used": false, "reason": null },
+    "verifier": { "passed": true, "reasonCodes": [], "repairAttempts": 0, "citationCoverage": 1 },
+    "stages": [
+      { "name": "retrieve_evidence", "status": "succeeded", "latencyMs": 128, "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech"] },
+      { "name": "compose_opportunity", "status": "succeeded", "latencyMs": 332, "sourceIds": ["source-campus-tour", "source-ai-data"] },
+      { "name": "rank_matches", "status": "succeeded", "latencyMs": 594, "sourceIds": ["source-hkust-fintech", "source-hkust-web3", "source-gdufe-ai", "source-scut-ai"] },
+      { "name": "simulate_proposal", "status": "succeeded", "latencyMs": 706, "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech"] },
+      { "name": "human_gate", "status": "awaiting_review", "latencyMs": 116, "sourceIds": [] }
+    ],
+    "humanDiff": { "status": "pending", "changedFields": [], "summary": "尚未人工修改；所有三档方案保持 externalSideEffect=false。" }
+  },
+  "evaluation": {
+    "matchRanking": {
+      "sampleCount": 5,
+      "top3HitRate": 1.0,
+      "candidateNdcgAt5": 1.0,
+      "baselineNdcgAt5": 0.7364,
+      "goldRanking": ["target-hkustgz", "target-gdufe", "target-scut"]
+    },
+    "proposalAcceptanceCases": [
+      { "id": "proposal-review-01", "tier": "light", "reviewed": true, "accepted": true, "reason": "范围清晰且资源压力可控" },
+      { "id": "proposal-review-02", "tier": "medium", "reviewed": true, "accepted": true, "reason": "交付物、KPI 与引用完整" },
+      { "id": "proposal-review-03", "tier": "deep", "reviewed": true, "accepted": false, "reason": "预算与联合负责人尚未确认" },
+      { "id": "proposal-review-04", "tier": "medium", "reviewed": true, "accepted": true, "reason": "资源缺口显式可审" },
+      { "id": "proposal-review-05", "tier": "light", "reviewed": true, "accepted": true, "reason": "适合作为首轮验证" }
+    ],
+    "proposalAcceptanceRate": 0.8
+  },
+  "copilot": {
+    "refusal": "现有页面证据不足以回答这个问题。我不会猜测奖金、投资、嘉宾、报名资格或合作结果；请转人工核验官方来源。",
+    "topics": [
+      { "id": "platform", "keywords": ["clawtree", "项目", "平台", "what is", "project", "platform"], "answer": "ClawTree 是面向 Web3 生态、媒体与高校的可信合作智能系统，把公开信号转成可引用的机会、匹配、方案和人工审批记录。", "sourceIds": ["source-campus-tour", "source-ai-data"] },
+      { "id": "why-now", "keywords": ["为什么现在", "why now", "timing", "现在"], "answer": "近期广州高校行公开信号形成了明确城市与主题窗口；但具体日期、场地和嘉宾仍需人工确认。", "sourceIds": ["source-campus-tour"] },
+      { "id": "why-school", "keywords": ["为什么推荐", "为什么这所学校", "why this school", "recommend", "匹配", "学校", "高校", "campus match", "alternative"], "answer": "港科大（广州）金融科技学域排名第一，因为金融科技、智能合约、AI 金融数据和 Web3 研讨证据完整；广财是更轻量的财经教育替代候选。", "sourceIds": ["source-hkust-fintech", "source-hkust-web3", "source-gdufe-ai"] },
+      { "id": "counter", "keywords": ["反证", "风险", "counter evidence", "risk", "为什么不是", "自动合作", "automate", "missing facts"], "answer": "主要反证是场地、导师、日期、预算和发布权尚未书面确认；技术能力契合也不等于合作意愿。", "sourceIds": ["source-campus-tour", "source-hkust-fintech"] },
+      { "id": "cost", "keywords": ["成本", "cost", "预算", "price", "budget", "深度方案"], "answer": "模拟器估算轻量方案 0–5000 元、中档 5000–20000 元、深度方案 20000–80000 元；这些都是规划区间，必须经过人工预算审批。", "sourceIds": ["source-campus-tour", "source-hkust-fintech"] },
+      { "id": "safety", "keywords": ["安全", "边界", "承诺", "自动发送", "safe", "guardrail", "privacy", "protect"], "answer": "系统不自动发送、发布或上链，不承诺奖金、投资、曝光、嘉宾和资格；高风险输出需独立 Verifier 与 Human Gate。", "sourceIds": ["source-campus-tour", "source-ai-data"] },
+      { "id": "evidence", "keywords": ["证据", "证明", "来源", "citation", "source", "怎么证明", "judges", "prove"], "answer": "每个机会结论、六维评分和方案档位都绑定 source ID，并可沿 Evidence Graph 展开到官方页面原文片段。", "sourceIds": ["source-campus-tour", "source-ai-data", "source-hkust-fintech"] },
+      { "id": "latency", "keywords": ["延迟", "模型", "fallback", "latency", "model", "成本多少"], "answer": "当前证据回放使用 glm-4.7，演示 run 延迟 1876ms、成本 1840µUSD，Verifier 通过且未触发 fallback。", "sourceIds": ["source-campus-tour"] }
+    ]
+  }
+}

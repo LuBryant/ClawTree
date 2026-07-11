@@ -240,6 +240,56 @@ export async function fetchAgentWorkflows(): Promise<AgentWorkflowResult[]> {
   return Array.isArray(payload?.results) ? payload.results : [];
 }
 
+export interface JudgeReplayResult {
+  workflow: {
+    runId: string;
+    status: string;
+    checkpoint: string;
+    schemaVersion: string;
+    promptVersion: string;
+    provider: string;
+    sourceIds: string[];
+    verifier: { passed?: boolean; reasonCodes?: string[] };
+    externalSideEffect: false;
+  };
+  runs: Array<{
+    runId: string;
+    task: string;
+    status: string;
+    schema: { name: string; version: string };
+    model: { provider: string; name: string; version: string };
+    sourceIds: string[];
+    citations: string[];
+    latencyMs: number;
+    usage: { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; costMicrousd: number | null };
+    fallback: boolean;
+    errorCode: string;
+  }>;
+  humanReview: {
+    matchStatus: string | null;
+    proposalStatus: string | null;
+    editSummary: string;
+  };
+  containsPrompt: false;
+  containsChainOfThought: false;
+  containsPII: false;
+}
+
+export async function fetchJudgeReplay(runId: string): Promise<JudgeReplayResult | null> {
+  const url = new URL(`${resolvedApiBase()}/admin/intelligence/judge-replay/`);
+  url.searchParams.set('run_id', runId);
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-ClawTree-Workspace': process.env.NEXT_PUBLIC_WORKSPACE_SLUG || 'treefinance',
+    },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  return payload?.data || null;
+}
+
 // ---------------------------------------------------------------------------
 // 外联审批 API
 // ---------------------------------------------------------------------------

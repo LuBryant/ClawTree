@@ -5,7 +5,7 @@ import demo from '../../../../data/demo.json';
 /** 仅包含公开可上链字段，不包含邮箱/正文/联系人 */
 const PRIVACY_FIELDS = [
   'payloadVersion', 'workspaceId', 'draftId', 'universityName', 'eventTitle',
-  'approvedBy', 'approvedAt', 'approvalStatus',
+  'approvedBy', 'approvedAt', 'approvalStatus', 'campaignId', 'signalIds',
 ];
 
 interface ProofPayload {

@@ -1501,6 +1501,227 @@ class AgentWorkflowRun(models.Model):
         return f'{self.run_id}:{self.checkpoint}:{self.status}'
 
 
+class EvidenceSource(models.Model):
+    """AIX-07/13: immutable, workspace-scoped provenance for graph claims."""
+
+    SOURCE_TYPE_CHOICES = [
+        ('event', 'Event record'),
+        ('capability', 'Approved capability'),
+        ('official_web', 'Official web page'),
+        ('public_web', 'Public web page'),
+    ]
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='evidence_sources', verbose_name='工作区',
+    )
+    source_id = models.CharField(max_length=180, verbose_name='稳定来源 ID')
+    source_type = models.CharField(max_length=24, choices=SOURCE_TYPE_CHOICES, verbose_name='来源类型')
+    title = models.CharField(max_length=500, verbose_name='来源标题')
+    url = models.URLField(max_length=1000, blank=True, default='', verbose_name='公开来源 URL')
+    domain = models.CharField(max_length=255, blank=True, default='', verbose_name='来源域名')
+    is_official = models.BooleanField(default=False, verbose_name='是否官方来源')
+    authority_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    content_hash = models.CharField(max_length=64, verbose_name='正文指纹')
+    retrieved_at = models.DateTimeField(default=timezone.now, verbose_name='核验时间')
+    metadata = models.JSONField(default=dict, blank=True, verbose_name='安全来源元数据')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-authority_score', '-retrieved_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'source_id'], name='unique_workspace_evidence_source_id',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if not re.fullmatch(r'[0-9a-f]{64}', self.content_hash or ''):
+            raise ValidationError({'content_hash': 'Evidence source requires a SHA-256 content hash.'})
+        if self.source_type in {'official_web', 'public_web'} and not self.url:
+            raise ValidationError({'url': 'Web evidence requires a public URL.'})
+        if _trace_contains_private_data(self.metadata):
+            raise ValidationError({'metadata': 'Evidence source metadata cannot contain PII or raw prompts.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class EvidenceClaim(models.Model):
+    """AIX-07: one queryable claim anchored to an exact source quote."""
+
+    STATUS_CHOICES = [
+        ('verified', 'Verified'), ('conflict', 'Conflict'), ('expired', 'Expired'), ('unknown', 'Unknown'),
+    ]
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='evidence_claims', verbose_name='工作区',
+    )
+    claim_id = models.CharField(max_length=180, verbose_name='稳定 Claim ID')
+    subject_type = models.CharField(max_length=40, verbose_name='主体类型')
+    subject_id = models.CharField(max_length=180, verbose_name='主体 ID')
+    predicate = models.CharField(max_length=120, verbose_name='关系/字段')
+    value = models.JSONField(verbose_name='结构化事实值')
+    source = models.ForeignKey(
+        EvidenceSource, on_delete=models.PROTECT, related_name='claims', verbose_name='原始来源',
+    )
+    quote = models.TextField(verbose_name='原文片段')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='verified')
+    valid_from = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['subject_type', 'subject_id', 'predicate']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'claim_id'], name='unique_workspace_evidence_claim_id',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['workspace', 'subject_type', 'subject_id'], name='evidence_subject_idx'),
+            models.Index(fields=['workspace', 'status'], name='evidence_status_idx'),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.source_id and self.workspace_id and self.source.workspace_id != self.workspace_id:
+            raise ValidationError({'source': 'Claim and evidence source must share a workspace.'})
+        if not isinstance(self.quote, str) or not self.quote.strip():
+            raise ValidationError({'quote': 'Every claim requires a non-empty original quote.'})
+        if len(self.quote) > 2000:
+            raise ValidationError({'quote': 'Evidence quotes are limited to 2,000 characters.'})
+        if self.valid_from and self.valid_until and self.valid_until < self.valid_from:
+            raise ValidationError({'valid_until': 'Claim validity cannot end before it begins.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class EvidenceRelation(models.Model):
+    """AIX-07: adjacency edge whose assertion is itself backed by a claim."""
+
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='evidence_relations', verbose_name='工作区',
+    )
+    from_kind = models.CharField(max_length=40)
+    from_id = models.CharField(max_length=180)
+    relation_type = models.CharField(max_length=80)
+    to_kind = models.CharField(max_length=40)
+    to_id = models.CharField(max_length=180)
+    via_claim = models.ForeignKey(
+        EvidenceClaim, on_delete=models.PROTECT, related_name='relations', verbose_name='关系证据',
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'from_kind', 'from_id', 'relation_type', 'to_kind', 'to_id', 'via_claim'],
+                name='unique_evidence_relation_edge',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['workspace', 'from_kind', 'from_id'], name='evidence_from_idx'),
+            models.Index(fields=['workspace', 'to_kind', 'to_id'], name='evidence_to_idx'),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.via_claim_id and self.workspace_id and self.via_claim.workspace_id != self.workspace_id:
+            raise ValidationError({'via_claim': 'Relation evidence must belong to the same workspace.'})
+        if _trace_contains_private_data(self.metadata):
+            raise ValidationError({'metadata': 'Relation metadata cannot contain PII or prompts.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class Opportunity(models.Model):
+    """AIX-08: versioned opportunity hypothesis composed from graph claims."""
+
+    STATUS_CHOICES = [('draft', 'Draft'), ('reviewed', 'Reviewed'), ('rejected', 'Rejected')]
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='opportunities')
+    event = models.ForeignKey(UniversityEvent, on_delete=models.CASCADE, related_name='opportunities')
+    opportunity_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    schema_version = models.CharField(max_length=80, default='opportunity-v1')
+    hypothesis = models.TextField()
+    target_audiences = models.JSONField(default=list)
+    supporting_claims = models.ManyToManyField(EvidenceClaim, related_name='supported_opportunities')
+    counter_claims = models.ManyToManyField(EvidenceClaim, related_name='challenged_opportunities')
+    missing_facts = models.JSONField(default=list)
+    success_metrics = models.JSONField(default=list)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    model_version = models.CharField(max_length=120, default='deterministic-opportunity-v1')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def clean(self):
+        super().clean()
+        if self.event_id and self.workspace_id and self.event.workspace_id != self.workspace_id:
+            raise ValidationError({'workspace': 'Opportunity and event must share a workspace.'})
+        _validate_string_list(self.target_audiences, 'target_audiences', allow_empty=False)
+        _validate_string_list(self.missing_facts, 'missing_facts', allow_empty=False)
+        if not isinstance(self.success_metrics, list) or not self.success_metrics:
+            raise ValidationError({'success_metrics': 'At least one verifiable KPI is required.'})
+        for metric in self.success_metrics:
+            if not isinstance(metric, dict) or not all(metric.get(key) for key in ('name', 'target', 'measurement')):
+                raise ValidationError({'success_metrics': 'Each KPI requires name, target, and measurement.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class WebResearchDocument(models.Model):
+    """AIX-13: bounded official-page extraction receipt; full raw HTML is not retained."""
+
+    STATUS_CHOICES = [('verified', 'Verified'), ('rejected', 'Rejected')]
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='research_documents')
+    source = models.OneToOneField(
+        EvidenceSource, on_delete=models.PROTECT, related_name='research_document', null=True, blank=True,
+    )
+    requested_url = models.URLField(max_length=1000)
+    final_url = models.URLField(max_length=1000, blank=True, default='')
+    domain = models.CharField(max_length=255, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    official_score = models.PositiveSmallIntegerField(default=0, validators=SCORE_VALIDATORS)
+    content_type = models.CharField(max_length=120, blank=True, default='')
+    content_bytes = models.PositiveIntegerField(default=0)
+    body_sha256 = models.CharField(max_length=64, blank=True, default='')
+    title = models.CharField(max_length=500, blank=True, default='')
+    excerpt = models.TextField(blank=True, default='')
+    injection_flags = models.JSONField(default=list, blank=True)
+    rejection_reason = models.CharField(max_length=160, blank=True, default='')
+    fetched_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-official_score', '-fetched_at']
+
+    def clean(self):
+        super().clean()
+        if self.source_id and self.workspace_id and self.source.workspace_id != self.workspace_id:
+            raise ValidationError({'source': 'Research document and source must share a workspace.'})
+        if self.status == 'verified' and (not self.source_id or not self.final_url or not self.excerpt):
+            raise ValidationError({'status': 'Verified research requires a source, final URL, and excerpt.'})
+        if self.status == 'rejected' and not self.rejection_reason:
+            raise ValidationError({'rejection_reason': 'Rejected research requires a reason code.'})
+        _validate_string_list(self.injection_flags, 'injection_flags')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
 class DailyAgentBudget(models.Model):
     """OBS-4: workspace daily provider budget with deterministic fallback state."""
 
