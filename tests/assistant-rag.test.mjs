@@ -18,6 +18,10 @@ const routeSource = await readFile(
   new URL('../frontend/app/api/assistant/chat/route.ts', import.meta.url),
   'utf8',
 );
+const webSearchSource = await readFile(
+  new URL('../frontend/app/lib/assistant-web-search.server.ts', import.meta.url),
+  'utf8',
+);
 const chatSource = await readFile(
   new URL('../frontend/app/components/ChatDialog.tsx', import.meta.url),
   'utf8',
@@ -161,6 +165,46 @@ test('CS-13 public registration lookups use official knowledge or web search ins
   assert.ok(flow);
   assert.match(flow.answer, /6 步/);
   assert.match(flow.keywords.join(' '), /合作模式与活动流程/);
+});
+
+test('CS-15 web lookup uses Qwen search and extractor with international search-platform allowlist', () => {
+  assert.match(webSearchSource, /DASHSCOPE_API_KEY/);
+  assert.match(webSearchSource, /text-generation\/generation/);
+  assert.match(webSearchSource, /enable_search: true/);
+  assert.match(webSearchSource, /search_strategy: 'turbo'/);
+  assert.match(webSearchSource, /forced_search: true/);
+  assert.match(webSearchSource, /assigned_site_list: assignedSites/);
+  assert.match(webSearchSource, /enable_source: true/);
+  assert.match(webSearchSource, /search_info\?\.search_results/);
+  assert.match(webSearchSource, /createHash\('sha256'\)/);
+  assert.match(webSearchSource, /'bing\.com'/);
+  assert.match(webSearchSource, /'google\.com'/);
+  assert.match(webSearchSource, /'duckduckgo\.com'/);
+  assert.match(webSearchSource, /'search\.yahoo\.com'/);
+  assert.match(webSearchSource, /tools: \[\{ type: 'web_extractor' \}\]/);
+  assert.match(webSearchSource, /isAssignedSearchPlatformUrl/);
+  assert.doesNotMatch(webSearchSource, /choices\?\.\[0\]|Return JSON only/);
+  assert.doesNotMatch(webSearchSource, /BRAVE_SEARCH_API_KEY|api\.search\.brave\.com|BING_RSS_ENDPOINT/);
+});
+
+test('CS-16 web lookup prioritizes unrestricted Zhipu search/reader and uses Qwen only for quota exhaustion', () => {
+  assert.match(webSearchSource, /ZHIPU_API_KEY/);
+  assert.match(webSearchSource, /\/api\/paas\/v4\/web_search/);
+  assert.match(webSearchSource, /search_engine: process\.env\.ZHIPU_WEB_SEARCH_ENGINE \|\| 'search_pro'/);
+  assert.match(webSearchSource, /content_size: 'high'/);
+  assert.doesNotMatch(webSearchSource, /search_domain_filter/);
+  assert.match(webSearchSource, /\/api\/paas\/v4\/reader/);
+  assert.match(webSearchSource, /ZHIPU_QUOTA_ERROR_CODES/);
+  for (const code of ['1113', '1308', '1310', '1316', '1317', '1318', '1319', '1320', '1321']) {
+    assert.match(webSearchSource, new RegExp(`'${code}'`));
+  }
+  assert.doesNotMatch(webSearchSource, /ZHIPU_QUOTA_ERROR_CODES[\s\S]{0,160}'1302'/);
+  assert.doesNotMatch(webSearchSource, /ZHIPU_QUOTA_ERROR_CODES[\s\S]{0,160}'1305'/);
+  assert.match(webSearchSource, /else if \(outcome\.kind !== 'quota_exhausted'\)/);
+  assert.match(routeSource, /process\.env\.ZHIPU_WEB_MODEL \|\| 'glm-4\.7'/);
+  assert.match(routeSource, /webSearch\?\.provider\.startsWith\('Zhipu'\)/);
+  assert.match(routeSource, /searchAssistantWeb\(latestUserMessage\.content, language, new Date\(\), 'qwen'\)/);
+  assert.match(routeSource, /isZhipuQuotaErrorCode/);
 });
 
 test('CS-14 public event overview questions prefer known official event knowledge', () => {

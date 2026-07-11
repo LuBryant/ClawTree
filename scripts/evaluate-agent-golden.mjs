@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { CANDIDATE_RUNTIME, runCandidateCase } from './agent-candidate-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DEFAULT_FIXTURE = path.join(root, 'frontend', 'data', 'agent-golden-evals.json');
@@ -295,6 +296,45 @@ export function evaluateAgentGolden(payload) {
   };
 }
 
+export async function runAgentCandidate(payload, options = {}) {
+  const runId = options.runId || `eval-${new Date().toISOString()}-${process.pid}`;
+  const startedAt = new Date().toISOString();
+  const cases = [];
+  const traces = [];
+  for (const item of payload.cases) {
+    const execution = await runCandidateCase(item, { runId });
+    cases.push({ ...item, prediction: execution.prediction });
+    traces.push(execution.trace);
+  }
+  const evaluated = evaluateAgentGolden({ ...payload, cases });
+  const baseline = evaluateAgentGolden(payload);
+  const totalLatencyMs = round(traces.reduce((sum, trace) => sum + trace.latencyMs, 0));
+  const totalCostMicrousd = traces.reduce((sum, trace) => sum + trace.costMicrousd, 0);
+  return {
+    ...evaluated,
+    run: {
+      runId,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      provider: CANDIDATE_RUNTIME.provider,
+      modelVersion: CANDIDATE_RUNTIME.model,
+      runtimeVersion: CANDIDATE_RUNTIME.runtimeVersion,
+      promptVersion: CANDIDATE_RUNTIME.promptVersion,
+      schemaVersion: payload.meta.schemaVersion,
+      datasetVersion: payload.meta.version,
+      totalLatencyMs,
+      averageLatencyMs: round(ratio(totalLatencyMs, traces.length)),
+      totalInputTokens: traces.reduce((sum, trace) => sum + trace.inputTokens, 0),
+      totalOutputTokens: traces.reduce((sum, trace) => sum + trace.outputTokens, 0),
+      totalCostMicrousd,
+      traces,
+    },
+    baselineDiff: Object.fromEntries(Object.entries(evaluated.checks).map(([key, value]) => [key, {
+      baseline: baseline.checks[key], candidate: value, changed: baseline.checks[key] !== value,
+    }])),
+  };
+}
+
 function parseOutputArgument(argv) {
   const index = argv.indexOf('--output');
   if (index === -1) return null;
@@ -302,9 +342,9 @@ function parseOutputArgument(argv) {
   return path.resolve(process.cwd(), argv[index + 1]);
 }
 
-function runCli() {
+async function runCli() {
   const fixture = JSON.parse(readFileSync(DEFAULT_FIXTURE, 'utf8'));
-  const report = evaluateAgentGolden(fixture);
+  const report = await runAgentCandidate(fixture);
   const serialized = `${JSON.stringify(report, null, 2)}\n`;
   const output = parseOutputArgument(process.argv.slice(2));
   if (output) writeFileSync(output, serialized);
@@ -313,5 +353,5 @@ function runCli() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  runCli();
+  await runCli();
 }

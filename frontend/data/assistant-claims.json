@@ -1,0 +1,44 @@
+{
+  "version": "2026-07-11.claim-ledger-v1",
+  "claims": [
+    {
+      "id": "claim-htx-registration-deadline",
+      "entityId": "kb-htx-genesis-hackathon",
+      "field": "registrationDeadline",
+      "value": "2026-07-05T23:59:59+08:00",
+      "source": { "label": "HTX Genesis Hackathon 官方 GitBook", "url": "https://htxdao-1.gitbook.io/htx-genesis-hackathon" },
+      "quote": "报名截止时间：2026 年 7 月 5 日",
+      "checkedAt": "2026-07-05T12:00:00+08:00",
+      "validFrom": "2026-07-05T00:00:00+08:00",
+      "validUntil": "2026-07-05T23:59:59+08:00",
+      "status": "verified",
+      "conflictSet": null
+    },
+    {
+      "id": "claim-htx-registration-url",
+      "entityId": "kb-htx-genesis-hackathon",
+      "field": "registrationUrl",
+      "value": "https://opencsg-china.feishu.cn/share/base/form/shrcnvjuubNm15hDU3lLsRMf8Jb",
+      "source": { "label": "HTX Genesis Hackathon 官方 GitBook", "url": "https://htxdao-1.gitbook.io/htx-genesis-hackathon" },
+      "quote": "官方报名表单",
+      "checkedAt": "2026-07-05T12:00:00+08:00",
+      "validFrom": "2026-07-05T00:00:00+08:00",
+      "validUntil": "2026-07-05T23:59:59+08:00",
+      "status": "verified",
+      "conflictSet": null
+    },
+    {
+      "id": "claim-htx-registration-status",
+      "entityId": "kb-htx-genesis-hackathon",
+      "field": "registrationStatus",
+      "value": "open",
+      "source": { "label": "HTX Genesis Hackathon 官方 GitBook", "url": "https://htxdao-1.gitbook.io/htx-genesis-hackathon" },
+      "quote": "赛事免费报名、采用审核制",
+      "checkedAt": "2026-07-05T12:00:00+08:00",
+      "validFrom": "2026-07-05T00:00:00+08:00",
+      "validUntil": "2026-07-05T23:59:59+08:00",
+      "status": "verified",
+      "conflictSet": null
+    }
+  ]
+}

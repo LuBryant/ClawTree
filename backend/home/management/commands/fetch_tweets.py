@@ -15,9 +15,8 @@ from datetime import datetime
 
 import requests
 from django.core.management.base import BaseCommand
-from openai import OpenAI
-
-from home.models import EventReview
+from home.agent_runtime import CompatAgentGateway, deterministic_tweet_analysis
+from home.models import EventReview, Workspace
 
 # ---------------------------------------------------------------------------
 # xAI 配置
@@ -93,18 +92,12 @@ class Command(BaseCommand):
             return
 
         # -------------------------------------------------------------------
-        # 初始化 LLM 客户端（用于分析）
+        # 统一 Agent gateway（用于分析）
         # -------------------------------------------------------------------
-        openai_api_key = os.environ.get('OPENAI_API_KEY')
-        if not openai_api_key:
-            self.stderr.write('错误: 未设置 OPENAI_API_KEY 环境变量')
-            return
-
-        llm_client = OpenAI(
-            api_key=openai_api_key,
-            base_url=os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        agent = CompatAgentGateway()
+        workspace, _ = Workspace.objects.get_or_create(
+            slug='treefinance', defaults={'name': 'TreeFinance'},
         )
-        llm_model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
 
         # -------------------------------------------------------------------
         # 1. xAI x_search 搜索推文
@@ -128,7 +121,9 @@ class Command(BaseCommand):
             self.stdout.write(f'  [{i+1}/{len(tweets)}] {tweet.get("text", "")[:60]}...')
 
             # LLM 分析
-            analysis = self._llm_analyze(llm_client, llm_model, tweet.get('text', ''))
+            analysis = self._llm_analyze(
+                agent, workspace, tweet.get('text', ''), tweet.get('id') or str(i),
+            )
             if analysis is None:
                 skipped_count += 1
                 continue
@@ -161,6 +156,7 @@ class Command(BaseCommand):
             _, created = EventReview.objects.update_or_create(
                 tweet_id=tweet_id,
                 defaults={
+                    'workspace': workspace,
                     'title': analysis.get('title', tweet.get('text', '')[:60])[:500],
                     'content': analysis.get('content', tweet.get('text', '')),
                     'summary': analysis.get('summary', '')[:500],
@@ -285,46 +281,36 @@ class Command(BaseCommand):
     # LLM 分析
     # =======================================================================
 
-    def _llm_analyze(self, client, model, tweet_text):
+    def _llm_analyze(self, agent, workspace, tweet_text, source_id):
         """调用 LLM 分析推文是否值得回顾"""
         if not tweet_text:
             return None
 
         prompt = ANALYSIS_PROMPT_TEMPLATE.format(content=tweet_text)
 
-        for attempt in range(3):
-            try:
-                message = client.chat.completions.create(
-                    model=model,
-                    max_tokens=800,
-                    temperature=0.3,
-                    messages=[
-                        {'role': 'system', 'content': ANALYSIS_SYSTEM_PROMPT},
-                        {'role': 'user', 'content': prompt},
-                    ],
-                )
-                response_text = message.choices[0].message.content.strip()
+        def fallback():
+            decision = deterministic_tweet_analysis(tweet_text)
+            if not decision['is_review_worthy']:
+                return {'is_review_worthy': False}
+            return {
+                'is_review_worthy': True,
+                'title': (tweet_text or '活动回顾')[:15],
+                'summary': (tweet_text or '')[:100],
+                'content': tweet_text or '',
+                'published_at': None,
+            }
 
-                # 清理 markdown 包裹
-                if '```' in response_text:
-                    response_text = response_text.split('```')[1]
-                    if response_text.startswith('json'):
-                        response_text = response_text[4:]
-                    response_text = response_text.strip()
-
-                return json.loads(response_text)
-
-            except json.JSONDecodeError as e:
-                if attempt < 2:
-                    continue
-                self.stderr.write(f'    JSON 解析失败: {e}')
-                return None
-            except Exception as e:
-                if '429' in str(e) and attempt < 2:
-                    time.sleep(3)
-                    continue
-                self.stderr.write(f'    LLM 调用失败: {e}')
-                return None
+        result, _ = agent.generate_json(
+            workspace=workspace,
+            task='classify',
+            messages=[
+                {'role': 'system', 'content': ANALYSIS_SYSTEM_PROMPT},
+                {'role': 'user', 'content': prompt},
+            ],
+            source_ids=[f'tweet:{source_id}'],
+            fallback_value=fallback,
+        )
+        return result
 
     # =======================================================================
     # 辅助方法

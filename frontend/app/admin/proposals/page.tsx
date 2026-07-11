@@ -1,10 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { agentRuns, capabilityLibrary, proposalTargets } from '../../lib/public-data';
+import { fetchAgentWorkflows, type AgentWorkflowResult } from '../../lib/api-client';
 import { useLanguage } from '../../i18n/LanguageProvider';
 
 export default function AdminProposalsPage() {
   const { tx } = useLanguage();
+  const [liveWorkflows, setLiveWorkflows] = useState<AgentWorkflowResult[]>([]);
+  useEffect(() => {
+    fetchAgentWorkflows().then(setLiveWorkflows).catch(() => setLiveWorkflows([]));
+  }, []);
   const tierLabels: Record<string, string> = {
     light: tx('轻量合作', 'Light partnership'),
     medium: tx('中度联动', 'Integrated collaboration'),
@@ -49,6 +56,36 @@ export default function AdminProposalsPage() {
             <button type="button" className="btn btn-success btn-sm mt-5">{tx('进入人工审批', 'Open human review')}</button>
           </article>
         ))}
+      </section>
+
+      <section className="panel p-5">
+        <h2 className="text-xl font-black">{tx('真实 Agent 工作流', 'Live Agent workflows')}</h2>
+        <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
+          {tx('这里显示活动页触发的 Evidence → Match → Verifier → Proposal → Human Gate 持久化运行。', 'Persisted Evidence → Match → Verifier → Proposal → Human Gate runs triggered from the event browser.')}
+        </p>
+        <div className="mt-4 grid gap-3">
+          {liveWorkflows.map((workflow) => (
+            <div key={workflow.runId} className="panel-deep p-3 text-xs leading-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <strong>{workflow.runId}</strong>
+                <span className="badge badge-warning">{workflow.status}</span>
+              </div>
+              <p className="mt-2" style={{ color: 'var(--muted)' }}>
+                {workflow.checkpoints.map((item) => item.name).join(' → ')}
+              </p>
+              <p>AgentRuns: {workflow.agentRunIds.length} · Match: {workflow.matchId ?? '—'} · Proposal: {workflow.proposalId ?? '—'}</p>
+              <p style={{ color: workflow.verifier?.passed ? 'var(--success)' : 'var(--danger)' }}>
+                verifier: {workflow.verifier?.passed ? 'passed' : (workflow.verifier?.reasonCodes || []).join(', ') || 'pending'}
+              </p>
+              <p>externalSideEffect: false</p>
+            </div>
+          ))}
+          {liveWorkflows.length === 0 && (
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              {tx('暂无真实工作流。请先在活动浏览器点击“可信匹配与提案”。', 'No live workflow yet. Run “Trusted match + proposal” from the event browser.')}
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="panel p-5">

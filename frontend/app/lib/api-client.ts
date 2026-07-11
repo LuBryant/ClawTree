@@ -194,6 +194,52 @@ export function generateEmail(eventIds: number[]): Promise<{ results: GenerateEm
   );
 }
 
+export interface AgentWorkflowResult {
+  runId: string;
+  status: string;
+  checkpoint: string;
+  checkpoints: Array<{ name: string; at: string; agentRunId?: string }>;
+  agentRunIds: string[];
+  matchId: number | null;
+  proposalId: number | null;
+  verifier: { passed?: boolean; reasonCodes?: string[] };
+  externalSideEffect: false;
+}
+
+export async function orchestrateAgentWorkflow(eventId: number): Promise<AgentWorkflowResult> {
+  const url = new URL(`${resolvedApiBase()}/admin/agent-workflows/orchestrate/`);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-ClawTree-Workspace': process.env.NEXT_PUBLIC_WORKSPACE_SLUG || 'treefinance',
+      'X-ClawTree-Operator': 'demo-operator@clawtree.local',
+      'X-Input-Version': 'match-rubric-v2',
+      'Idempotency-Key': `event-workflow-${eventId}`,
+    },
+    body: JSON.stringify({ event_id: eventId, campaign_key: `event-${eventId}` }),
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.data?.workflow) {
+    throw new Error(payload?.error?.code || `agent_workflow_failed:${response.status}`);
+  }
+  return payload.data.workflow as AgentWorkflowResult;
+}
+
+export async function fetchAgentWorkflows(): Promise<AgentWorkflowResult[]> {
+  const url = new URL(`${resolvedApiBase()}/admin/agent-workflows/`);
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-ClawTree-Workspace': process.env.NEXT_PUBLIC_WORKSPACE_SLUG || 'treefinance',
+    },
+    cache: 'no-store',
+  });
+  if (!response.ok) return [];
+  const payload = await response.json();
+  return Array.isArray(payload?.results) ? payload.results : [];
+}
+
 // ---------------------------------------------------------------------------
 // 外联审批 API
 // ---------------------------------------------------------------------------

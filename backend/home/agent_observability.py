@@ -47,6 +47,28 @@ def claim_daily_budget(workspace, *, estimated_cost_microusd=0, now=None):
         return {'allowed': True, 'fallback': False, 'reason': ''}
 
 
+def reconcile_daily_budget(workspace, *, reserved_cost_microusd, actual_cost_microusd, now=None):
+    """Replace a pre-call cost reservation with provider-reported actual cost."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        budget, _ = DailyAgentBudget.objects.select_for_update().get_or_create(
+            workspace=workspace,
+            date=timezone.localdate(now),
+            defaults={'limit_microusd': 0, 'request_limit': 0},
+        )
+        reserved = max(0, int(reserved_cost_microusd))
+        # Unknown provider pricing/usage keeps the conservative reservation;
+        # it must never be silently converted to zero cost.
+        if actual_cost_microusd is None:
+            return budget
+        actual = max(0, int(actual_cost_microusd))
+        budget.spent_microusd = max(0, budget.spent_microusd - reserved + actual)
+        if budget.limit_microusd and budget.spent_microusd >= budget.limit_microusd:
+            budget.fallback_only = True
+        budget.save(update_fields=['spent_microusd', 'fallback_only', 'updated_at'])
+        return budget
+
+
 def percentile95(values):
     values = sorted(int(value) for value in values)
     if not values:

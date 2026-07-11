@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { evaluateAgentGolden } from '../scripts/evaluate-agent-golden.mjs';
+import { evaluateAgentGolden, runAgentCandidate } from '../scripts/evaluate-agent-golden.mjs';
 
 const fixture = JSON.parse(await readFile(
   new URL('../frontend/data/agent-golden-evals.json', import.meta.url),
@@ -49,9 +49,10 @@ test('AI-7 versioned golden set covers six tasks and low-confidence counterexamp
   );
 });
 
-test('AI-8 evaluator reports required metrics and frozen report is reproducible', () => {
-  const report = evaluateAgentGolden(fixture);
-  assert.deepEqual(report, frozenReport);
+test('AIX-03 candidate runner executes inputs and reports reproducible promotion metadata', async () => {
+  const poisonedBaseline = clone(fixture);
+  poisonedBaseline.cases[0].prediction.labels = ['irrelevant'];
+  const report = await runAgentCandidate(poisonedBaseline, { runId: 'test-candidate-run' });
   assert.equal(report.passed, true);
   assert.equal(report.metrics.classification.microF1, 1);
   assert.equal(report.metrics.dedup.precision, 1);
@@ -61,8 +62,23 @@ test('AI-8 evaluator reports required metrics and frozen report is reproducible'
   assert.equal(report.metrics.proposal.guardrailPassRate, 1);
   assert.equal(report.metrics.lowConfidence.reviewRecall, 1);
   assert.equal(report.metrics.lowConfidence.unknownDispositionRecall, 1);
+  assert.equal(report.run.runId, 'test-candidate-run');
+  assert.equal(report.run.modelVersion, 'clawtree-rules-v4');
+  assert.equal(report.run.promptVersion, 'agent-policy-2026-07-11.v2');
+  assert.equal(report.run.schemaVersion, fixture.meta.schemaVersion);
+  assert.equal(report.run.traces.length, fixture.cases.length);
+  assert.ok(report.run.traces.every((trace) => trace.inputHash.length === 64));
+  assert.ok(report.run.traces.every((trace) => trace.schemaValid === true));
+  assert.equal(report.run.totalCostMicrousd, 0);
+  assert.equal(report.baselineDiff.classificationMicroF1.baseline, false);
+  assert.equal(report.baselineDiff.classificationMicroF1.candidate, true);
   assert.match(packageJson.scripts['eval:agents'], /evaluate-agent-golden\.mjs/);
   assert.match(packageJson.scripts.check, /eval:agents/);
+});
+
+test('AI-8 frozen baseline remains reproducible as a metric projection', () => {
+  const { run: _run, baselineDiff: _baselineDiff, ...frozenMetricProjection } = frozenReport;
+  assert.deepEqual(evaluateAgentGolden(fixture), frozenMetricProjection);
 });
 
 test('AI-8 evaluator fails closed on classification, citation, and proposal regressions', () => {

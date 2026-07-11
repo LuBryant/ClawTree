@@ -69,10 +69,14 @@ test('AI-6 repeated and concurrent calls compute once and return defensive copie
   assert.deepEqual((await cache.getOrCompute('same-key', compute)).value.labels, ['campus']);
 });
 
-test('AI-6 execution trace makes cache-hit incremental usage and cost zero', () => {
-  assert.match(providerSource, /incrementalInputTokens: execution\.cacheHit \? 0 : null/);
-  assert.match(providerSource, /incrementalOutputTokens: execution\.cacheHit \? 0 : null/);
-  assert.match(providerSource, /incrementalCostMicrousd: execution\.cacheHit \? 0 : null/);
+test('AIX-05 execution trace records real miss usage and zero cache-hit increments', () => {
+  assert.match(providerSource, /incrementalInputTokens: execution\.cacheHit \? 0 : run\.usage\.inputTokens/);
+  assert.match(providerSource, /incrementalOutputTokens: execution\.cacheHit \? 0 : run\.usage\.outputTokens/);
+  assert.match(providerSource, /incrementalCostMicrousd: execution\.cacheHit \? 0 : run\.usage\.costMicrousd/);
+  assert.match(providerSource, /budget\.reserve/);
+  assert.match(providerSource, /budget\.reconcile/);
+  assert.match(providerSource, /requestId:/);
+  assert.match(providerSource, /finishReason:/);
   assert.match(providerSource, /agentSchemaBundle\.version/);
   assert.match(providerSource, /provider\.modelVersion/);
 });

@@ -14,10 +14,16 @@ import {
 import {
   buildAssistantWebSearchContext,
   buildWebSearchFallbackAnswer,
+  isZhipuQuotaErrorCode,
   searchAssistantWeb,
   shouldUseAssistantWebSearch,
   webSearchToCitations,
 } from '../../../lib/assistant-web-search.server';
+import { registrationLifecycle } from '../../../lib/assistant-claim-ledger.mjs';
+import {
+  assistantRepairInstruction,
+  verifyHighRiskAssistantAnswer,
+} from '../../../lib/agent-verifier.mjs';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +34,8 @@ const MAX_MESSAGE_CHARS = 4_000;
 const MAX_TOTAL_CHARS = 20_000;
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const ALLOWED_PROVIDER_HOSTS = new Set(['api.deepseek.com']);
+const ZHIPU_DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
+const ALLOWED_ZHIPU_HOSTS = new Set(['open.bigmodel.cn']);
 
 type AssistantResponseMode =
   | 'rag_model'
@@ -46,6 +54,9 @@ function answerResponse(
   mode: AssistantResponseMode,
   answer = retrieval.answer,
   extraCitations: AssistantCitation[] = [],
+  verification: { status: string; reasonCodes: string[]; repairAttempts: number } = {
+    status: 'not_run', reasonCodes: [], repairAttempts: 0,
+  },
 ) {
   const citations = [...retrieval.citations, ...extraCitations]
     .filter((citation, index, all) => all.findIndex((item) => item.id === citation.id) === index);
@@ -56,6 +67,7 @@ function answerResponse(
     grounded: citations.length > 0,
     knowledgeAsOf: retrieval.knowledgeAsOf,
     citations,
+    verification,
     handoff: {
       required: retrieval.handoffRequired,
       reason: retrieval.handoffReason,
@@ -89,6 +101,20 @@ function providerBaseUrl() {
     throw new Error('Invalid provider configuration');
   }
   return url;
+}
+
+function zhipuProviderBaseUrl() {
+  const url = new URL(process.env.ZHIPU_BASE_URL || ZHIPU_DEFAULT_BASE_URL);
+  if (url.protocol !== 'https:' || !ALLOWED_ZHIPU_HOSTS.has(url.hostname)) {
+    throw new Error('Invalid Zhipu provider configuration');
+  }
+  return url;
+}
+
+function assistantChatUrl(useZhipu: boolean) {
+  return useZhipu
+    ? new URL('/api/paas/v4/chat/completions', zhipuProviderBaseUrl().origin)
+    : new URL('/chat/completions', providerBaseUrl());
 }
 
 function detectResponseLanguage(text: string, fallback: 'zh' | 'en'): 'zh' | 'en' {
@@ -138,9 +164,10 @@ export async function POST(request: Request) {
     webSearch ? buildAssistantWebSearchContext(webSearch, language) : '',
   ].filter(Boolean).join('\n\n');
 
+  const useZhipuWebAnswer = Boolean(webSearch?.provider.startsWith('Zhipu'));
   const apiKey = process.env.ASSISTANT_FORCE_FALLBACK === '1'
     ? undefined
-    : process.env.DEEPSEEK_API_KEY;
+    : useZhipuWebAnswer ? process.env.ZHIPU_API_KEY : process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     if (shouldSearchWeb) {
       return answerResponse(
@@ -156,11 +183,13 @@ export async function POST(request: Request) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const upstream = await fetch(new URL('/chat/completions', providerBaseUrl()), {
+    const upstream = await fetch(assistantChatUrl(useZhipuWebAnswer), {
       method: 'POST',
       headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+        model: useZhipuWebAnswer
+          ? process.env.ZHIPU_WEB_MODEL || 'glm-4.7'
+          : process.env.DEEPSEEK_MODEL || 'deepseek-chat',
         messages: [
           { role: 'system', content: buildAssistantSystemPrompt(workspace) },
           ...messages.slice(0, -1).slice(-6),
@@ -173,8 +202,26 @@ export async function POST(request: Request) {
       cache: 'no-store',
       signal: controller.signal,
     });
+    const payload = await upstream.json().catch(() => null);
     if (!upstream.ok) {
       clearTimeout(timeout);
+      const zhipuErrorCode = payload?.error?.code;
+      if (
+        useZhipuWebAnswer
+        && isZhipuQuotaErrorCode(
+          typeof zhipuErrorCode === 'string' || typeof zhipuErrorCode === 'number'
+            ? String(zhipuErrorCode)
+            : null,
+        )
+      ) {
+        const qwenSearch = await searchAssistantWeb(latestUserMessage.content, language, new Date(), 'qwen');
+        return answerResponse(
+          retrieval,
+          'web_search_fallback',
+          buildWebSearchFallbackAnswer(retrieval.answer, qwenSearch, language),
+          qwenSearch ? webSearchToCitations(qwenSearch) : [],
+        );
+      }
       if (shouldSearchWeb) {
         return answerResponse(
           retrieval,
@@ -185,10 +232,9 @@ export async function POST(request: Request) {
       }
       return answerResponse(retrieval, 'faq_fallback');
     }
-    const payload = await upstream.json();
     clearTimeout(timeout);
     const answer = payload?.choices?.[0]?.message?.content;
-    if (typeof answer !== 'string' || !answer.trim() || !answerPassesGuardrails(answer)) {
+    if (typeof answer !== 'string' || !answer.trim()) {
       if (shouldSearchWeb) {
         return answerResponse(
           retrieval,
@@ -198,12 +244,90 @@ export async function POST(request: Request) {
         );
       }
       return answerResponse(retrieval, 'faq_fallback');
+    }
+    const registrationState = /(?:genesis|htx|创世|黑客松)/iu.test(latestUserMessage.content)
+      ? registrationLifecycle('kb-htx-genesis-hackathon', new Date()).state
+      : 'unknown';
+    let finalAnswer = answer.trim();
+    let verification = verifyHighRiskAssistantAnswer({
+      answer: finalAnswer,
+      groundingContext,
+      registrationState,
+    });
+    let repairAttempts = 0;
+
+    if (!verification.safe || !answerPassesGuardrails(finalAnswer)) {
+      repairAttempts = 1;
+      const repairController = new AbortController();
+      const repairTimeout = setTimeout(() => repairController.abort(), 30_000);
+      try {
+        const repairResponse = await fetch(assistantChatUrl(useZhipuWebAnswer), {
+          method: 'POST',
+          headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model: useZhipuWebAnswer
+              ? process.env.ZHIPU_WEB_MODEL || 'glm-4.7'
+              : process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+            messages: [
+              { role: 'system', content: buildAssistantSystemPrompt(workspace) },
+              { role: 'system', content: assistantRepairInstruction(verification.reasonCodes, language) },
+              {
+                role: 'user',
+                content: JSON.stringify({
+                  groundingContext,
+                  candidateAnswer: finalAnswer,
+                  responseLanguage: language,
+                }),
+              },
+            ],
+            stream: false,
+            temperature: 0,
+            max_tokens: shouldSearchWeb ? 900 : 700,
+          }),
+          cache: 'no-store',
+          signal: repairController.signal,
+        });
+        const repairPayload = await repairResponse.json().catch(() => null);
+        const repairedAnswer = repairPayload?.choices?.[0]?.message?.content;
+        if (repairResponse.ok && typeof repairedAnswer === 'string' && repairedAnswer.trim()) {
+          finalAnswer = repairedAnswer.trim();
+          verification = verifyHighRiskAssistantAnswer({
+            answer: finalAnswer,
+            groundingContext,
+            registrationState,
+          });
+        }
+      } catch {
+        // A failed repair is handled by the fail-closed branch below.
+      } finally {
+        clearTimeout(repairTimeout);
+      }
+    }
+
+    if (!verification.safe || !answerPassesGuardrails(finalAnswer)) {
+      if (shouldSearchWeb) {
+        return answerResponse(
+          retrieval,
+          'web_search_fallback',
+          buildWebSearchFallbackAnswer(retrieval.answer, webSearch, language),
+          webCitations,
+          { status: 'failed_closed', reasonCodes: verification.reasonCodes, repairAttempts },
+        );
+      }
+      return answerResponse(
+        retrieval,
+        'faq_fallback',
+        retrieval.answer,
+        [],
+        { status: 'failed_closed', reasonCodes: verification.reasonCodes, repairAttempts },
+      );
     }
     return answerResponse(
       retrieval,
       shouldSearchWeb ? 'web_search_model' : retrieval.citations.length > 0 ? 'rag_model' : 'ai_model',
-      answer.trim(),
+      finalAnswer,
       webCitations,
+      { status: 'passed', reasonCodes: [], repairAttempts },
     );
   } catch {
     clearTimeout(timeout);

@@ -8,7 +8,7 @@
 npm run eval:agents
 ```
 
-命令不访问网络、数据库或模型供应商，读取冻结的候选输出指标投影并生成 `docs/agent-evaluation-report.json`。`prediction` 只保留评价所需字段，不替代完整 Agent JSON Schema。`evaluateAgentGolden()` 也可直接接收替换过 `prediction` 的同结构对象，用于比较新的模型、规则或人工标注批次；黄金 `input` 和 `expected` 不应随候选实现一起修改。
+默认命令不访问网络或数据库，但会逐条调用 `scripts/agent-candidate-runtime.mjs` 生成候选输出，而不是读取黄金集预填 `prediction`。冻结 `prediction` 仅作为 baseline；报告包含 baseline diff、run ID、provider/model、Prompt/Schema/runtime 版本、逐样本 input hash、延迟、token 与成本元数据。`evaluateAgentGolden()` 仍可用于纯指标计算，`runAgentCandidate()` 用于真实候选运行和 promote 门禁。
 
 ## Metric definitions
 

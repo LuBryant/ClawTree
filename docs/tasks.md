@@ -1,13 +1,15 @@
 # ClawTree 冠军路线与工程任务清单
 
-版本：1.1
+版本：2.0
 
-更新日期：2026-07-04
+更新日期：2026-07-11
 
 适用范围：黑客松 MVP、广州高校行试点与后续产品验证。
 参考文件：[PRD](prd.md)、[初始架构](architecture.md)、[验收标准](acceptance.md)。
 
 任务状态：`Todo` / `In Progress` / `Review` / `Done` / `Blocked` / `Deferred`。
+
+AI 能力完成度另分四级：`Protocol`（协议/Schema 已实现）/ `Runtime`（已接真实业务）/ `Evaluated`（实际候选运行评测通过）/ `Production`（权限、预算、监控、回滚完备）。旧任务中的 `Done` 不自动等于端到端生产完成。
 
 优先级：`P0` 必须完成；`P1` 时间允许；`P2` 试点后；`Icebox` 未通过决策门。
 
@@ -570,3 +572,163 @@ Evidence: <PR / file / report>
 10. `DEMO-1~8、QA-7~12`：完成路演、故障和证据冻结。
 
 任何 P1/P2/Icebox 工作不得阻塞以上 P0 顺序。
+
+---
+
+## 21. AI 2026 全面升级需求表：从可信协议到 Partnership Intelligence OS
+
+### 21.1 总体结论与目标架构
+
+当前仓库已经具备严格 JSON Schema、claim-level 引用、Prompt Injection 隔离、`unknown + needsReview`、确定性降级、缓存、黄金集和 Agent 可观测数据模型。这些是强基础，但目前仍存在三套并行 AI 链路：Next.js Agent Provider、Next.js 公共助手、Django 自有模型调用；统一 Agent Runtime 尚未真正贯穿内容、活动、匹配、提案、外联与反馈业务。
+
+冠军版升级目标不是堆叠更多自由对话 Agent，而是建立一套**可规划、可验证、可校准、可恢复、可持续学习的合作智能系统**：
+
+```text
+公开/授权来源
+  → 安全抓取与字段级事实账本
+  → Hybrid Retrieval + Evidence Graph
+  → 低成本模型抽取/召回
+  → 强模型匹配、反证检查与方案生成
+  → 独立 Verifier（Schema/引用/日期/承诺/隐私）
+  → Human Gate
+  → Outreach / Content / Proof
+  → Outcome + Human Edit Feedback
+```
+
+产品楔子冻结为：**优先服务需要持续招募开发者、连接高校、运营 Hackathon/Grant/Campaign 的 Web3 生态增长团队；媒体与高校是关键网络参与者和扩展客户。**
+
+### 21.2 冠军优先级
+
+| Wave | 必须交付 | 评委看到的结果 | 出线条件 |
+|---|---|---|---|
+| AI-X0：真实可信基线 | AIX-01~06 | AI 不再只存在于 fixture；一次真实活动产生可追溯 Match、Proposal、Verifier 与 Trace | 实际候选评测通过；过期事实不误答；失败可降级 |
+| AI-X1：冠军智能体验 | AIX-07~13 | 为什么是这所学校、为什么是现在、反证是什么、成本多少全部可解释 | 3 分钟内完成 opportunity → proposal → human gate |
+| AI-X2：投资级数据飞轮 | AIX-14~21 | 人工修改与真实合作结果改善后续排序、内容与 Sponsor 报告 | 有 replay 指标、反馈审计和可验证业务基线 |
+| AI-X3：规模化护城河 | AIX-22~28 | 多模态内容、跨组织知识图谱与隐私安全网络洞察 | 真实试点后启动，不阻塞黑客松 P0 |
+
+### 21.3 P0：冠军 Demo 必须完成的真实 AI 闭环
+
+| ID | Priority | 需求 | 当前差距 / 基于现状 | 交付物 | 量化验收 | 风险与降级 | 3 分钟演示证据 |
+|---|---|---|---|---|---|---|---|
+| AIX-01 | P0 | 建立统一 AI Orchestrator，顺序固定为 `retrieve evidence → match → verifier → proposal → human review` | `agent-provider.server.ts` 的六任务协议未接入 Django Match/Proposal；Django 仍是规则匹配和固定模板 | 服务端统一 gateway、任务状态机、checkpoint、幂等 run ID | 一个真实活动请求至少创建 2 个真实 AgentRun；Schema/引用覆盖 100%；provider 失败回 deterministic；`externalSideEffect=false` | 不做自由自治多 Agent；跨服务失败时恢复最近 checkpoint | 点开活动，一键看到 Evidence → 六维 Match → 三档 Proposal → Human Gate |
+| AIX-02 | P0 | 将 Django 邮件、推文处理、Match、Proposal、Reply 与 Next AI Filter 全部迁入统一 Provider/Schema/Safety 协议 | 当前存在多套直连模型、自由文本输出和不同安全边界 | adapter 层、兼容迁移清单、旧逻辑 fallback | 所有新增模型调用均有 schemaVersion、promptVersion、sourceIds、traceId；代码扫描无新增裸 SDK 调用 | 分阶段迁移；旧确定性逻辑保留为 fallback | Judge Evidence Mode 展示同一协议覆盖六类任务 |
+| AIX-03 | P0 | 建立真正的候选运行评测，不再只读取黄金集预填 `prediction` | 当前离线报告验证数据集自洽，不能证明真实 provider/runtime 精度 | candidate runner、baseline diff、模型/Prompt/Schema 版本报告 | 30+ 六任务样本：分类 micro-F1 ≥0.90；去重 P/R ≥0.90；citation coverage=100%；低置信 unknown recall=100%；proposal guardrail=100% | 在线模型漂移时保留冻结录制报告；评测失败禁止 promote | 现场切换 deterministic baseline 与 live candidate 的质量/成本面板 |
+| AIX-04 | P0 | 建立字段级 Claim Ledger 与事实生命周期 | 知识条目级 `validUntil` 无法正确表达报名截止、活动关闭、字段冲突 | claim schema：value、source、quote、checkedAt、validFrom、validUntil、status、conflictSet | 已过截止日的活动绝不回答“仍可报名”；字段 freshness/citation 100%；fake-clock 测试覆盖 open→closed | 无法确认时输出 unknown 并引导官方核验 | 切换演示日期，回答从“可报名”自动变为“已截止/需核验” |
+| AIX-05 | P0 | 贯通真实 usage、预算与 AgentRun | Provider cache miss token/cost 仍可能为 null；公共助手未统一写 AgentRun/预算 | 调用前 reserve、调用后 reconcile；记录 usage、request ID、finish reason、latency、cost、fallback | 非缓存模型调用 token/cost 非 null；缓存 hit 增量成本为 0；超预算 100% fallback；可统计 P95 | 供应商 usage 不一致时做 adapter；缺失字段标 unknown 而非 0 | 同问两次展示第二次零增量成本，再触发预算降级 |
+| AIX-06 | P0 | 上线“生成器 + 独立验证器”双阶段高风险流程 | 目前 Schema Validator 强，但缺 claim entailment、日期一致性与承诺审判 | Proposal/高风险客服专用 verifier、reason codes、最多一次 targeted repair | unsafe escape=0；invalid schema=0；引用、日期、禁止承诺全量检查；repair 最多 1 次，失败 unknown | 只在高价值提案/高风险答案启用，控制延迟和成本 | 输入虚假奖金或恶意指令，Verifier 隔离并标出失败原因 |
+
+#### 21.3.1 AIX-01～06 完成证据（2026-07-11）
+
+| ID | Status | 交付结果 | Verification / Evidence |
+|---|---|---|---|
+| AIX-01 | Done / Runtime | Django 新增可恢复、幂等的 `Evidence → Match → Match Verifier → Proposal → Proposal Verifier/Repair → Human Gate` 工作流；稳定 run ID、checkpoint 恢复、无邮件/发布/链上副作用；活动管理页已接“一键可信匹配与提案”，提案页展示真实工作流与 AgentRun 数量 | `backend/home/agent_runtime.py`、`AgentWorkflowRun` + migrations 0011/0012、`/api/admin/agent-workflows/`、`backend/tests/test_agent_workflow.py`、`frontend/app/admin/events/page.tsx`、`frontend/app/admin/proposals/page.tsx` |
+| AIX-02 | Done / Runtime | Django 邮件、Space 摘要、推文 classify/compliance/dedup、Reply、Match、Proposal、pipeline 与 management commands 统一经过结构化/兼容 gateway；业务代码不再直接初始化模型 SDK；Next AI Filter 改为 `runAgentTaskWithTrace()` + deterministic filter fallback | `backend/home/agent_runtime.py`、业务源码扫描测试、`frontend/app/api/events/ai-filter/route.ts`；Django 62 tests + Node contract tests |
+| AIX-03 | Done / Evaluated | Eval CLI 逐条运行候选实现，不读取冻结 prediction；完整结果先过 Agent JSON Schema 与 source 校验，再投影指标；报告记录 run/model/runtime/prompt/schema、input hash、延迟、token、成本、baseline diff | `scripts/agent-candidate-runtime.mjs`、`scripts/evaluate-agent-golden.mjs`、`docs/agent-evaluation-report.json`、`tests/agent-evaluation.test.mjs`；30 cases 全部门禁通过 |
+| AIX-04 | Done / Runtime | 字段级 Claim Ledger 包含 value/source/quote/checkedAt/validFrom/validUntil/status/conflictSet；使用时间戳而非 ISO 字典序判断时区；报名状态可 fake-clock `open → closed`，冲突/过期 fail closed | `frontend/data/assistant-claims.json`、`assistant-claim-ledger.mjs`、`assistant-rag.server.ts`、`tests/assistant-claim-ledger.test.mjs` |
+| AIX-05 | Done / Runtime | Next runtime 记录真实 usage/request ID/finish reason/成本、cache hit 增量 0、每日 rollover；Django live provider 在调用前持久化预算 reservation，调用后 reconcile，AgentRun 记录 nullable unknown usage；缺 usage/价格自动 fallback，不伪造零成本；超预算不调用 provider | `frontend/app/lib/agent-runtime.mjs`、`agent-provider.server.ts`、`backend/home/agent_observability.py`、`AgentRun` migration 0012、`tests/aix-budget-verifier.test.mjs`、`backend/tests/test_agent_workflow.py` |
+| AIX-06 | Done / Runtime | Proposal 与高风险客服均采用独立 verifier；检查 Schema、引用、时效、普通表述的无依据奖金/算力/投资/嘉宾/曝光、禁止承诺和隐私；最多一次 targeted repair，修复指令进入 trusted envelope；仍失败返回 unknown/fallback，Proposal 不落为可审批对象 | `frontend/app/lib/agent-verifier.mjs`、`agent-safety.mjs`、`frontend/app/api/assistant/chat/route.ts`、Django proposal verifier、Node/Django 对抗测试 |
+
+统一验证基线：`npm run test` 80/80；Django `manage.py test tests` 62/62；TypeScript、ESLint、Next production build、Django check、migration dry-run、docs check 与 `git diff --check` 全部通过。真实模型网络调用由环境变量显式开启；默认与现场断网时继续使用确定性 fallback。
+
+### 21.4 P0/P1：冠军级智能与可解释体验
+
+| ID | Priority | 需求 | 交付物 | 量化验收 | 演示 / 商业价值 |
+|---|---|---|---|---|---|
+| AIX-07 | P0 | Evidence Graph Lite：统一来源、claim、组织、能力、活动、提案、审批和结果关系 | 可查询图模型/API；黑客松阶段可用关系表 + JSON adjacency，不强制上图数据库 | 任一提案的每个关键结论可展开至原文片段；孤立 claim=0；关系路径查询 P95<500ms | 评委点击“为什么推荐”，看到证据路径而非模型自述 |
+| AIX-08 | P0 | Opportunity Composer：把多个信号组合成机会假设、目标受众、冲突证据、缺失事实与成功指标 | 固定 Opportunity Schema + UI 卡片 | 每条机会至少 2 个支持证据、1 个反证/风险、1 个待确认问题、1 个可验证 KPI | AI 从“摘要器”升级为合作机会发现引擎 |
+| AIX-09 | P0 | Explainable Match Ranker：规则/metadata + multilingual embedding 召回 + 强模型 rerank | Top-K 候选、六维评分、替代候选、排名解释 | 人工黄金集 Top-3 hit rate ≥0.90；NDCG@5 有 baseline 对比；每个分项均有引用 | 展示“为什么这所学校、为什么不是另一所” |
+| AIX-10 | P0 | Proposal Simulator：轻/中/深三档方案包含双方资源、成本、风险、交付物和 KPI | 版本化 Proposal Schema、资源约束库、不可承诺规则 | 每档 citation coverage=100%；资源缺口和不可承诺项必填；人工可接受率 ≥0.80（demo 样本） | 直接体现商业策划与执行价值，而非通用文案生成 |
+| AIX-11 | P0 | Judge Evidence Mode：一键呈现 Schema、来源、模型、成本、延迟、fallback、Verifier 和人改 diff | `/admin` 证据页或 Demo drawer | 单次 run 从输入到批准全链路可回放；不显示 PII、Prompt、CoT | 技术评委可在 30 秒内核验“不是 PPT AI” |
+| AIX-12 | P1 | Grounded Demo Copilot：允许评委自由追问项目、推荐理由、安全边界与来源 | 页面上下文检索、引用跳转、拒答/转人工 | 50 条中英自由问法：grounded answer precision ≥0.90；无证据拒答率 100%；P95<3s | 把评委问答本身变成可信 AI 演示 |
+| AIX-13 | P1 | 证据化网页研究工具：search 仅用于发现，关键事实必须抓取官方正文 | 官方域名评分、安全抓取、正文抽取、quote、注入扫描 | 报名/截止/主办方 claim 100% 来自正文；官方源优先率 ≥0.90；拒绝 private IP、危险重定向与超大响应 | 官方页与聚合页冲突时展示选源依据 |
+
+### 21.5 P1：Hybrid RAG、模型路由与可靠性
+
+| ID | Priority | 需求 | 交付物 | 量化验收 | 风险边界 |
+|---|---|---|---|---|---|
+| AIX-14 | P1 | Hybrid RAG Lite：BM25/FTS + 多语 embedding + metadata filter + RRF/rerank | 可重建本地索引；优先 SQLite FTS/轻量向量索引，保留 lexical fallback | 50+ 中英改写 query：Recall@5 ≥0.95、MRR@5 ≥0.85、无答案 precision ≥0.90、P95<1.5s | 当前知识量小，不引入重型向量数据库作为现场单点故障 |
+| AIX-15 | P1 | Provider/Model Router：抽取、匹配、提案、验证按成本与风险路由 | DeepSeek/Qwen/OpenAI-compatible adapters、超时/429 熔断、模型版本 cache key | 主 provider 故障 15 秒内切备用/规则；相同 Schema 行为一致；输出质量-成本 Pareto 表 | Demo 默认 1 个主 provider + deterministic fallback，避免多 Key 脆弱性 |
+| AIX-16 | P1 | 校准置信度与选择性自动化 | 基于 coverage、consistency、risk、retrieval score 的校准器 | ECE ≤0.10；accepted set precision ≥0.95；高风险 review recall=100% | 小样本明确标注为 demo calibration；任何真实发送仍需人审 |
+| AIX-17 | P1 | Prompt/Schema/Policy Registry + shadow/canary | 版本注册、评测门禁、5% shadow、promote/rollback | 任一关键指标回归自动阻断；一键回滚；历史 run 可复现 | shadow 结果不得影响用户与副作用 |
+| AIX-18 | P1 | 统一结构化 Trace，并与 OpenTelemetry GenAI 语义字段兼容 | assistant/search/agent/tool spans；只记 hash/ref，不记原文或 CoT | 一次 run 可定位 retrieval→model→verifier→fallback；PII snapshot 0 泄漏 | 时间不足先实现内部 JSON trace 与 OTel 字段对齐 |
+
+### 21.6 P1：可持续学习、商业结果与媒体传播 AI
+
+| ID | Priority | 需求 | 交付物 | 量化验收 | 投资价值 |
+|---|---|---|---|---|---|
+| AIX-19 | P1 | Partnership Memory：记录组织偏好、历史接受/拒绝、人工修改和合作结果 | 审核后 memory、来源与有效期；解释本次使用了哪些历史反馈 | 未审核反馈不得进入生成；每条 memory 可撤回；新提案可列出采用的历史信号 | 形成组织专属智能与迁移成本 |
+| AIX-20 | P1 | Feedback Flywheel + Active Learning Queue | edit diff、reason taxonomy、业务价值×不确定性排序、一键转 regression case | 每次人工编辑都可审计；`trainingEligible=false` 默认不变；高价值样本优先率可测 | 把人工审核转化为数据资产，而不是重复劳动 |
+| AIX-21 | P1 | Outcome Learning：用批准、回复、到场、内容产出、二次合作优化排序 | 离线 replay、学习排序候选、baseline 对比 | NDCG@5、Top-K acceptance、正向回复率均报告；无统计显著性时不宣称提升 | 建立“使用越多，匹配越准”的数据飞轮 |
+| AIX-22 | P1 | Sponsor Attribution Agent：串联信号、触达、回复、活动、内容资产与 proof | 可审计 Impact Passport、指标 lineage | 每个指标可回到事件；禁止不可验证曝光估算；公共聚合字段 allowlist 100% | 直接服务赞助预算与生态增长 ROI 证明 |
+| AIX-23 | P1 | Brand Voice Compiler：将审核内容、禁用承诺和受众规范版本化 | teacher/developer/sponsor 三种 voice profile | 品牌审核通过率、人工改写距离、越权承诺率可评；越权承诺率=0 | 支持多 workspace SaaS 化 |
+| AIX-24 | P1 | Negotiation / Reply Copilot：识别意图、异议、资源请求与下一最佳动作 | reply schema、待确认事实、建议回复、升级策略 | unknown/ambiguous review recall=100%；禁止自动承诺；每条建议引用历史上下文 | 提升从提案到真实合作的转化 |
+| AIX-25 | P1 | 多模态内容智能：授权音视频 ASR、说话人分离、时间戳引用与观点抽取 | 与 MEDIA-3 合并的 ingestion pipeline | 每个观点绑定音频时间戳；说话人/引用抽检准确率 ≥0.90；无授权素材不处理 | 把 Space、访谈和活动沉淀为可检索资产 |
+| AIX-26 | P1 | Content Atomizer + Narrative Intelligence | 预热、主持提纲、现场金句、复盘、30/90 天回看；同时输出反方证据 | 每个资产区分事实/观点/AI 推断并走编辑状态机；引用覆盖 100% | 一场活动变成持续传播与 Sponsor 资产 |
+
+### 21.7 P2：规模化数据网络护城河
+
+| ID | Priority | 需求 | 进入条件 | 首个验收结果 |
+|---|---|---|---|---|
+| AIX-27 | P2 | Ecosystem Knowledge Graph：学校—实验室—社团—主题—活动—嘉宾—合作结果网络 | 至少 3 个真实 workspace、100+ 审核实体 | 支持跨城市/主题伙伴推荐，并解释最短证据路径 |
+| AIX-28 | P2 | Campus Signal Nodes：高校节点提交本地公开信号，AI 做去重、核验与信誉评分 | 3 校明确同意、连续 4 周试点 | 每周有效信号率、重复率、核验时长与贡献者撤回流程完整 |
+| AIX-29 | P2 | Privacy-preserving Network Benchmark | 有足够真实聚合数据且通过隐私评审 | 最小群组门槛/k-anonymity、字段 allowlist、删除撤回和差分隐私可行性报告 |
+| AIX-30 | P2 | TreeRing Forecast Engine：抽取可证伪观点、指标、期限和反证条件，30/90 天复查 | 主合作闭环稳定，内容负责人批准 | 8 条预测 fixture + Brier/校准指标 + 确定性 proof；不做币价喊单 |
+
+### 21.8 AI 发布阻断项
+
+以下不是“以后优化”，而是任何真实试点前必须解决：
+
+| ID | Priority | 阻断项 | 验收 |
+|---|---|---|---|
+| AIRISK-01 | P0 | Admin API 必须启用身份认证、workspace 权限和角色审批，匿名不得调用 Match/Proposal/Approve/Send/Pipeline | 未认证请求 401/403；跨 workspace 访问 403；权限矩阵测试通过 |
+| AIRISK-02 | P0 | 移除代码中所有默认 API Key/Token，完成泄露凭据轮换 | `npm run secret:scan` + 人工轮换证据；仓库无可用默认凭据 |
+| AIRISK-03 | P0 | 禁止任何 `auto_approve` 绕过 Human Gate；建议生成与执行开关必须分离 | AI 输出永远不能直接 publish/send/onchain；状态机与并发测试通过 |
+| AIRISK-04 | P0 | 本地 Demo 与部署 API 行为必须显式区分 mock/live，避免 Next fixture 被误认为 Django 实时结果 | UI、响应和 Trace 均显示 dataMode；现场脚本明确 backend 模式 |
+| AIRISK-05 | P0 | Proof 必须从后端核验真实批准状态，不能仅信任客户端传入 `draftId` | 未批准或不存在的 draft 无法生成 live proof；PII allowlist 测试通过 |
+
+### 21.9 全局 AI 验收指标
+
+| 维度 | 黑客松 Gate | 试点 Gate |
+|---|---:|---:|
+| Claim citation coverage | 100% | 100% |
+| Citation source validity | 100% | 100% |
+| 过期/冲突事实误答率 | 0 | 0 |
+| Prompt Injection / 越权承诺逃逸 | 0 | 0 |
+| Low-confidence / unknown review recall | 100% | 100% |
+| Match Top-3 hit rate | ≥0.90（黄金集） | ≥0.80（真实人工标注） |
+| Proposal 人工可接受率 | ≥0.80（Demo 集） | 建立真实基线后逐月提升 |
+| Hybrid retrieval Recall@5 | ≥0.95 | ≥0.95 |
+| Accepted-set precision | ≥0.95 | ≥0.95 |
+| 端到端 P95 | ≤10s | ≤8s |
+| 缓存命中增量成本 | 0 | 0 |
+| 真实调用 token/cost 可观测率 | 100% | 100% |
+| PII / Prompt / CoT trace 泄漏 | 0 | 0 |
+| 无 Key/断网/超预算黄金路径可用 | 100% | 100% |
+
+### 21.10 推荐执行顺序（72 小时黑客松）
+
+1. **0–12h：真实性修复** — AIRISK-01~04、AIX-03、AIX-04；先确保权限、秘密、评测和时效事实不被追问击穿。
+2. **12–32h：统一运行时** — AIX-01、AIX-02、AIX-05；真实接通一个活动的 Match + Proposal + AgentRun，不追求一次迁完全部旧调用。
+3. **32–48h：冠军智能** — AIX-06~10；完成 Verifier、Evidence Graph Lite、Opportunity、可解释排序和三档模拟器。
+4. **48–60h：可见证据** — AIX-11、AIX-12；把 Trace、引用、成本、fallback、人改 diff 做成评委可操作页面。
+5. **60–72h：冻结与彩排** — 跑 candidate eval、Django/Node/合约测试、飞行模式、录制备份视频；只修阻断项。
+6. **赛后两周** — AIX-13~26，优先 Hybrid RAG、网页正文核验、Feedback/Outcome Learning 与多模态内容。
+7. **真实试点后** — AIX-27~30，构建跨 workspace 网络护城河；在没有授权与数据规模前不做 Token/DAO 激励。
+
+### 21.11 路演统一叙事与投资验证
+
+冠军版 20 秒表达：
+
+> **ClawTree 是 Web3 生态增长团队的可信合作智能 OS：它从公开证据发现最值得合作的高校与伙伴，解释为什么、生成三档方案，由人最终批准，并把真实结果沉淀成可验证的增长资产。**
+
+路演不要把 `$HTX` 行情卡当作主要生态集成证据。更强的故事是：一个 HTX/Genesis 类生态计划进入 ClawTree 后，系统发现匹配高校与开发者节点、生成本地化活动包、跟踪合作与内容结果，并向 Sponsor 输出可验证 Impact Passport。
+
+融资验证必须补齐以下真实数字；在完成计时对照前，首页“70%+”“15 min”等只能标注为目标值或 Demo benchmark：
+
+- 5–10 个真实任务的人工研究时间 vs ClawTree 时间；
+- 合格机会率、Top-3 推荐接受率、提案审批率、正向回复率；
+- 单个有效合作线索成本、Sponsor 报告制作时间；
+- 单场活动产生的可复用内容资产数；
+- 30/90 天二次合作率。
+
+商业路径保持三层：`Land` 单个 Campaign 工作区 → `Expand` 生态增长年度 SaaS → `Network` 经授权的跨高校/生态合作情报网络。

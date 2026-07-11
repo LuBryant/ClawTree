@@ -22,6 +22,7 @@ from .api_views import (
     AdminOutreachBatchSendView,
     AdminOutreachBatchStopView,
     AdminAgentRunViewSet,
+    AdminAgentWorkflowViewSet,
     AdminAgentMetricsView,
     AdminAgentAlertEvaluateView,
 )
@@ -39,6 +40,7 @@ router.register(r'admin/content-reviews', AdminContentReviewViewSet, basename='a
 router.register(r'admin/matches', AdminCollaborationMatchViewSet, basename='admin-match')
 router.register(r'admin/proposals', AdminProposalViewSet, basename='admin-proposal')
 router.register(r'admin/agent-runs', AdminAgentRunViewSet, basename='admin-agent-run')
+router.register(r'admin/agent-workflows', AdminAgentWorkflowViewSet, basename='admin-agent-workflow')
 router.register(r'workspaces', WorkspaceViewSet, basename='workspace')
 router.register(r'workspace-capabilities', WorkspaceCapabilityViewSet, basename='workspace-capability')
 

@@ -17,7 +17,7 @@ import time
 
 from django.core.management.base import BaseCommand
 from dotenv import load_dotenv
-from openai import OpenAI
+from home.agent_runtime import CompatAgentGateway, deterministic_space_summary
 from home.models import TweetReview
 
 # 确保 Windows 下 UTF-8 输出
@@ -71,11 +71,7 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
         target_id = options['id']
 
-        # 初始化 LLM
-        llm_client, llm_model = self._init_llm()
-        if not llm_client:
-            self.stderr.write('错误: 未配置 LLM API Key（请设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY）')
-            return
+        agent = CompatAgentGateway()
 
         # 查询待处理的记录
         queryset = TweetReview.objects.exclude(space_url='').filter(space_summary='')
@@ -112,17 +108,16 @@ class Command(BaseCommand):
             )
 
             try:
-                msg = llm_client.chat.completions.create(
-                    model=llm_model,
-                    max_tokens=800,
-                    temperature=0.7,
+                summary, _ = agent.generate_text(
+                    workspace=record.workspace,
+                    task='space_summary',
                     messages=[
                         {'role': 'system', 'content': SYSTEM_PROMPT},
                         {'role': 'user', 'content': prompt},
                     ],
+                    source_ids=[f'tweet:{record.tweet_id}'],
+                    fallback_value=lambda: deterministic_space_summary(tweet_text, ai_summary),
                 )
-                summary = msg.choices[0].message.content.strip()
-
                 record.space_summary = summary
                 record.save(update_fields=['space_summary'])
                 success += 1
@@ -144,23 +139,3 @@ class Command(BaseCommand):
                 self.style.SUCCESS(f'✅ 完成 — 成功 {success} 条，失败 {failed} 条')
             )
         self.stdout.write(f'剩余待处理: {total_pending - success} 条')
-
-    # =========================================================================
-    # LLM 初始化
-    # =========================================================================
-
-    def _init_llm(self):
-        """初始化 LLM 客户端 — 优先 DeepSeek，否则 OpenAI"""
-        deepseek_key = os.environ.get('DEEPSEEK_API_KEY', '')
-        if deepseek_key:
-            self.stdout.write(f'[AI] 使用 DeepSeek (deepseek-chat)')
-            return (OpenAI(api_key=deepseek_key, base_url='https://api.deepseek.com'), 'deepseek-chat')
-
-        openai_key = os.environ.get('OPENAI_API_KEY')
-        if openai_key:
-            model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
-            base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-            self.stdout.write(f'[AI] 使用 OpenAI ({model})')
-            return (OpenAI(api_key=openai_key, base_url=base_url), model)
-
-        return (None, None)

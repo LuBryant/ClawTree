@@ -24,15 +24,20 @@ AI 后端：优先使用 OPENAI_API_KEY（OpenAI 兼容协议），
 import os
 import re
 import json
+import hashlib
 import sys
 import time
 from datetime import datetime
 
 import requests
 from django.core.management.base import BaseCommand
-from openai import OpenAI
-
-from home.models import TweetReview
+from home.agent_runtime import (
+    CompatAgentGateway,
+    deterministic_dedup,
+    deterministic_polish,
+    deterministic_tweet_analysis,
+)
+from home.models import TweetReview, Workspace
 
 # 确保 Windows 下 UTF-8 输出
 if sys.platform == 'win32':
@@ -222,11 +227,12 @@ class Command(BaseCommand):
         twitter_api_key = options.get('api_key') or os.environ.get('TWITTER_API_KEY', '')
 
         # -------------------------------------------------------------------
-        # 初始化 LLM 客户端
+        # 统一 Agent gateway：无 Key 或 provider 失败时确定性降级。
         # -------------------------------------------------------------------
-        self.llm_client, self.llm_model = self._init_llm()
-        if not self.llm_client:
-            return
+        self.agent = CompatAgentGateway()
+        self.workspace, _ = Workspace.objects.get_or_create(
+            slug='treefinance', defaults={'name': 'TreeFinance'},
+        )
 
         # -------------------------------------------------------------------
         # 去重模式
@@ -325,6 +331,7 @@ class Command(BaseCommand):
                     _, created = TweetReview.objects.update_or_create(
                         tweet_id=tweet_id,
                         defaults={
+                            'workspace': self.workspace,
                             'text': text,
                             'text_processed': text_processed or '',
                             'media_urls': json.dumps(media_urls, ensure_ascii=False),
@@ -389,38 +396,6 @@ class Command(BaseCommand):
             return {}
 
     # =======================================================================
-    # DeepSeek API
-    # =======================================================================
-    # LLM 客户端
-    # =======================================================================
-
-    def _init_llm(self):
-        """初始化 LLM 客户端
-
-        优先用 DEEPSEEK_API_KEY（DeepSeek），否则用 OPENAI_API_KEY（OpenAI 兼容）。
-        """
-        deepseek_key = os.environ.get('DEEPSEEK_API_KEY', '')
-        if deepseek_key:
-            self.stdout.write(f'[AI] 使用 DeepSeek (deepseek-chat)')
-            return (
-                OpenAI(api_key=deepseek_key, base_url='https://api.deepseek.com'),
-                'deepseek-chat',
-            )
-
-        openai_key = os.environ.get('OPENAI_API_KEY')
-        if openai_key:
-            model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
-            base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-            self.stdout.write(f'[AI] 使用 OpenAI ({model})')
-            return (
-                OpenAI(api_key=openai_key, base_url=base_url),
-                model,
-            )
-
-        self.stderr.write('错误: 未设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY')
-        return (None, None)
-
-    # =======================================================================
     # LLM 分析 & 润色
     # =======================================================================
 
@@ -434,39 +409,17 @@ class Command(BaseCommand):
 
         prompt = FILTER_PROMPT_TEMPLATE.format(text=text[:2000])
 
-        for attempt in range(3):
-            try:
-                message = self.llm_client.chat.completions.create(
-                    model=self.llm_model,
-                    max_tokens=400,
-                    temperature=0.3,
-                    messages=[
-                        {'role': 'system', 'content': FILTER_SYSTEM_PROMPT},
-                        {'role': 'user', 'content': prompt},
-                    ],
-                )
-                content = message.choices[0].message.content.strip()
-
-                # 清理 markdown 包裹
-                if '```' in content:
-                    content = content.split('```')[1]
-                    if content.startswith('json'):
-                        content = content[4:]
-                    content = content.strip()
-
-                return json.loads(content)
-
-            except (json.JSONDecodeError, KeyError) as e:
-                if attempt < 2:
-                    continue
-                self.stderr.write(f'    LLM 解析失败: {e}')
-                return None
-            except Exception as e:
-                if '429' in str(e) and attempt < 2:
-                    time.sleep(3)
-                    continue
-                self.stderr.write(f'    LLM 调用失败: {e}')
-                return None
+        result, _ = self.agent.generate_json(
+            workspace=self.workspace,
+            task='classify',
+            messages=[
+                {'role': 'system', 'content': FILTER_SYSTEM_PROMPT},
+                {'role': 'user', 'content': prompt},
+            ],
+            source_ids=[f'tweet-content:{hashlib.sha256(text.encode()).hexdigest()[:20]}'],
+            fallback_value=lambda: deterministic_tweet_analysis(text),
+        )
+        return result
 
     def _deepseek_polish(self, text, reason):
         """调用 LLM 润色敏感文案
@@ -478,21 +431,17 @@ class Command(BaseCommand):
 
         prompt = POLISH_PROMPT_TEMPLATE.format(text=text[:2000], reason=reason)
 
-        try:
-            message = self.llm_client.chat.completions.create(
-                model=self.llm_model,
-                max_tokens=1000,
-                temperature=0.5,
-                messages=[
-                    {'role': 'system', 'content': POLISH_SYSTEM_PROMPT},
-                    {'role': 'user', 'content': prompt},
-                ],
-            )
-            return message.choices[0].message.content.strip()
-
-        except Exception as e:
-            self.stderr.write(f'    润色失败: {e}')
-            return ''
+        result, _ = self.agent.generate_text(
+            workspace=self.workspace,
+            task='compliance',
+            messages=[
+                {'role': 'system', 'content': POLISH_SYSTEM_PROMPT},
+                {'role': 'user', 'content': prompt},
+            ],
+            source_ids=[f'tweet-content:{hashlib.sha256(text.encode()).hexdigest()[:20]}'],
+            fallback_value=lambda: deterministic_polish(text),
+        )
+        return result
 
     # =======================================================================
     # 内容去重
@@ -530,33 +479,21 @@ class Command(BaseCommand):
             if len(common) < 30:
                 continue
 
-            # DeepSeek 精确判断
-            try:
-                prompt = self.DEDUP_PROMPT_TEMPLATE.format(
-                    a_text=text[:1000], b_text=existing.text[:1000],
-                )
-                message = self.llm_client.chat.completions.create(
-                    model=self.llm_model,
-                    max_tokens=100,
-                    temperature=0.1,
-                    messages=[
-                        {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
-                        {'role': 'user', 'content': prompt},
-                    ],
-                )
-                content = message.choices[0].message.content.strip()
-                if '```' in content:
-                    content = content.split('```')[1]
-                    if content.startswith('json'):
-                        content = content[4:]
-                    content = content.strip()
-
-                result = json.loads(content)
-                if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
-                    return existing.tweet_id
-
-            except Exception:
-                continue
+            prompt = self.DEDUP_PROMPT_TEMPLATE.format(
+                a_text=text[:1000], b_text=existing.text[:1000],
+            )
+            result, _ = self.agent.generate_json(
+                workspace=existing.workspace,
+                task='dedup',
+                messages=[
+                    {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
+                    {'role': 'user', 'content': prompt},
+                ],
+                source_ids=[f'tweet:{exclude_tweet_id}', f'tweet:{existing.tweet_id}'],
+                fallback_value=lambda: deterministic_dedup(text, existing.text),
+            )
+            if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
+                return existing.tweet_id
 
             # 频率控制（避免 DeepSeek 限流）
             time.sleep(0.3)
@@ -593,37 +530,25 @@ class Command(BaseCommand):
                     continue
 
                 compared += 1
-                try:
-                    prompt = self.DEDUP_PROMPT_TEMPLATE.format(
-                        a_text=a.text[:1000], b_text=b.text[:1000],
+                prompt = self.DEDUP_PROMPT_TEMPLATE.format(
+                    a_text=a.text[:1000], b_text=b.text[:1000],
+                )
+                result, _ = self.agent.generate_json(
+                    workspace=a.workspace,
+                    task='dedup',
+                    messages=[
+                        {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    source_ids=[f'tweet:{a.tweet_id}', f'tweet:{b.tweet_id}'],
+                    fallback_value=lambda: deterministic_dedup(a.text, b.text),
+                )
+                if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
+                    to_delete.add(b.id)
+                    self.stdout.write(
+                        f'  🗑️ [{a.tweet_id[:12]}...] ≈ [{b.tweet_id[:12]}...] '
+                        f'(相似度 {result.get("similarity", "?")}%) → 删除后者'
                     )
-                    message = self.llm_client.chat.completions.create(
-                        model=self.llm_model,
-                        max_tokens=100,
-                        temperature=0.1,
-                        messages=[
-                            {'role': 'system', 'content': '你是一个文本相似度分析器。只返回 JSON。'},
-                            {'role': 'user', 'content': prompt},
-                        ],
-                    )
-                    content = message.choices[0].message.content.strip()
-                    if '```' in content:
-                        content = content.split('```')[1]
-                        if content.startswith('json'):
-                            content = content[4:]
-                        content = content.strip()
-
-                    result = json.loads(content)
-                    if result.get('is_duplicate') or result.get('similarity', 0) >= 80:
-                        to_delete.add(b.id)
-                        self.stdout.write(
-                            f'  🗑️ [{a.tweet_id[:12]}...] ≈ [{b.tweet_id[:12]}...] '
-                            f'(相似度 {result.get("similarity", "?")}%) → 删除后者'
-                        )
-
-                except Exception as e:
-                    self.stderr.write(f'  比较失败: {e}')
-                    continue
 
                 time.sleep(0.3)
 
@@ -710,6 +635,7 @@ class Command(BaseCommand):
                     _, created = TweetReview.objects.update_or_create(
                         tweet_id=tweet_id,
                         defaults={
+                            'workspace': self.workspace,
                             'text': text,
                             'text_processed': text_processed or '',
                             'media_urls': json.dumps(media_urls, ensure_ascii=False),

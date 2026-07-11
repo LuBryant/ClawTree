@@ -21,7 +21,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from openai import OpenAI
 
 from .models import (
     Workspace,
@@ -37,6 +36,7 @@ from .models import (
     OutreachBatch,
     OutreachMessage,
     AgentRun,
+    AgentWorkflowRun,
     AgentAlert,
     DailyAgentBudget,
 )
@@ -67,19 +67,24 @@ from .api_contracts import (
     success_response,
 )
 from .agent_observability import agent_metrics, evaluate_ingestion_alerts
+from .agent_runtime import (
+    AgentProviderError,
+    AgentRuntimeConflict,
+    CompatAgentGateway,
+    DeterministicStructuredProvider,
+    deterministic_email,
+    deterministic_polish,
+    deterministic_space_summary,
+    deterministic_tweet_analysis,
+    review_match_proposal_workflow,
+    run_match_proposal_workflow,
+    workflow_data,
+)
 
 
 def _init_llm():
-    """初始化 LLM 客户端 — 优先 DeepSeek，否则 OpenAI"""
-    key = os.environ.get('DEEPSEEK_API_KEY')
-    if key:
-        return OpenAI(api_key=key, base_url='https://api.deepseek.com'), 'deepseek-chat'
-    key = os.environ.get('OPENAI_API_KEY')
-    if key:
-        base = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-        model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
-        return OpenAI(api_key=key, base_url=base), model
-    return None, None
+    """Deprecated test/import shim; business code uses CompatAgentGateway directly."""
+    return CompatAgentGateway(), None
 
 
 DEFAULT_WORKSPACE_SLUG = 'treefinance'
@@ -246,6 +251,33 @@ class UserAssistantChatView(APIView):
         handoff_terms = ('人工', '客服', '合作', '联系', '报价', 'human', 'agent', 'contact', 'partnership')
         handoff_required = any(term in question.lower() for term in handoff_terms)
         workspace = _active_workspace(request)
+        source_id = f'conversation:{hashlib.sha256(question.encode()).hexdigest()[:20]}'
+        reply_result, agent_run = CompatAgentGateway(
+            provider=DeterministicStructuredProvider(),
+        ).generate_json(
+            workspace=workspace,
+            task='reply',
+            messages=[{
+                'role': 'user',
+                'content': question,
+            }],
+            source_ids=[source_id],
+            fallback_value=lambda: {
+                'decisionStatus': 'unknown',
+                'intent': 'question',
+                'confidence': 0,
+                'summary': '公开客服问题需要基于已审核知识回答。',
+                'nextAction': '转安全本地答复或人工复核。',
+                'sourceIds': [source_id],
+                'evidence': [{
+                    'claimId': 'reply_intent',
+                    'claim': '仅识别是否需要人工跟进，不推断未提供的业务事实。',
+                    'sourceIds': [source_id],
+                }],
+                'needsReview': True,
+                'needsHumanReview': handoff_required,
+            },
+        )
         if handoff_required:
             answer = '我可以帮你转交人工团队。提交联系信息前，请先确认你同意我们仅将其用于本次合作跟进。'
             reason = 'user_requested_or_commercial_follow_up'
@@ -257,7 +289,9 @@ class UserAssistantChatView(APIView):
             reason = ''
         return Response({
             'answer': answer,
-            'mode': 'safe_fallback',
+            'mode': 'structured_safe_fallback',
+            'reply': reply_result,
+            'trace_id': agent_run.input_snapshot['traceId'],
             'grounded': False,
             'citations': [],
             'handoff': {
@@ -929,13 +963,6 @@ class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyMode
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        llm_client, llm_model = _init_llm()
-        if not llm_client:
-            return Response(
-                {'error': 'LLM 未配置（请设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY）'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
         events = self.get_queryset().filter(id__in=event_ids).select_related('workspace', 'workspace__brand_profile')
         if not events:
             return Response(
@@ -944,6 +971,7 @@ class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyMode
             )
 
         results = []
+        agent = CompatAgentGateway()
         for ev in events:
             profile = getattr(ev.workspace, 'brand_profile', None)
             capabilities = ev.workspace.capabilities.filter(approved=True).order_by('code')
@@ -960,25 +988,25 @@ class UniversityEventViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyMode
                 description=ev.description or '暂无简介',
             )
 
-            try:
-                msg = llm_client.chat.completions.create(
-                    model=llm_model,
-                    max_tokens=800,
-                    temperature=0.7,
-                    messages=[
-                        {'role': 'system', 'content': EMAIL_SYSTEM_PROMPT},
-                        {'role': 'user', 'content': prompt},
-                    ],
-                )
-                body = msg.choices[0].message.content.strip()
-            except Exception as e:
-                body = f'[生成失败: {e}]'
+            source_ids = [f'event:{ev.id}', *[f'capability:{item.id}' for item in capabilities]]
+            body, agent_run = agent.generate_text(
+                workspace=ev.workspace,
+                task='email',
+                messages=[
+                    {'role': 'system', 'content': EMAIL_SYSTEM_PROMPT},
+                    {'role': 'user', 'content': prompt},
+                ],
+                source_ids=source_ids,
+                fallback_value=lambda: deterministic_email(ev, ev.workspace, profile, list(capabilities)),
+            )
 
             results.append({
                 'event_id': ev.id,
                 'title': ev.title,
                 'university': ev.university,
                 'email_body': body,
+                'trace_id': agent_run.input_snapshot['traceId'],
+                'fallback': agent_run.status == 'fallback',
             })
 
             # 存入外联草稿表
@@ -1114,13 +1142,6 @@ class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelVie
                 'cached': True,
             })
 
-        llm_client, llm_model = _init_llm()
-        if not llm_client:
-            return Response(
-                {'error': 'LLM 未配置（请设置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY）'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
         # Step 1: 尝试从 twitterapi.io 获取 Space 数据
         space_data = self._fetch_space_info(space_url)
 
@@ -1165,22 +1186,16 @@ class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelVie
 
 使用 Markdown 格式，200-400 字。只返回总结内容，不要其他解释。"""
 
-        try:
-            msg = llm_client.chat.completions.create(
-                model=llm_model,
-                max_tokens=800,
-                temperature=0.7,
-                messages=[
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': prompt},
-                ],
-            )
-            summary = msg.choices[0].message.content.strip()
-        except Exception as e:
-            return Response(
-                {'error': f'AI 生成失败: {e}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        summary, agent_run = CompatAgentGateway().generate_text(
+            workspace=tweet_review.workspace,
+            task='space_summary',
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': prompt},
+            ],
+            source_ids=[f'tweet:{tweet_review.tweet_id}'],
+            fallback_value=lambda: deterministic_space_summary(tweet_text, ai_summary),
+        )
 
         # 保存总结
         tweet_review.space_summary = summary
@@ -1190,6 +1205,8 @@ class TweetReviewViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelVie
             'space_url': space_url,
             'space_summary': summary,
             'cached': False,
+            'trace_id': agent_run.input_snapshot['traceId'],
+            'fallback': agent_run.status == 'fallback',
         })
 
     def _fetch_space_info(self, space_url):
@@ -1266,6 +1283,120 @@ class AdminAgentRunViewSet(WorkspaceScopedQuerysetMixin, viewsets.ReadOnlyModelV
             'run': AgentRunSerializer(run).data,
             'automaticTraining': False,
         })
+
+
+class AdminAgentWorkflowViewSet(viewsets.ViewSet):
+    """AIX-01: evidence -> match -> verifier -> proposal -> human gate."""
+
+    lookup_field = 'run_id'
+    action_name = 'agent-workflow-orchestrate'
+
+    def _queryset(self, request):
+        return AgentWorkflowRun.objects.select_related(
+            'workspace', 'event', 'match', 'proposal',
+        ).filter(workspace__slug=_workspace_slug(request))
+
+    def list(self, request):
+        return Response({
+            'externalSideEffect': False,
+            'results': [workflow_data(item) for item in self._queryset(request).order_by('-created_at')],
+        })
+
+    def retrieve(self, request, run_id=None):
+        workflow = get_object_or_404(self._queryset(request), run_id=run_id)
+        return Response({'externalSideEffect': False, 'data': workflow_data(workflow)})
+
+    @action(detail=False, methods=['post'])
+    def orchestrate(self, request):
+        contract_error = require_mutation_contract(request, self.action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, self.action_name)
+        if idempotency_error:
+            return idempotency_error
+        workspace = _active_workspace(request)
+        event_id = request.data.get('event_id') or request.data.get('event')
+        if not event_id:
+            return error_response(request, self.action_name, 'event_required', 'event_id is required.')
+        event = UniversityEvent.objects.filter(workspace=workspace, pk=event_id).first()
+        if not event:
+            return error_response(
+                request, self.action_name, 'event_not_found',
+                'The event does not exist in the active workspace.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+        requested_ids = request.data.get('capability_ids')
+        if requested_ids is not None and not isinstance(requested_ids, list):
+            return error_response(
+                request, self.action_name, 'invalid_capability_ids', 'capability_ids must be an array.',
+            )
+        query = Capability.objects.filter(workspace=workspace, approved=True)
+        capabilities = list(
+            query.filter(id__in=requested_ids).order_by('code')
+            if requested_ids is not None else query.order_by('code')
+        )
+        if requested_ids is not None and len(capabilities) != len(set(requested_ids)):
+            return error_response(
+                request, self.action_name, 'capability_not_found',
+                'Every capability must be approved and belong to the active workspace.',
+                http_status=status.HTTP_404_NOT_FOUND,
+            )
+        campaign_key = str(request.data.get('campaign_key') or f'event-{event.id}')[:120]
+        try:
+            workflow, created = run_match_proposal_workflow(
+                workspace=workspace, event=event, capabilities=capabilities,
+                campaign_key=campaign_key, input_version=str(input_version(request))[:80],
+                idempotency_key=request.headers.get('Idempotency-Key') or request.data.get('idempotency_key'),
+            )
+        except AgentRuntimeConflict:
+            return error_response(
+                request, self.action_name, 'idempotency_key_conflict',
+                'The workflow idempotency key was already used with different input.',
+                http_status=status.HTTP_409_CONFLICT,
+            )
+        except AgentProviderError as error:
+            return error_response(
+                request, self.action_name, 'provider_and_fallback_failed', str(error),
+                http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except (ValidationError, IntegrityError) as error:
+            return error_response(
+                request, self.action_name, 'workflow_failed', str(error),
+                http_status=status.HTTP_409_CONFLICT,
+            )
+        return success_response(
+            request, self.action_name,
+            {'workflow': workflow_data(workflow), 'created': created, 'idempotent_replay': not created},
+            http_status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            external_side_effect=False,
+        )
+
+    @action(detail=True, methods=['post'])
+    def review(self, request, run_id=None):
+        action_name = 'agent-workflow-human-review'
+        contract_error = require_mutation_contract(request, action_name)
+        if contract_error:
+            return contract_error
+        idempotency_error = claim_idempotency(request, action_name)
+        if idempotency_error:
+            return idempotency_error
+        workflow = get_object_or_404(self._queryset(request), run_id=run_id)
+        try:
+            workflow, changed = review_match_proposal_workflow(
+                workflow,
+                decision=str(request.data.get('decision') or ''),
+                reviewer=request_operator(request),
+                reason=str(request.data.get('reason') or '')[:1000],
+            )
+        except ValidationError as error:
+            return error_response(
+                request, action_name, 'human_review_failed',
+                error.message_dict if hasattr(error, 'message_dict') else str(error),
+                http_status=status.HTTP_409_CONFLICT,
+            )
+        return success_response(request, action_name, {
+            'workflow': workflow_data(workflow), 'changed': changed,
+        }, external_side_effect=False)
 
 
 class AdminAgentMetricsView(APIView):
@@ -1512,9 +1643,7 @@ class PipelineViewSet(viewsets.ViewSet):
         t0 = time.time()
         try:
             twitter_key = os.environ.get('TWITTER_API_KEY', 'new1_b31c74fb9e154691aedfe9c2a8b5e5c0')
-            llm_client, llm_model = self._init_llm()
-            if not llm_client:
-                raise Exception('未配置 LLM API Key')
+            agent = CompatAgentGateway()
 
             # 调用 twitterapi.io 获取推文
             resp = requests.get(
@@ -1573,20 +1702,16 @@ class PipelineViewSet(viewsets.ViewSet):
                     continue
 
                 # AI 分析
-                try:
-                    analysis = json.loads(
-                        llm_client.chat.completions.create(
-                            model=llm_model,
-                            messages=[
-                                {'role': 'system', 'content': FILTER_SYSTEM},
-                                {'role': 'user', 'content': FILTER_PROMPT.format(text=text[:2000])},
-                            ],
-                            temperature=0.3, max_tokens=300,
-                        ).choices[0].message.content or '{}'
-                    )
-                except json.JSONDecodeError:
-                    skipped += 1
-                    continue
+                analysis, _ = agent.generate_json(
+                    workspace=run.workspace,
+                    task='classify',
+                    messages=[
+                        {'role': 'system', 'content': FILTER_SYSTEM},
+                        {'role': 'user', 'content': FILTER_PROMPT.format(text=text[:2000])},
+                    ],
+                    source_ids=[f'tweet:{tweet_id}'],
+                    fallback_value=lambda: deterministic_tweet_analysis(text),
+                )
 
                 if not analysis.get('is_review_worthy'):
                     skipped += 1
@@ -1595,20 +1720,18 @@ class PipelineViewSet(viewsets.ViewSet):
                 # 敏感文案润色
                 text_processed = ''
                 if analysis.get('is_sensitive'):
-                    try:
-                        polish_resp = llm_client.chat.completions.create(
-                            model=llm_model,
-                            messages=[
-                                {'role': 'system', 'content': '你是专业财经编辑。请对推文润色，移除敏感表达，保持核心信息不变。只返回润色后文本。'},
-                                {'role': 'user', 'content': f'请润色以下推文（原因：{analysis.get("sensitive_reason")}）：\n\n{text}'},
-                            ],
-                            temperature=0.5, max_tokens=500,
-                        )
-                        text_processed = polish_resp.choices[0].message.content or ''
-                        if text_processed:
-                            polished += 1
-                    except Exception:
-                        pass
+                    text_processed, _ = agent.generate_text(
+                        workspace=run.workspace,
+                        task='compliance',
+                        messages=[
+                            {'role': 'system', 'content': '你是专业财经编辑。请对推文润色，移除敏感表达，保持核心信息不变。只返回润色后文本。'},
+                            {'role': 'user', 'content': f'请润色以下推文（原因：{analysis.get("sensitive_reason")}）：\n\n{text}'},
+                        ],
+                        source_ids=[f'tweet:{tweet_id}'],
+                        fallback_value=lambda: deterministic_polish(text),
+                    )
+                    if text_processed:
+                        polished += 1
 
                 TweetReview.objects.update_or_create(
                     workspace=run.workspace,
@@ -1651,9 +1774,7 @@ class PipelineViewSet(viewsets.ViewSet):
                 run.status = 'succeeded'
                 run.error_message = 'no events to outreach'
             else:
-                llm_client, llm_model = self._init_llm()
-                if not llm_client:
-                    raise Exception('no LLM API Key')
+                agent = CompatAgentGateway()
                 generated = 0
                 for ev in events:
                     if generated >= max_count:
@@ -1665,7 +1786,7 @@ class PipelineViewSet(viewsets.ViewSet):
                         run.skipped += 1
                         continue
                     try:
-                        email_body = self._generate_single_email(llm_client, llm_model, ev)
+                        email_body = self._generate_single_email(agent, ev)
                         OutreachDraft.objects.create(
                             workspace=run.workspace,
                             university_event=ev,
@@ -1727,16 +1848,7 @@ class PipelineViewSet(viewsets.ViewSet):
         run.finished_at = datetime.now()
         run.save()
 
-    def _init_llm(self):
-        deepseek_key = os.environ.get('DEEPSEEK_API_KEY', '')
-        if deepseek_key:
-            return (OpenAI(api_key=deepseek_key, base_url='https://api.deepseek.com'), 'deepseek-chat')
-        openai_key = os.environ.get('OPENAI_API_KEY')
-        if openai_key:
-            return (OpenAI(api_key=openai_key, base_url=os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1')), os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'))
-        return (None, None)
-
-    def _generate_single_email(self, client, model, event):
+    def _generate_single_email(self, agent, event):
         prompt = f"""你是一个高校合作外联助手。请根据以下活动信息，撰写一封得体、专业的合作邀请邮件。
 
 高校：{event.university}
@@ -1753,10 +1865,11 @@ class PipelineViewSet(viewsets.ViewSet):
 5. 结尾署名：大树财经高校行团队
 
 只输出邮件正文，不包含主题行。"""
-        resp = client.chat.completions.create(
-            model=model,
+        body, _ = agent.generate_text(
+            workspace=event.workspace,
+            task='email',
             messages=[{'role': 'user', 'content': prompt}],
-            temperature=0.7,
-            max_tokens=2048,
+            source_ids=[f'event:{event.id}'],
+            fallback_value=lambda: deterministic_email(event, event.workspace),
         )
-        return resp.choices[0].message.content or ''
+        return body

@@ -11,6 +11,8 @@ import {
   createAgentCacheIdentity,
   globalAgentResultCache,
 } from './agent-result-cache.mjs';
+import { globalAgentBudgetLedger } from './agent-runtime.mjs';
+import { buildTargetedRepairRequest, verifyHighRiskAgentResult } from './agent-verifier.mjs';
 
 export type AgentTask = 'classify' | 'dedup' | 'compliance' | 'match' | 'proposal' | 'reply';
 
@@ -25,13 +27,27 @@ export interface AgentRequest {
     event?: Record<string, unknown>;
     capabilities?: Array<Record<string, unknown>>;
     replyText?: string;
+    verifierRepair?: { attempt: 1; reasonCodes: string[]; instruction: string };
   };
+}
+
+export interface AgentProviderUsage {
+  inputTokens: number;
+  outputTokens: number;
+  costMicrousd: number;
+  requestId: string | null;
+  finishReason: string | null;
+}
+
+export interface AgentProviderResponse {
+  result: Record<string, unknown>;
+  usage: AgentProviderUsage;
 }
 
 export interface AgentProvider {
   readonly name: string;
   readonly modelVersion: string;
-  generateJson(request: AgentRequest): Promise<Record<string, unknown>>;
+  generateJson(request: AgentRequest): Promise<Record<string, unknown> | AgentProviderResponse>;
 }
 
 export interface AgentExecutionTrace {
@@ -45,6 +61,14 @@ export interface AgentExecutionTrace {
   incrementalCostMicrousd: number | null;
   latencyMs: number;
   outcome: 'known' | 'unknown';
+  traceId: string;
+  provider: string;
+  requestId: string | null;
+  finishReason: string | null;
+  fallbackReason: string | null;
+  verifierReasonCodes: string[];
+  repairAttempts: 0 | 1;
+  budget: { limitMicrousd: number; spentMicrousd: number; remainingMicrousd: number };
 }
 
 export interface AgentExecution {
@@ -332,7 +356,7 @@ export class OpenAICompatibleJsonProvider implements AgentProvider {
     return new URL('/chat/completions', url);
   }
 
-  async generateJson(request: AgentRequest): Promise<Record<string, unknown>> {
+  async generateJson(request: AgentRequest): Promise<AgentProviderResponse> {
     const safeRequest = normalizeAgentRequestSources(request) as AgentRequest;
     const injection = inspectUntrustedAgentInput(safeRequest);
     if (injection.detected) throw new Error('untrusted_prompt_injection');
@@ -372,7 +396,24 @@ export class OpenAICompatibleJsonProvider implements AgentProvider {
     const parsed = JSON.parse(content) as unknown;
     const validationErrors = validateAgentResult(safeRequest, parsed);
     if (validationErrors.length > 0) throw new Error('provider_invalid_schema_or_citations');
-    return parsed as Record<string, unknown>;
+    const usage = payload.usage;
+    const inputTokens = Number(usage?.prompt_tokens);
+    const outputTokens = Number(usage?.completion_tokens);
+    if (!Number.isFinite(inputTokens) || !Number.isFinite(outputTokens)) {
+      throw new Error('provider_missing_usage');
+    }
+    const inputRate = Number(process.env.AGENT_INPUT_COST_MICROUSD_PER_TOKEN || 2);
+    const outputRate = Number(process.env.AGENT_OUTPUT_COST_MICROUSD_PER_TOKEN || 8);
+    return {
+      result: parsed as Record<string, unknown>,
+      usage: {
+        inputTokens,
+        outputTokens,
+        costMicrousd: Math.max(0, Math.ceil(inputTokens * inputRate + outputTokens * outputRate)),
+        requestId: response.headers.get('x-request-id') || payload.id || null,
+        finishReason: payload.choices?.[0]?.finish_reason || null,
+      },
+    };
   }
 }
 
@@ -489,30 +530,128 @@ export async function runAgentTaskWithTrace(
   const identity = createAgentCacheIdentity({ request: safeRequest, schemaVersion, modelVersion });
   const startedAt = Date.now();
   const cache = globalAgentResultCache();
+  const configuredBudget = Number(process.env.AGENT_DAILY_BUDGET_MICROUSD || 150_000);
+  const reservePerCall = Number(process.env.AGENT_RESERVE_MICROUSD_PER_CALL || 10_000);
+  const budget = globalAgentBudgetLedger(configuredBudget);
   const execution = await cache.getOrCompute(identity.cacheKey, async () => {
     if (inspectUntrustedAgentInput(safeRequest).detected) {
-      return buildUnknownAgentResult(safeRequest, 'untrusted_prompt_injection');
+      return {
+        result: buildUnknownAgentResult(safeRequest, 'untrusted_prompt_injection'),
+        usage: { inputTokens: 0, outputTokens: 0, costMicrousd: 0, requestId: null, finishReason: 'quarantined' },
+        fallbackReason: 'untrusted_prompt_injection', verifierReasonCodes: ['PROMPT_INJECTION'], repairAttempts: 0,
+      };
     }
+    const highRisk = ['proposal', 'compliance', 'reply'].includes(safeRequest.task);
+    const reservation = budget.reserve(reservePerCall * (highRisk ? 2 : 1), {
+      task: safeRequest.task,
+      cacheKey: identity.cacheKey,
+    });
+    if (!reservation) {
+      return {
+        result: buildUnknownAgentResult(safeRequest, 'budget_exceeded'),
+        usage: { inputTokens: 0, outputTokens: 0, costMicrousd: 0, requestId: null, finishReason: 'budget_exceeded' },
+        fallbackReason: 'budget_exceeded', verifierReasonCodes: [], repairAttempts: 0,
+      };
+    }
+    let accumulatedUsage: AgentProviderUsage = {
+      inputTokens: 0, outputTokens: 0, costMicrousd: 0, requestId: null, finishReason: null,
+    };
     try {
-      const result = await provider.generateJson(safeRequest);
-      if (validateAgentResult(safeRequest, result).length > 0) throw new Error('invalid_agent_result');
+      const firstOutput = await provider.generateJson(safeRequest);
+      const normalized = 'result' in firstOutput && 'usage' in firstOutput
+        ? firstOutput as AgentProviderResponse
+        : {
+          result: firstOutput,
+          usage: provider.name === 'deterministic-fallback'
+            ? { inputTokens: 0, outputTokens: 0, costMicrousd: 0, requestId: null, finishReason: 'deterministic' }
+            : null,
+        };
+      if (!normalized.usage) throw new Error('provider_missing_usage');
+      let result = normalized.result;
+      accumulatedUsage = normalized.usage;
+      const validationErrors = validateAgentResult(safeRequest, result);
+      let verifier: { safe: boolean; reasonCodes: string[] } = highRisk
+        ? verifyHighRiskAgentResult({ request: safeRequest, result, schemaErrors: validationErrors })
+        : { safe: validationErrors.length === 0, reasonCodes: validationErrors.length ? ['INVALID_SCHEMA_OR_CITATION'] : [] };
+      let repairAttempts: 0 | 1 = 0;
+      if (!verifier.safe && highRisk) {
+        repairAttempts = 1;
+        const repairOutput = await provider.generateJson(buildTargetedRepairRequest(safeRequest, verifier.reasonCodes));
+        const repair = 'result' in repairOutput && 'usage' in repairOutput
+          ? repairOutput as AgentProviderResponse
+          : {
+            result: repairOutput,
+            usage: provider.name === 'deterministic-fallback'
+              ? { inputTokens: 0, outputTokens: 0, costMicrousd: 0, requestId: null, finishReason: 'deterministic' }
+              : null,
+          };
+        if (!repair.usage) throw new Error('provider_missing_usage');
+        result = repair.result;
+        accumulatedUsage = {
+          inputTokens: accumulatedUsage.inputTokens + repair.usage.inputTokens,
+          outputTokens: accumulatedUsage.outputTokens + repair.usage.outputTokens,
+          costMicrousd: accumulatedUsage.costMicrousd + repair.usage.costMicrousd,
+          requestId: repair.usage.requestId || accumulatedUsage.requestId,
+          finishReason: repair.usage.finishReason || accumulatedUsage.finishReason,
+        };
+        verifier = verifyHighRiskAgentResult({
+          request: safeRequest,
+          result,
+          schemaErrors: validateAgentResult(safeRequest, result),
+        });
+      }
+      if (!verifier.safe) {
+        budget.reconcile(reservation, accumulatedUsage.costMicrousd);
+        return {
+          result: buildUnknownAgentResult(safeRequest, `verifier_failed:${verifier.reasonCodes.join(',')}`),
+          usage: accumulatedUsage, fallbackReason: 'verifier_failed',
+          verifierReasonCodes: verifier.reasonCodes, repairAttempts,
+        };
+      }
       const reason = lowConfidenceReason(safeRequest, result);
-      return reason ? buildUnknownAgentResult(safeRequest, reason) : result;
+      budget.reconcile(reservation, accumulatedUsage.costMicrousd);
+      return {
+        result: reason ? buildUnknownAgentResult(safeRequest, reason) : result,
+        usage: accumulatedUsage, fallbackReason: reason, verifierReasonCodes: [], repairAttempts,
+      };
     } catch {
-      return buildUnknownAgentResult(safeRequest, 'provider_failure');
+      if (accumulatedUsage.costMicrousd > 0) budget.reconcile(reservation, accumulatedUsage.costMicrousd);
+      else budget.release(reservation);
+      return {
+        result: buildUnknownAgentResult(safeRequest, 'provider_failure'),
+        usage: { ...accumulatedUsage, finishReason: accumulatedUsage.finishReason || 'provider_failure' },
+        fallbackReason: 'provider_failure', verifierReasonCodes: [], repairAttempts: 0,
+      };
     }
   });
-  const result = execution.value as Record<string, unknown>;
+  const run = execution.value as {
+    result: Record<string, unknown>; usage: AgentProviderUsage; fallbackReason: string | null;
+    verifierReasonCodes: string[]; repairAttempts: 0 | 1;
+  };
+  const result = run.result;
+  const budgetSnapshot = budget.snapshot();
   return {
     result,
     trace: {
       ...identity,
       cacheHit: execution.cacheHit,
-      incrementalInputTokens: execution.cacheHit ? 0 : null,
-      incrementalOutputTokens: execution.cacheHit ? 0 : null,
-      incrementalCostMicrousd: execution.cacheHit ? 0 : null,
+      incrementalInputTokens: execution.cacheHit ? 0 : run.usage.inputTokens,
+      incrementalOutputTokens: execution.cacheHit ? 0 : run.usage.outputTokens,
+      incrementalCostMicrousd: execution.cacheHit ? 0 : run.usage.costMicrousd,
       latencyMs: Date.now() - startedAt,
       outcome: result.decisionStatus === 'known' ? 'known' : 'unknown',
+      traceId: identity.cacheKey.slice(0, 24),
+      provider: provider.name,
+      requestId: execution.cacheHit ? null : run.usage.requestId,
+      finishReason: execution.cacheHit ? 'cache_hit' : run.usage.finishReason,
+      fallbackReason: run.fallbackReason,
+      verifierReasonCodes: run.verifierReasonCodes,
+      repairAttempts: run.repairAttempts,
+      budget: {
+        limitMicrousd: budgetSnapshot.limitMicrousd,
+        spentMicrousd: budgetSnapshot.spentMicrousd,
+        remainingMicrousd: budgetSnapshot.remainingMicrousd,
+      },
     },
   };
 }

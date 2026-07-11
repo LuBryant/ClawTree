@@ -1,6 +1,7 @@
 import 'server-only';
 
 import knowledgeBundle from '../../data/assistant-knowledge.json';
+import { registrationLifecycle } from './assistant-claim-ledger.mjs';
 
 export type AssistantAudience = 'teacher' | 'student';
 export type AssistantLanguage = 'zh' | 'en';
@@ -242,6 +243,26 @@ function groundedAnswer(entries: KnowledgeEntry[], language: AssistantLanguage) 
   return entries.map((entry) => entryAnswer(entry, language)).join('\n\n');
 }
 
+function htxGenesisAnswer(entry: KnowledgeEntry, language: AssistantLanguage, now: Date) {
+  const lifecycle = registrationLifecycle(entry.id, now);
+  const stableOverview = language === 'en'
+    ? 'HTX Genesis Hackathon is an AI, Web3, and AI × Web3 builder event hosted by HTX DAO × B.AI. Event details remain subject to the latest official page.'
+    : 'HTX Genesis Hackathon 是由 HTX DAO × B.AI 主办、围绕 AI、Web3 与 AI×Web3 的开发者赛事；赛程和奖项等信息仍以最新官方页面为准。';
+  if (lifecycle.state === 'open') {
+    return language === 'en'
+      ? `${stableOverview} Registration is currently verified open until ${lifecycle.deadline}; official form: ${lifecycle.registrationUrl}.`
+      : `${stableOverview} 当前字段级证据确认报名开放至 ${lifecycle.deadline}，官方表单：${lifecycle.registrationUrl}。`;
+  }
+  if (lifecycle.state === 'closed') {
+    return language === 'en'
+      ? `${stableOverview} The verified registration deadline has passed. I cannot say registration is still open; check the official page for a reopening or a new round.`
+      : `${stableOverview} 已核验的报名截止时间已经过去，我不能回答“仍可报名”；请查看官方页面是否有补录、延期或新一期。`;
+  }
+  return language === 'en'
+    ? `${stableOverview} Current registration status cannot be verified from fresh, conflict-free field claims. Please verify on the official page.`
+    : `${stableOverview} 当前报名状态缺少新鲜且无冲突的字段级证据，结论为 unknown，请在官方页面核验。`;
+}
+
 function publicEventOverviewAnswer(query: string, language: AssistantLanguage) {
   const isGenesisHackathon = includesAny(query, ['genesis']) && includesAny(query, ['黑客松', 'hackathon']);
   if (language === 'en') {
@@ -299,7 +320,7 @@ export function retrieveAssistantKnowledge(
   if (htxGenesisEntries.length > 0) {
     return {
       decision: 'answer',
-      answer: groundedAnswer(htxGenesisEntries, language),
+      answer: htxGenesisAnswer(htxGenesisEntries[0], language, now),
       citations: htxGenesisEntries.map(toCitation),
       knowledgeAsOf: knowledgeBundle.reviewedAt,
       handoffRequired: false,

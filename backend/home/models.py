@@ -1351,11 +1351,11 @@ class AgentRun(models.Model):
     input_snapshot = models.JSONField(default=dict, blank=True, verbose_name='脱敏输入快照')
     structured_output = models.JSONField(default=dict, blank=True, verbose_name='脱敏结构化输出')
     tool_calls = models.JSONField(default=list, blank=True, verbose_name='脱敏工具调用')
-    input_tokens = models.PositiveIntegerField(default=0, verbose_name='输入 token')
-    output_tokens = models.PositiveIntegerField(default=0, verbose_name='输出 token')
-    cached_input_tokens = models.PositiveIntegerField(default=0, verbose_name='缓存输入 token')
+    input_tokens = models.PositiveIntegerField(null=True, blank=True, default=None, verbose_name='输入 token')
+    output_tokens = models.PositiveIntegerField(null=True, blank=True, default=None, verbose_name='输出 token')
+    cached_input_tokens = models.PositiveIntegerField(null=True, blank=True, default=None, verbose_name='缓存输入 token')
     latency_ms = models.PositiveIntegerField(default=0, verbose_name='延迟毫秒')
-    cost_microusd = models.PositiveBigIntegerField(default=0, verbose_name='成本 (micro USD)')
+    cost_microusd = models.PositiveBigIntegerField(null=True, blank=True, default=None, verbose_name='成本 (micro USD)')
     retry_count = models.PositiveIntegerField(default=0, verbose_name='重试次数')
     cache_hit = models.BooleanField(default=False, verbose_name='缓存命中')
     privacy_status = models.CharField(max_length=20, choices=PRIVACY_CHOICES, default='no_pii', verbose_name='隐私状态')
@@ -1376,6 +1376,8 @@ class AgentRun(models.Model):
 
     @property
     def total_tokens(self):
+        if self.input_tokens is None or self.output_tokens is None:
+            return None
         return self.input_tokens + self.output_tokens
 
     def clean(self):
@@ -1406,6 +1408,97 @@ class AgentRun(models.Model):
 
     def __str__(self):
         return f'{self.run_id}:{self.task_type}:{self.status}'
+
+
+class AgentWorkflowRun(models.Model):
+    """AIX-01: recoverable, idempotent orchestration around business records.
+
+    The workflow stores references and protocol metadata only. Raw prompts,
+    contact details and chain-of-thought must never be persisted here.
+    """
+
+    STATUS_CHOICES = [
+        ('queued', 'Queued'),
+        ('running', 'Running'),
+        ('awaiting_human_review', 'Awaiting human review'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    CHECKPOINT_CHOICES = [
+        ('queued', 'Queued'),
+        ('evidence_retrieved', 'Evidence retrieved'),
+        ('match_generated', 'Match generated'),
+        ('match_verified', 'Machine verified'),
+        ('proposal_generated', 'Proposal generated'),
+        ('proposal_verified', 'Proposal verified'),
+        ('human_review', 'Human review'),
+        ('completed', 'Completed'),
+    ]
+
+    run_id = models.UUIDField(unique=True, editable=False, verbose_name='工作流运行 ID')
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='agent_workflows', verbose_name='工作区',
+    )
+    event = models.ForeignKey(
+        UniversityEvent, on_delete=models.CASCADE, related_name='agent_workflows', verbose_name='活动',
+    )
+    match = models.ForeignKey(
+        CollaborationMatch, on_delete=models.SET_NULL, related_name='agent_workflows',
+        null=True, blank=True, verbose_name='匹配',
+    )
+    proposal = models.ForeignKey(
+        Proposal, on_delete=models.SET_NULL, related_name='agent_workflows',
+        null=True, blank=True, verbose_name='提案',
+    )
+    idempotency_key = models.CharField(max_length=180, verbose_name='幂等键')
+    request_hash = models.CharField(max_length=64, verbose_name='请求指纹')
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='queued', verbose_name='状态')
+    checkpoint = models.CharField(
+        max_length=32, choices=CHECKPOINT_CHOICES, default='queued', verbose_name='最近检查点',
+    )
+    checkpoints = models.JSONField(default=list, blank=True, verbose_name='检查点审计')
+    source_ids = models.JSONField(default=list, blank=True, verbose_name='来源引用')
+    schema_version = models.CharField(max_length=80, verbose_name='Schema 版本')
+    prompt_version = models.CharField(max_length=80, verbose_name='Prompt 版本')
+    provider_name = models.CharField(max_length=80, verbose_name='Provider')
+    verifier = models.JSONField(default=dict, blank=True, verbose_name='独立验证结果')
+    external_side_effect = models.BooleanField(default=False, verbose_name='是否产生外部副作用')
+    error_code = models.CharField(max_length=120, blank=True, default='', verbose_name='错误码')
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['workspace', 'idempotency_key'], name='unique_workspace_agent_workflow_key',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        _validate_string_list(self.source_ids, 'source_ids')
+        if self.event_id and self.workspace_id and self.event.workspace_id != self.workspace_id:
+            raise ValidationError({'workspace': 'Workflow workspace must equal the event workspace.'})
+        if self.match_id and (self.match.workspace_id != self.workspace_id or self.match.event_id != self.event_id):
+            raise ValidationError({'match': 'Workflow match must belong to the same workspace and event.'})
+        if self.proposal_id and self.proposal.match_id != self.match_id:
+            raise ValidationError({'proposal': 'Workflow proposal must belong to the workflow match.'})
+        if self.external_side_effect:
+            raise ValidationError({'external_side_effect': 'AI workflow orchestration cannot perform external side effects.'})
+        if not isinstance(self.checkpoints, list):
+            raise ValidationError({'checkpoints': 'Checkpoints must be an ordered list.'})
+        if self.status == 'completed' and (self.checkpoint != 'completed' or not self.finished_at):
+            raise ValidationError({'status': 'Completed workflows require the completed checkpoint and finish time.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.run_id}:{self.checkpoint}:{self.status}'
 
 
 class DailyAgentBudget(models.Model):

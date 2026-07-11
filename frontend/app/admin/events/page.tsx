@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   fetchEvents, fetchEventStats, generateEmail,
+  orchestrateAgentWorkflow,
   type UniversityEvent, type EventStats, type EventsFilter, type GenerateEmailResult,
 } from '../../lib/api-client';
 import { useLanguage } from '../../i18n/LanguageProvider';
@@ -62,6 +63,8 @@ export default function AdminEventsPage() {
   const [reviewNotice, setReviewNotice] = useState('');
   const [generating, setGenerating] = useState(false);
   const [emailResults, setEmailResults] = useState<GenerateEmailResult[]>([]);
+  const [workflowLoadingId, setWorkflowLoadingId] = useState<number | null>(null);
+  const [workflowNotice, setWorkflowNotice] = useState('');
 
   const load = useCallback(async (f: EventsFilter, p: number) => {
     setLoading(true); setError('');
@@ -135,6 +138,26 @@ export default function AdminEventsPage() {
     }
   };
 
+  const runWorkflow = async (event: UniversityEvent) => {
+    setWorkflowLoadingId(event.id);
+    setWorkflowNotice('');
+    try {
+      const workflow = await orchestrateAgentWorkflow(event.id);
+      const trace = workflow.checkpoints.map((item) => item.name).join(' → ');
+      setWorkflowNotice(tx(
+        `可信 Agent 工作流已运行：${trace}。创建 ${workflow.agentRunIds.length} 条真实 Trace，当前停在人工审批，未发送、未发布、未上链。`,
+        `Trusted Agent workflow completed: ${trace}. It created ${workflow.agentRunIds.length} persisted traces and stopped at human review without sending, publishing, or writing onchain.`,
+      ));
+    } catch (workflowError) {
+      setWorkflowNotice(tx(
+        `Agent 工作流失败并安全停止：${workflowError instanceof Error ? workflowError.message : 'unknown_error'}`,
+        `Agent workflow failed closed: ${workflowError instanceof Error ? workflowError.message : 'unknown_error'}`,
+      ));
+    } finally {
+      setWorkflowLoadingId(null);
+    }
+  };
+
   const pages = Math.ceil(total / PS);
 
   return (
@@ -200,6 +223,15 @@ export default function AdminEventsPage() {
         </section>
       )}
 
+      {workflowNotice && (
+        <section className="panel p-4" style={{ borderColor: 'rgba(120,166,255,.45)' }}>
+          <p className="text-sm font-bold" style={{ color: 'var(--info)' }}>{workflowNotice}</p>
+          <a className="btn-outline btn-sm mt-3 inline-flex" href="/admin/proposals">
+            {tx('查看 Match / Proposal / Trace', 'Review Match / Proposal / Trace')}
+          </a>
+        </section>
+      )}
+
       {emailResults.length > 0 && (
         <section className="flex flex-col gap-4">
           {emailResults.map((r) => (
@@ -240,7 +272,16 @@ export default function AdminEventsPage() {
         <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {events.map((e) => (
-              <EventCard key={e.id} event={e} sel={selected.has(e.id)} onToggle={() => toggle(e.id)} onSend={() => sendOne(e)} generating={generating} />
+              <EventCard
+                key={e.id}
+                event={e}
+                sel={selected.has(e.id)}
+                onToggle={() => toggle(e.id)}
+                onSend={() => sendOne(e)}
+                onWorkflow={() => runWorkflow(e)}
+                generating={generating}
+                workflowLoading={workflowLoadingId === e.id}
+              />
             ))}
             {events.length === 0 && <div className="col-span-full py-16 text-center" style={{ color: 'var(--muted)' }}>{tx('暂无匹配数据', 'No matching events')}</div>}
           </section>
@@ -282,7 +323,15 @@ export default function AdminEventsPage() {
 
 /* ------------------------------------------------------------------ */
 
-function EventCard({ event: e, sel, onToggle, onSend, generating }: { event: UniversityEvent; sel: boolean; onToggle: () => void; onSend: () => void; generating: boolean }) {
+function EventCard({ event: e, sel, onToggle, onSend, onWorkflow, generating, workflowLoading }: {
+  event: UniversityEvent;
+  sel: boolean;
+  onToggle: () => void;
+  onSend: () => void;
+  onWorkflow: () => void;
+  generating: boolean;
+  workflowLoading: boolean;
+}) {
   const { tx } = useLanguage();
   const dateStr = e.event_date || tx('日期待定', 'Date TBD');
   const endStr = e.event_end_date ? ` → ${e.event_end_date}` : '';
@@ -318,6 +367,9 @@ function EventCard({ event: e, sel, onToggle, onSend, generating }: { event: Uni
           {e.contact_phone && <span style={{ color: 'var(--success)' }}>📞 {e.contact_phone}</span>}
         </div>
         <div className="flex gap-2">
+          <button className="btn btn-ai btn-sm" onClick={onWorkflow} disabled={workflowLoading}>
+            {workflowLoading ? tx('Agent 运行中…', 'Agent running…') : tx('可信匹配与提案', 'Trusted match + proposal')}
+          </button>
           {e.contact_email ? <button className="btn btn-warning btn-sm" onClick={onSend} disabled={generating}>{generating ? tx('⏳ AI 生成中...', '⏳ AI generating...') : tx('📝 ai生成邮件文案', '📝 Generate email draft')}</button> : <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>{tx('待补联系证据', 'Contact evidence needed')}</span>}
           <a href={e.source_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ minHeight: 36, padding: '0 14px', fontSize: '0.78rem' }}>{tx('来源', 'Source')}</a>
         </div>
