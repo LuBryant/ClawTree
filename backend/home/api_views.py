@@ -1834,7 +1834,13 @@ class PipelineViewSet(viewsets.ViewSet):
 
         t0 = time.time()
         try:
-            twitter_key = os.environ.get('TWITTER_API_KEY', 'new1_b31c74fb9e154691aedfe9c2a8b5e5c0')
+            twitter_key = os.environ.get('TWITTER_API_KEY', '')
+            if not twitter_key:
+                run.status = 'failed'
+                run.error_message = '未配置 TWITTER_API_KEY 环境变量'
+                run.finished_at = datetime.now()
+                run.save()
+                return
             agent = CompatAgentGateway()
 
             # 调用 twitterapi.io 获取推文

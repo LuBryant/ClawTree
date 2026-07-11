@@ -18,8 +18,11 @@ def _validate_string_list(value, field_name, *, allow_empty=True):
         raise ValidationError({field_name: 'Must contain at least one item.'})
 
 
-def _trace_contains_private_data(value):
-    """Fail closed when observability snapshots contain likely raw PII."""
+def _trace_contains_private_data(value, _path=''):
+    """Fail closed when observability snapshots contain likely raw PII.
+
+    Returns the path string of the first violation, or None if clean.
+    """
     sensitive_keys = {
         'email', 'contact_email', 'recipient_email', 'phone', 'contact_phone',
         'wechat', 'qq', 'raw_prompt', 'prompt', 'raw_text', 'input_text',
@@ -27,21 +30,45 @@ def _trace_contains_private_data(value):
     }
     if isinstance(value, dict):
         for key, nested in value.items():
+            current_path = f'{_path}.{key}' if _path else key
             if str(key).lower() in sensitive_keys:
-                return True
-            if _trace_contains_private_data(nested):
-                return True
-        return False
+                import logging
+                logging.getLogger('clawtree').warning(
+                    'AgentRun PII blocked: sensitive key=%r at path=%s', key, current_path,
+                )
+                return current_path
+            found = _trace_contains_private_data(nested, current_path)
+            if found:
+                return found
+        return None
     if isinstance(value, (list, tuple)):
-        return any(_trace_contains_private_data(item) for item in value)
+        for i, item in enumerate(value):
+            found = _trace_contains_private_data(item, f'{_path}[{i}]')
+            if found:
+                return found
+        return None
     if isinstance(value, str):
         if value in {'[REDACTED]', '<redacted>'}:
-            return False
-        if re.search(r'(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])', value):
-            return True
-        if re.search(r'(?<!\d)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\d)', value):
-            return True
-    return False
+            return None
+        # Skip regex scanning on hash values — a SHA-256 hex string can
+        # coincidentally match phone patterns but never contains real PII.
+        if _path and 'hash' in _path.lower():
+            return None
+        email_match = re.search(r'(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])', value)
+        if email_match:
+            import logging
+            logging.getLogger('clawtree').warning(
+                'AgentRun PII blocked: email=%r at path=%s', email_match.group(), _path,
+            )
+            return _path
+        phone_match = re.search(r'(?<!\d)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\d)', value)
+        if phone_match:
+            import logging
+            logging.getLogger('clawtree').warning(
+                'AgentRun PII blocked: phone=%r at path=%s', phone_match.group(), _path,
+            )
+            return _path
+    return None
 
 
 class Workspace(models.Model):
@@ -1389,8 +1416,14 @@ class AgentRun(models.Model):
             self.input_references, self.citations, self.input_snapshot, self.structured_output,
             self.tool_calls, self.error_message, self.human_feedback,
         )
-        if any(_trace_contains_private_data(payload) for payload in trace_payloads):
-            raise ValidationError({'privacy_status': 'AgentRun trace contains raw PII or prompt/body content.'})
+        violated = next((p for p in trace_payloads if _trace_contains_private_data(p)), None)
+        if violated is not None:
+            raise ValidationError({
+                'privacy_status': (
+                    f'AgentRun trace contains raw PII or prompt/body content '
+                    f'(path: {_trace_contains_private_data(violated)})'
+                ),
+            })
         if self.redacted_fields and self.privacy_status != 'redacted':
             raise ValidationError({'privacy_status': 'Runs with redacted_fields must be marked redacted.'})
         if self.privacy_status == 'blocked' and self.status not in {'blocked', 'failed'}:
@@ -1540,8 +1573,9 @@ class EvidenceSource(models.Model):
             raise ValidationError({'content_hash': 'Evidence source requires a SHA-256 content hash.'})
         if self.source_type in {'official_web', 'public_web'} and not self.url:
             raise ValidationError({'url': 'Web evidence requires a public URL.'})
-        if _trace_contains_private_data(self.metadata):
-            raise ValidationError({'metadata': 'Evidence source metadata cannot contain PII or raw prompts.'})
+        pii_path = _trace_contains_private_data(self.metadata)
+        if pii_path:
+            raise ValidationError({'metadata': f'Evidence source metadata cannot contain PII or raw prompts (path: {pii_path}).'})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1634,8 +1668,9 @@ class EvidenceRelation(models.Model):
         super().clean()
         if self.via_claim_id and self.workspace_id and self.via_claim.workspace_id != self.workspace_id:
             raise ValidationError({'via_claim': 'Relation evidence must belong to the same workspace.'})
-        if _trace_contains_private_data(self.metadata):
-            raise ValidationError({'metadata': 'Relation metadata cannot contain PII or prompts.'})
+        pii_path = _trace_contains_private_data(self.metadata)
+        if pii_path:
+            raise ValidationError({'metadata': f'Relation metadata cannot contain PII or prompts (path: {pii_path}).'})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1776,8 +1811,12 @@ class AgentAlert(models.Model):
 
     def clean(self):
         super().clean()
-        if _trace_contains_private_data(self.evidence) or _trace_contains_private_data(self.summary):
-            raise ValidationError({'evidence': 'Alerts may contain aggregate metrics only, never PII or raw content.'})
+        ev_path = _trace_contains_private_data(self.evidence)
+        sum_path = _trace_contains_private_data(self.summary)
+        if ev_path or sum_path:
+            raise ValidationError({
+                'evidence': f'Alerts may contain aggregate metrics only, never PII or raw content (path: {ev_path or sum_path}).',
+            })
         if self.status == 'resolved' and not self.resolved_at:
             raise ValidationError({'resolved_at': 'Resolved alerts require resolved_at.'})
 
